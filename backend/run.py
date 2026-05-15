@@ -26,12 +26,14 @@ from app.routes.approval_routes import approval_bp
 
 from app.routes.dashboard_routes import dashboard_bp
 
-
+from flask_cors import CORS
 # =====================================
 # CREATE FLASK APP
 # =====================================
 
 app = Flask(__name__)
+
+CORS(app)
 
 
 # =====================================
