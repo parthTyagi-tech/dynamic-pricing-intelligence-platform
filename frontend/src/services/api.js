@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const BASE_URL = "http://127.0.0.1:5000/api";
+const BASE_URL = "https://dynamic-pricing-intelligence-platform.onrender.com/";
 
 export const apiClient = axios.create({
   baseURL: BASE_URL,
