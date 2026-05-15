@@ -2,7 +2,7 @@ from flask import Flask
 
 from app.config.settings import get_config
 
-from app.extensions import init_extensions
+from app.extensions import init_extensions , db
 
 
 # =====================================
@@ -50,7 +50,8 @@ app.config.from_object(
 # =====================================
 
 init_extensions(app)
-
+with app.app_context():
+    db.create_all()
 
 # =====================================
 # REGISTER BLUEPRINTS
