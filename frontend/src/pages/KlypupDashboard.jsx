@@ -267,7 +267,6 @@ function Sidebar({ collapsed, setCollapsed, activePage, setActivePage }) {
 
 /* ── Navbar ── */
 function Navbar() {
-  const [notifs, setNotifs] = useState(7);
   return (
     <header style={{
       height: 60, background: "rgba(8,8,20,0.8)",
@@ -289,28 +288,7 @@ function Navbar() {
         }} placeholder="Search products, competitors..." />
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginLeft: "auto" }}>
-        {/* Market badge */}
-        <div style={{ background: "rgba(52,211,153,0.1)", border: "1px solid rgba(52,211,153,0.25)", borderRadius: 8, padding: "4px 10px", fontSize: 11, color: "#34d399", display: "flex", alignItems: "center", gap: 5 }}>
-          <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#34d399", animation: "pulse 2s infinite" }} />
-          Market: BULLISH
-        </div>
-
-        {/* AI status */}
-        <div style={{ background: "rgba(129,140,248,0.1)", border: "1px solid rgba(129,140,248,0.25)", borderRadius: 8, padding: "4px 10px", fontSize: 11, color: "#818cf8", display: "flex", alignItems: "center", gap: 5 }}>
-          <Radio size={11} />
-          AI LIVE
-        </div>
-
-        {/* Notif */}
-        <button onClick={() => setNotifs(0)} style={{ position: "relative", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, padding: 7, cursor: "pointer", display: "flex" }}>
-          <Bell size={15} color="rgba(255,255,255,0.7)" />
-          {notifs > 0 && <span style={{ position: "absolute", top: -4, right: -4, background: "#f472b6", borderRadius: "50%", width: 16, height: 16, fontSize: 9, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>{notifs}</span>}
-        </button>
-
-        {/* Avatar */}
-        <div style={{ width: 32, height: 32, borderRadius: 10, background: "linear-gradient(135deg,#6366f1,#a855f7)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#fff", cursor: "pointer" }}>KA</div>
-      </div>
+      
     </header>
   );
 }
@@ -479,7 +457,7 @@ export default function KlypupDashboard() {
                 Saturday, 16 May 2026 · Live market session active
               </div>
               <h1 style={{ fontSize: 28, fontWeight: 700, margin: 0, letterSpacing: -0.8, color: "#fff" }}>
-                Welcome back, <span style={{ background: "linear-gradient(90deg,#818cf8,#c084fc)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>Karan</span>
+                Welcome back
               </h1>
               <p style={{ fontSize: 13, color: "rgba(255,255,255,0.45)", margin: "6px 0 0" }}>
                 AI engine is running · 312 products optimized · Revenue up 23.4% this month
