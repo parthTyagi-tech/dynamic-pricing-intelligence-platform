@@ -49,7 +49,7 @@ import {
   PolarAngleAxis,
 } from "recharts";
 
-import { AuthContext } from "../context/AuthContext";
+const user = JSON.parse(localStorage.getItem("user"));
 
 /* ── helpers ── */
 
