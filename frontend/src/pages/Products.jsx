@@ -1,10 +1,23 @@
 import { useEffect, useState } from "react";
-import { Package, Trash2 } from "lucide-react";
+
+import {
+  Package,
+  Trash2,
+  Plus,
+  Boxes,
+  DollarSign,
+  Tag,
+} from "lucide-react";
+
+import { motion } from "framer-motion";
+
 import apiClient from "../services/api";
 
 export default function Products() {
 
   const [products, setProducts] = useState([]);
+
+  const [loading, setLoading] = useState(false);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -18,9 +31,13 @@ export default function Products() {
   });
 
   const fetchProducts = async () => {
+
     try {
 
-      const response = await apiClient.get("/products");
+      setLoading(true);
+
+      const response =
+        await apiClient.get("/products");
 
       setProducts(
         response.data.products || []
@@ -30,6 +47,9 @@ export default function Products() {
 
       console.error(error);
 
+    } finally {
+
+      setLoading(false);
     }
   };
 
@@ -43,9 +63,9 @@ export default function Products() {
 
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value,
+      [e.target.name]:
+        e.target.value,
     });
-
   };
 
   const handleCreateProduct = async (e) => {
@@ -55,11 +75,20 @@ export default function Products() {
     try {
 
       await apiClient.post("/products", {
+
         ...formData,
-        current_price: Number(formData.current_price),
-        cost_price: Number(formData.cost_price),
-        inventory_quantity: Number(formData.inventory_quantity),
-        min_margin_percentage: Number(formData.min_margin_percentage),
+
+        current_price:
+          Number(formData.current_price),
+
+        cost_price:
+          Number(formData.cost_price),
+
+        inventory_quantity:
+          Number(formData.inventory_quantity),
+
+        min_margin_percentage:
+          Number(formData.min_margin_percentage),
       });
 
       setFormData({
@@ -80,7 +109,6 @@ export default function Products() {
       console.error(error);
 
       alert("Failed to create product");
-
     }
   };
 
@@ -88,162 +116,538 @@ export default function Products() {
 
     try {
 
-      await apiClient.delete(`/products/${id}`);
+      await apiClient.delete(
+        `/products/${id}`
+      );
 
       fetchProducts();
 
     } catch (error) {
 
       console.error(error);
-
     }
   };
 
   return (
-    <div className="p-8 text-white">
 
-      <h1 className="text-4xl font-bold mb-8">
-        Products
-      </h1>
+    <div className="space-y-8">
 
-      <form
-        onSubmit={handleCreateProduct}
-        className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-10"
+      {/* HERO */}
+
+      <div
+        className="relative overflow-hidden rounded-[28px] border border-white/10 p-8 lg:p-10"
+        style={{
+          background:
+            "linear-gradient(135deg,rgba(12,16,32,0.92),rgba(15,23,42,0.92))",
+
+          boxShadow:
+            "0 24px 60px rgba(0,0,0,0.35)",
+        }}
       >
 
-        <input
-          type="text"
-          name="name"
-          placeholder="Product Name"
-          value={formData.name}
-          onChange={handleChange}
-          required
-          className="bg-slate-900 border border-white/10 rounded-xl px-4 py-3"
+        <div
+          style={{
+            position: "absolute",
+            width: 240,
+            height: 240,
+            borderRadius: "50%",
+            background:
+              "rgba(0,161,155,0.12)",
+
+            filter: "blur(100px)",
+
+            top: -60,
+            right: -60,
+          }}
         />
 
-        <input
-          type="text"
-          name="sku"
-          placeholder="SKU"
-          value={formData.sku}
-          onChange={handleChange}
-          required
-          className="bg-slate-900 border border-white/10 rounded-xl px-4 py-3"
-        />
+        <div className="relative z-10">
 
-        <input
-          type="text"
-          name="category"
-          placeholder="Category"
-          value={formData.category}
-          onChange={handleChange}
-          required
-          className="bg-slate-900 border border-white/10 rounded-xl px-4 py-3"
-        />
+          <div className="inline-flex items-center gap-2 bg-[#00A19B]/10 border border-[#00A19B]/20 text-[#7FF6EE] px-4 py-2 rounded-full text-sm mb-6">
 
-        <input
-          type="number"
-          name="current_price"
-          placeholder="Current Price"
-          value={formData.current_price}
-          onChange={handleChange}
-          required
-          className="bg-slate-900 border border-white/10 rounded-xl px-4 py-3"
-        />
+            <Boxes size={16} />
 
-        <input
-          type="number"
-          name="cost_price"
-          placeholder="Cost Price"
-          value={formData.cost_price}
-          onChange={handleChange}
-          required
-          className="bg-slate-900 border border-white/10 rounded-xl px-4 py-3"
-        />
+            Product Management Center
 
-        <input
-          type="number"
-          name="inventory_quantity"
-          placeholder="Inventory"
-          value={formData.inventory_quantity}
-          onChange={handleChange}
-          required
-          className="bg-slate-900 border border-white/10 rounded-xl px-4 py-3"
-        />
+          </div>
 
-        <textarea
-          name="description"
-          placeholder="Description"
-          value={formData.description}
-          onChange={handleChange}
-          className="md:col-span-2 bg-slate-900 border border-white/10 rounded-xl px-4 py-3"
-        />
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-8">
 
-        <button
-          type="submit"
-          className="md:col-span-2 bg-violet-600 hover:bg-violet-700 rounded-xl py-4 font-semibold"
-        >
-          Create Product
-        </button>
+            <div>
 
-      </form>
+              <h1 className="text-4xl lg:text-5xl font-bold text-white leading-tight">
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                Product Inventory
 
-        {products.map((product) => (
+              </h1>
 
-          <div
-            key={product.id}
-            className="bg-slate-900 border border-white/10 rounded-3xl p-6"
-          >
+              <p className="text-slate-400 text-lg mt-4 max-w-2xl leading-8">
 
-            <div className="flex items-center justify-between mb-6">
+                Manage products, inventory, pricing and marketplace
+                catalog data inside your intelligent pricing workspace.
 
-              <div className="w-14 h-14 rounded-2xl bg-violet-500/20 flex items-center justify-center text-violet-400">
-                <Package />
-              </div>
-
-              <button
-                onClick={() => handleDelete(product.id)}
-                className="text-red-400"
-              >
-                <Trash2 />
-              </button>
+              </p>
 
             </div>
 
-            <h2 className="text-2xl font-semibold mb-2">
-              {product.name}
-            </h2>
+            <div className="grid grid-cols-2 gap-4 min-w-[280px]">
 
-            <p className="text-slate-400 mb-4">
-              {product.description}
-            </p>
+              <MiniStat
+                title="Total Products"
+                value={products.length}
+              />
 
-            <div className="space-y-2 text-sm">
+              <MiniStat
+                title="Inventory Units"
+                value={
+                  products.reduce(
+                    (acc, item) =>
+                      acc +
+                      item.inventory_quantity,
+                    0
+                  ) || 0
+                }
+              />
 
-              <div className="flex justify-between">
-                <span>SKU</span>
-                <span>{product.sku}</span>
-              </div>
+              <MiniStat
+                title="Categories"
+                value={
+                  new Set(
+                    products.map(
+                      (p) => p.category
+                    )
+                  ).size
+                }
+              />
 
-              <div className="flex justify-between">
-                <span>Price</span>
-                <span>₹{product.current_price}</span>
-              </div>
-
-              <div className="flex justify-between">
-                <span>Inventory</span>
-                <span>{product.inventory_quantity}</span>
-              </div>
+              <MiniStat
+                title="Live Pricing"
+                value="Active"
+              />
 
             </div>
 
           </div>
 
-        ))}
+        </div>
 
       </div>
+
+      {/* CREATE PRODUCT */}
+
+      <div className="glass-card p-7 lg:p-8">
+
+        <div className="flex items-center gap-3 mb-8">
+
+          <Plus className="text-[#00A19B]" />
+
+          <h2 className="text-3xl font-bold text-white">
+
+            Add New Product
+
+          </h2>
+
+        </div>
+
+        <form
+          onSubmit={handleCreateProduct}
+          className="grid grid-cols-1 md:grid-cols-2 gap-5"
+        >
+
+          <InputField
+            name="name"
+            placeholder="Product Name"
+            value={formData.name}
+            onChange={handleChange}
+          />
+
+          <InputField
+            name="sku"
+            placeholder="SKU"
+            value={formData.sku}
+            onChange={handleChange}
+          />
+
+          <InputField
+            name="category"
+            placeholder="Category"
+            value={formData.category}
+            onChange={handleChange}
+          />
+
+          <InputField
+            name="current_price"
+            type="number"
+            placeholder="Current Price"
+            value={formData.current_price}
+            onChange={handleChange}
+          />
+
+          <InputField
+            name="cost_price"
+            type="number"
+            placeholder="Cost Price"
+            value={formData.cost_price}
+            onChange={handleChange}
+          />
+
+          <InputField
+            name="inventory_quantity"
+            type="number"
+            placeholder="Inventory Quantity"
+            value={formData.inventory_quantity}
+            onChange={handleChange}
+          />
+
+          <textarea
+            name="description"
+            placeholder="Product Description"
+
+            value={formData.description}
+
+            onChange={handleChange}
+
+            className="
+              md:col-span-2
+              h-32
+              rounded-2xl
+              bg-white/5
+              border
+              border-white/10
+              px-5
+              py-4
+              text-white
+              placeholder-slate-500
+              outline-none
+              focus:border-[#00A19B]
+              transition-all
+              resize-none
+            "
+          />
+
+          <button
+            type="submit"
+
+            className="
+              md:col-span-2
+              rounded-2xl
+              py-4
+              text-white
+              font-semibold
+              transition-all
+              hover:opacity-90
+            "
+
+            style={{
+              background:
+                "linear-gradient(135deg,#00A19B,#6366f1)",
+            }}
+          >
+
+            Create Product
+
+          </button>
+
+        </form>
+
+      </div>
+
+      {/* PRODUCTS GRID */}
+
+      <div className="space-y-6">
+
+        <div className="flex items-center justify-between flex-wrap gap-4">
+
+          <div>
+
+            <h2 className="text-3xl font-bold text-white">
+
+              Product Catalog
+
+            </h2>
+
+            <p className="text-slate-400 mt-2">
+
+              Live inventory and pricing overview
+
+            </p>
+
+          </div>
+
+        </div>
+
+        {loading ? (
+
+          <div className="glass-card p-10 text-center text-slate-400">
+
+            Loading products...
+
+          </div>
+
+        ) : products.length === 0 ? (
+
+          <div className="glass-card p-10 text-center">
+
+            <Package
+              size={48}
+              className="mx-auto text-slate-600 mb-5"
+            />
+
+            <h3 className="text-xl font-semibold text-white mb-2">
+
+              No Products Found
+
+            </h3>
+
+            <p className="text-slate-400">
+
+              Create your first product to begin tracking pricing intelligence.
+
+            </p>
+
+          </div>
+
+        ) : (
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+
+            {products.map((product) => (
+
+              <motion.div
+                key={product.id}
+
+                whileHover={{
+                  y: -5,
+                }}
+
+                className="
+                  relative
+                  overflow-hidden
+                  rounded-3xl
+                  border
+                  border-white/10
+                  bg-[rgba(17,24,39,0.78)]
+                  p-6
+                  backdrop-blur-xl
+                "
+              >
+
+                <div
+                  style={{
+                    position: "absolute",
+                    width: 140,
+                    height: 140,
+                    borderRadius: "50%",
+
+                    background:
+                      "rgba(0,161,155,0.08)",
+
+                    filter: "blur(70px)",
+
+                    top: -40,
+                    right: -40,
+                  }}
+                />
+
+                <div className="relative z-10">
+
+                  <div className="flex items-center justify-between mb-6">
+
+                    <div
+                      className="
+                        w-14
+                        h-14
+                        rounded-2xl
+                        flex
+                        items-center
+                        justify-center
+                        text-white
+                      "
+                      style={{
+                        background:
+                          "linear-gradient(135deg,#00A19B,#6366f1)",
+                      }}
+                    >
+
+                      <Package size={24} />
+
+                    </div>
+
+                    <button
+                      onClick={() =>
+                        handleDelete(
+                          product.id
+                        )
+                      }
+
+                      className="
+                        w-10
+                        h-10
+                        rounded-xl
+                        flex
+                        items-center
+                        justify-center
+                        text-red-400
+                        hover:bg-red-500/10
+                        transition-all
+                      "
+                    >
+
+                      <Trash2 size={18} />
+
+                    </button>
+
+                  </div>
+
+                  <div className="mb-6">
+
+                    <h3 className="text-2xl font-semibold text-white mb-2">
+
+                      {product.name}
+
+                    </h3>
+
+                    <p className="text-slate-400 leading-7 text-sm">
+
+                      {product.description ||
+                        "No description provided."}
+
+                    </p>
+
+                  </div>
+
+                  <div className="space-y-4 text-sm">
+
+                    <InfoRow
+                      icon={Tag}
+                      label="SKU"
+                      value={product.sku}
+                    />
+
+                    <InfoRow
+                      icon={DollarSign}
+                      label="Price"
+                      value={`₹${product.current_price}`}
+                    />
+
+                    <InfoRow
+                      icon={Boxes}
+                      label="Inventory"
+                      value={
+                        product.inventory_quantity
+                      }
+                    />
+
+                    <InfoRow
+                      icon={Package}
+                      label="Category"
+                      value={product.category}
+                    />
+
+                  </div>
+
+                </div>
+
+              </motion.div>
+            ))}
+
+          </div>
+        )}
+
+      </div>
+
+    </div>
+  );
+}
+
+function InputField({
+  name,
+  type = "text",
+  placeholder,
+  value,
+  onChange,
+}) {
+
+  return (
+
+    <input
+      type={type}
+
+      name={name}
+
+      placeholder={placeholder}
+
+      value={value}
+
+      onChange={onChange}
+
+      required
+
+      className="
+        h-14
+        rounded-2xl
+        bg-white/5
+        border
+        border-white/10
+        px-5
+        text-white
+        placeholder-slate-500
+        outline-none
+        focus:border-[#00A19B]
+        transition-all
+      "
+    />
+  );
+}
+
+function MiniStat({
+  title,
+  value,
+}) {
+
+  return (
+
+    <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-4 backdrop-blur-xl">
+
+      <div className="text-slate-500 text-xs mb-2 uppercase tracking-wide">
+
+        {title}
+
+      </div>
+
+      <div className="text-2xl font-bold text-white">
+
+        {value}
+
+      </div>
+
+    </div>
+  );
+}
+
+function InfoRow({
+  icon: Icon,
+  label,
+  value,
+}) {
+
+  return (
+
+    <div className="flex items-center justify-between">
+
+      <div className="flex items-center gap-2 text-slate-400">
+
+        <Icon size={15} />
+
+        <span>{label}</span>
+
+      </div>
+
+      <span className="text-white font-medium">
+
+        {value}
+
+      </span>
 
     </div>
   );

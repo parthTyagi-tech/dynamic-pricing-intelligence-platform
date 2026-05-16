@@ -26,9 +26,7 @@ import { useAuth } from "../context/AuthContext";
 
 import apiClient from "../services/api";
 
-
 const pageTransition = {
-
   initial: {
     opacity: 0,
     y: 12,
@@ -45,9 +43,7 @@ const pageTransition = {
   },
 };
 
-
 export default function DashboardLayout() {
-
   const { user, logout } = useAuth();
 
   const location = useLocation();
@@ -69,7 +65,6 @@ export default function DashboardLayout() {
   const [notifications,
     setNotifications] = useState([]);
 
-
   /* ======================================
      UNREAD COUNT
   ====================================== */
@@ -79,13 +74,11 @@ export default function DashboardLayout() {
       (n) => n.unread
     ).length;
 
-
   /* ======================================
      PAGE TITLES
   ====================================== */
 
   const pageTitles = {
-
     "/dashboard": "Dashboard",
 
     "/recommendations":
@@ -105,21 +98,17 @@ export default function DashboardLayout() {
     pageTitles[location.pathname]
     || "Klypup";
 
-
   /* ======================================
      FETCH REAL NOTIFICATIONS
   ====================================== */
 
   const fetchNotifications = async () => {
-
     try {
-
       const [
         recsRes,
         historyRes,
         productsRes,
       ] = await Promise.all([
-
         apiClient.get("/recommendations"),
 
         apiClient.get("/approvals/history"),
@@ -136,14 +125,12 @@ export default function DashboardLayout() {
       const products =
         productsRes.data.products || [];
 
-
       /* ======================================
          RECOMMENDATION EVENTS
       ====================================== */
 
       const recommendationNotifications =
         recs.map((rec) => ({
-
           id: `rec-${rec.id}`,
 
           text:
@@ -160,14 +147,12 @@ export default function DashboardLayout() {
             "/recommendations",
         }));
 
-
       /* ======================================
          APPROVAL EVENTS
       ====================================== */
 
       const historyNotifications =
         history.map((item) => ({
-
           id: `history-${item.id}`,
 
           text:
@@ -191,7 +176,6 @@ export default function DashboardLayout() {
             "/audit-history",
         }));
 
-
       /* ======================================
          LOW STOCK EVENTS
       ====================================== */
@@ -205,7 +189,6 @@ export default function DashboardLayout() {
           )
 
           .map((p) => ({
-
             id: `stock-${p.id}`,
 
             text:
@@ -222,7 +205,6 @@ export default function DashboardLayout() {
               "/products",
           }));
 
-
       /* ======================================
          HIGH CONFIDENCE EVENTS
       ====================================== */
@@ -236,7 +218,6 @@ export default function DashboardLayout() {
           )
 
           .map((r) => ({
-
             id:
               `confidence-${r.id}`,
 
@@ -254,13 +235,11 @@ export default function DashboardLayout() {
               "/approvals",
           }));
 
-
       /* ======================================
          MERGE EVERYTHING
       ====================================== */
 
       const allNotifications = [
-
         ...recommendationNotifications,
 
         ...historyNotifications,
@@ -270,26 +249,21 @@ export default function DashboardLayout() {
         ...confidenceNotifications,
       ];
 
-
       /* ======================================
          SORT LATEST FIRST
       ====================================== */
 
       allNotifications.sort(
-
         (a, b) =>
-
           new Date(b.time)
           - new Date(a.time)
       );
-
 
       setNotifications(
         allNotifications.slice(0, 8)
       );
 
     } catch (error) {
-
       console.error(
         "Notification fetch error:",
         error
@@ -297,22 +271,17 @@ export default function DashboardLayout() {
     }
   };
 
-
   /* ======================================
      EFFECTS
   ====================================== */
 
   useEffect(() => {
-
     if (user) {
-
       fetchNotifications();
     }
 
     const handleKey = (e) => {
-
       if (e.key === "Escape") {
-
         setProfileOpen(false);
 
         setNotifOpen(false);
@@ -334,15 +303,13 @@ export default function DashboardLayout() {
 
   }, [user]);
 
-
   /* ======================================
      NOTIFICATION COLORS
   ====================================== */
 
   const notifColors = {
-
     ai:
-      "from-violet-500 to-purple-600",
+      "from-[#00A19B] to-[#6366f1]",
 
     alert:
       "from-amber-500 to-orange-600",
@@ -354,17 +321,60 @@ export default function DashboardLayout() {
       "from-sky-500 to-blue-600",
   };
 
-
   return (
 
-    <div className="flex h-screen bg-[#080b14] overflow-hidden font-sans">
+    <div
+      className="
+        flex
+        h-screen
+        overflow-hidden
+        font-sans
+        relative
+      "
+      style={{
+        background:
+          "linear-gradient(135deg,#080b14 0%,#0f172a 45%,#0f766e 100%)",
+      }}
+    >
+
+      {/* BACKGROUND GLOWS */}
+
+      <div
+        style={{
+          position: "absolute",
+          width: 420,
+          height: 420,
+          borderRadius: "50%",
+          background:
+            "rgba(0,161,155,0.12)",
+          filter: "blur(120px)",
+          top: -120,
+          right: -100,
+          pointerEvents: "none",
+        }}
+      />
+
+      <div
+        style={{
+          position: "absolute",
+          width: 340,
+          height: 340,
+          borderRadius: "50%",
+          background:
+            "rgba(99,102,241,0.14)",
+          filter: "blur(120px)",
+          bottom: -100,
+          left: -80,
+          pointerEvents: "none",
+        }}
+      />
 
       {/* DESKTOP SIDEBAR */}
 
       <div
         className={`hidden lg:flex transition-all duration-300 ease-in-out ${
           sidebarOpen ? "w-64" : "w-16"
-        } flex-shrink-0`}
+        } flex-shrink-0 relative z-20`}
       >
 
         <Sidebar
@@ -377,7 +387,6 @@ export default function DashboardLayout() {
         />
 
       </div>
-
 
       {/* MOBILE SIDEBAR */}
 
@@ -443,14 +452,45 @@ export default function DashboardLayout() {
 
       </AnimatePresence>
 
-
       {/* MAIN CONTENT */}
 
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      <div
+        className="
+          flex-1
+          flex
+          flex-col
+          min-w-0
+          overflow-hidden
+          relative
+          z-10
+        "
+      >
 
         {/* TOP NAVBAR */}
 
-        <header className="h-14 flex-shrink-0 flex items-center justify-between px-4 lg:px-6 border-b border-white/5 bg-[#080b14]/80 backdrop-blur-xl relative z-30">
+        <header
+          className="
+            h-14
+            flex-shrink-0
+            flex
+            items-center
+            justify-between
+            px-4
+            lg:px-6
+            relative
+            z-30
+            border-b
+            border-white/8
+            backdrop-blur-xl
+          "
+          style={{
+            background:
+              "rgba(8,11,20,0.72)",
+
+            boxShadow:
+              "0 8px 30px rgba(0,0,0,0.22)",
+          }}
+        >
 
           {/* LEFT */}
 
@@ -480,7 +520,6 @@ export default function DashboardLayout() {
 
           </div>
 
-
           {/* SEARCH */}
 
           <div className="hidden md:flex items-center flex-1 max-w-xs mx-8">
@@ -497,13 +536,28 @@ export default function DashboardLayout() {
 
                 placeholder="Search products, SKUs..."
 
-                className="w-full h-8 pl-8 pr-4 rounded-lg bg-white/5 border border-white/8 text-sm text-slate-300 placeholder-slate-600 focus:outline-none focus:border-violet-500/50 focus:bg-white/8 transition-all"
+                className="
+                  w-full
+                  h-9
+                  pl-9
+                  pr-4
+                  rounded-xl
+                  bg-white/6
+                  border
+                  border-white/10
+                  text-sm
+                  text-slate-200
+                  placeholder-slate-500
+                  focus:outline-none
+                  focus:border-[#00A19B]
+                  focus:bg-white/10
+                  transition-all
+                "
               />
 
             </div>
 
           </div>
-
 
           {/* RIGHT */}
 
@@ -513,7 +567,7 @@ export default function DashboardLayout() {
 
             <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/5 border border-white/8">
 
-              <div className="w-4 h-4 rounded bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
+              <div className="w-4 h-4 rounded bg-gradient-to-br from-[#00A19B] to-[#6366f1] flex items-center justify-center">
 
                 <Zap
                   size={9}
@@ -522,7 +576,7 @@ export default function DashboardLayout() {
 
               </div>
 
-              <span className="text-xs text-slate-400 font-medium">
+              <span className="text-xs text-slate-300 font-medium">
 
                 {user?.organization ||
                   "Klypup Inc."}
@@ -530,7 +584,6 @@ export default function DashboardLayout() {
               </span>
 
             </div>
-
 
             {/* NOTIFICATIONS */}
 
@@ -562,7 +615,7 @@ export default function DashboardLayout() {
                       scale: 1,
                     }}
 
-                    className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 text-[9px] font-bold text-white flex items-center justify-center"
+                    className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-gradient-to-br from-[#00A19B] to-[#6366f1] text-[9px] font-bold text-white flex items-center justify-center"
                   >
 
                     {unreadCount}
@@ -571,7 +624,6 @@ export default function DashboardLayout() {
                 )}
 
               </button>
-
 
               {/* DROPDOWN */}
 
@@ -602,7 +654,7 @@ export default function DashboardLayout() {
                       duration: 0.15,
                     }}
 
-                    className="absolute right-0 top-10 w-80 rounded-xl border border-white/10 bg-[#0e1220]/95 backdrop-blur-xl shadow-2xl shadow-black/50 overflow-hidden z-50"
+                    className="absolute right-0 top-10 w-80 rounded-2xl border border-white/10 bg-[rgba(12,16,32,0.96)] backdrop-blur-xl shadow-2xl shadow-black/50 overflow-hidden z-50"
                   >
 
                     <div className="px-4 py-3 border-b border-white/8 flex items-center justify-between">
@@ -614,7 +666,6 @@ export default function DashboardLayout() {
                       </span>
 
                     </div>
-
 
                     <div className="max-h-64 overflow-y-auto">
 
@@ -691,7 +742,6 @@ export default function DashboardLayout() {
 
             </div>
 
-
             {/* PROFILE */}
 
             <div className="relative">
@@ -709,7 +759,7 @@ export default function DashboardLayout() {
                 className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-white/5 transition-all"
               >
 
-                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold">
+                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#00A19B] to-[#6366f1] flex items-center justify-center text-white text-xs font-bold">
 
                   {user?.name?.[0]
                     ?.toUpperCase() || "U"}
@@ -733,7 +783,6 @@ export default function DashboardLayout() {
                 />
 
               </button>
-
 
               <AnimatePresence>
 
@@ -762,7 +811,7 @@ export default function DashboardLayout() {
                       duration: 0.15,
                     }}
 
-                    className="absolute right-0 top-11 w-52 rounded-xl border border-white/10 bg-[#0e1220]/95 backdrop-blur-xl shadow-2xl shadow-black/50 overflow-hidden z-50"
+                    className="absolute right-0 top-11 w-52 rounded-2xl border border-white/10 bg-[rgba(12,16,32,0.96)] backdrop-blur-xl shadow-2xl shadow-black/50 overflow-hidden z-50"
                   >
 
                     <div className="px-4 py-3 border-b border-white/8">
@@ -781,7 +830,6 @@ export default function DashboardLayout() {
                       </p>
 
                     </div>
-
 
                     <div className="border-t border-white/8 mt-1 pt-1">
 
@@ -810,7 +858,6 @@ export default function DashboardLayout() {
 
         </header>
 
-
         {/* PAGE CONTENT */}
 
         <main className="flex-1 overflow-y-auto">
@@ -833,7 +880,7 @@ export default function DashboardLayout() {
                 ease: "easeOut",
               }}
 
-              className="min-h-full"
+              className="min-h-full px-4 py-4 lg:px-6 lg:py-5"
             >
 
               <Outlet />
@@ -845,7 +892,6 @@ export default function DashboardLayout() {
         </main>
 
       </div>
-
 
       {/* CLICK OUTSIDE */}
 
