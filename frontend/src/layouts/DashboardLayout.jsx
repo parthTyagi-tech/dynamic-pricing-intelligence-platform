@@ -321,6 +321,15 @@ export default function DashboardLayout() {
       "from-sky-500 to-blue-600",
   };
 
+  /* ======================================
+     SIGN OUT HANDLER
+  ====================================== */
+
+  const handleSignOut = () => {
+    logout();
+    navigate("/login");
+  };
+
   return (
 
     <div
@@ -834,7 +843,7 @@ export default function DashboardLayout() {
                     <div className="border-t border-white/8 mt-1 pt-1">
 
                       <button
-                        onClick={logout}
+                        onClick={handleSignOut}
 
                         className="w-full flex items-center gap-3 px-4 py-2.5 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-all"
                       >
