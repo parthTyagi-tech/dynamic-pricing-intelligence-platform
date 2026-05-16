@@ -10,10 +10,12 @@ import {
   ArrowRight,
   Zap,
 } from "lucide-react";
+
 import { useAuth } from "../../context/AuthContext";
 
 const containerV = {
   hidden: {},
+
   visible: {
     transition: {
       staggerChildren: 0.09,
@@ -31,6 +33,7 @@ const itemV = {
   visible: {
     opacity: 1,
     y: 0,
+
     transition: {
       duration: 0.6,
     },
@@ -111,6 +114,7 @@ function Field({
             color: "#ffffff",
             fontSize: "0.875rem",
             outline: "none",
+            transition: "0.2s ease",
           }}
         />
 
@@ -168,6 +172,8 @@ export default function Login() {
   });
 
   const [errors, setErrors] = useState({});
+  const [authError, setAuthError] = useState("");
+
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -181,6 +187,8 @@ export default function Login() {
       ...er,
       [field]: "",
     }));
+
+    setAuthError("");
   };
 
   const validate = () => {
@@ -206,6 +214,8 @@ export default function Login() {
   const handleSubmit = async (ev) => {
     ev.preventDefault();
 
+    setAuthError("");
+
     const errs = validate();
 
     if (Object.keys(errs).length) {
@@ -217,9 +227,18 @@ export default function Login() {
 
     try {
       await login(form);
-      navigate(from, { replace: true });
+
+      navigate(from, {
+        replace: true,
+      });
     } catch (err) {
       console.log(err);
+
+      const message =
+        err.response?.data?.message ||
+        "Invalid email or password";
+
+      setAuthError(message);
     } finally {
       setLoading(false);
     }
@@ -388,6 +407,41 @@ export default function Login() {
               }
             />
 
+            <AnimatePresence>
+              {authError && (
+                <motion.div
+                  initial={{
+                    opacity: 0,
+                    y: -5,
+                  }}
+                  animate={{
+                    opacity: 1,
+                    y: 0,
+                  }}
+                  exit={{
+                    opacity: 0,
+                    y: -5,
+                  }}
+                  style={{
+                    padding: "12px 14px",
+                    borderRadius: 10,
+                    background:
+                      "rgba(239,68,68,0.12)",
+                    border:
+                      "1px solid rgba(239,68,68,0.35)",
+                    color: "#ef4444",
+                    fontSize: "0.82rem",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                  }}
+                >
+                  <AlertCircle size={16} />
+                  {authError}
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             <motion.button
               type="submit"
               disabled={loading}
@@ -407,7 +461,10 @@ export default function Login() {
                 color: "white",
                 fontSize: "0.875rem",
                 fontWeight: 600,
-                cursor: "pointer",
+                cursor: loading
+                  ? "not-allowed"
+                  : "pointer",
+                opacity: loading ? 0.7 : 1,
               }}
             >
               {loading
