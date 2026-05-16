@@ -8,7 +8,7 @@ import DashboardLayout from "./layouts/DashboardLayout";
 const Login = lazy(() => import("./pages/auth/Login"));
 const Signup = lazy(() => import("./pages/auth/Signup"));
 
-const KlypupDashboard = lazy(() =>
+const  PremiumDashboardV2 = lazy(() =>
   import("./pages/KlypupDashboard")
 );
 
@@ -72,7 +72,7 @@ export default function App() {
             >
               <Route
                 path="/dashboard"
-                element={<KlypupDashboard />}
+                element={<PremiumDashboardV2 />}
               />
 
               <Route

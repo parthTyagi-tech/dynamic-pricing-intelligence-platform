@@ -338,7 +338,7 @@ function PricingPanel() {
 }
 
 /* ── Main App ── */
-export default function KlypupDashboard() {
+export default function PremiumDashboardV2() {
   const [collapsed, setCollapsed] = useState(false);
   const [activePage, setActivePage] = useState("Dashboard");
 
