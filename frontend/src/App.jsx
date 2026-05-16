@@ -8,7 +8,10 @@ import DashboardLayout from "./layouts/DashboardLayout";
 const Login = lazy(() => import("./pages/auth/Login"));
 const Signup = lazy(() => import("./pages/auth/Signup"));
 
-const Dashboard = lazy(() => import("./pages/Dashboard"));
+const KlypupDashboard = lazy(() =>
+  import("./pages/KlypupDashboard")
+);
+
 const Products = lazy(() => import("./pages/Products"));
 const Recommendations = lazy(() => import("./pages/Recommendations"));
 const Approvals = lazy(() => import("./pages/Approvals"));
@@ -69,7 +72,7 @@ export default function App() {
             >
               <Route
                 path="/dashboard"
-                element={<Dashboard />}
+                element={<KlypupDashboard />}
               />
 
               <Route
