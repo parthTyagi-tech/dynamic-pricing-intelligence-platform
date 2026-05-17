@@ -183,7 +183,7 @@ sequenceDiagram
 
 ### Approval Workflow — Manager Action
 
-```mermaid
+mermaid
 sequenceDiagram
     actor Manager
     participant FE as React Frontend
