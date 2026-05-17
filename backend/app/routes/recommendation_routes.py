@@ -243,10 +243,11 @@ def get_recommendations():
         }, 404
 
     recommendations = PricingRecommendation.query.filter_by(
-        organization_id=current_user.organization_id
-    ).order_by(
-        PricingRecommendation.created_at.desc()
-    ).all()
+    organization_id=current_user.organization_id,
+    status=RecommendationStatus.PENDING
+).order_by(
+    PricingRecommendation.created_at.desc()
+).all()
 
     return {
 
