@@ -14,9 +14,13 @@ import {
 
 import { motion } from "framer-motion";
 
+import { useNavigate } from "react-router-dom";
+
 import apiClient from "../services/api";
 
 export default function Recommendations() {
+
+  const navigate = useNavigate();
 
   const [products, setProducts] = useState([]);
 
@@ -99,6 +103,15 @@ export default function Recommendations() {
 
       setGeneratingId(null);
     }
+  };
+
+  const handleApplyRecommendation = (recommendation) => {
+
+    navigate("/approval", {
+      state: {
+        recommendation,
+      },
+    });
   };
 
   return (
@@ -712,6 +725,10 @@ export default function Recommendations() {
                   )}
 
                   <button
+                    onClick={() =>
+                      handleApplyRecommendation(rec)
+                    }
+
                     className="
                       mt-7
                       w-full
@@ -810,6 +827,20 @@ function InfoRow({
   );
 }
 
+const formatText = (text) => {
+
+  if (!text || typeof text !== "string") {
+
+    return text;
+  }
+
+  return text
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (char) =>
+      char.toUpperCase()
+    );
+};
+
 function AgentCard({
   title,
   rows,
@@ -840,7 +871,7 @@ function AgentCard({
           <div
             key={row.label}
 
-            className="flex items-center justify-between"
+            className="flex items-start justify-between gap-3"
           >
 
             <span className="text-slate-400">
@@ -849,9 +880,9 @@ function AgentCard({
 
             </span>
 
-            <span className="text-white font-medium capitalize">
+            <span className="text-white font-medium break-words text-right">
 
-              {row.value}
+              {formatText(row.value)}
 
             </span>
 
