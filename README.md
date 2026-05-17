@@ -579,8 +579,8 @@ The approval + price update + audit log operation must execute atomically. If th
 
 ### Product Catalog Dashboard
 > SKU list with current price, recommendation status badges, inventory health indicators, and margin display
->
-> 
+
+ 
 
 ![Product Catalog Dashboard](./screenshots/dashboard-catalog.png)
 
@@ -621,6 +621,8 @@ The approval + price update + audit log operation must execute atomically. If th
 
 
 
+
+ 
 ---
 
 ## 🎬 Live Demo
@@ -674,14 +676,14 @@ Manager:  manager@bravo.com  /  bravo-mgr-2024
 
 ### 1. Clone the Repository
 
-```bash
+bash
 git clone https://github.com/yourusername/klypup.git
 cd klypup
 ```
 
 ### 2. Backend Setup
 
-```bash
+bash
 cd backend
 
 # Create and activate virtual environment
@@ -707,7 +709,7 @@ flask run --port 5000
 
 ### 3. Frontend Setup
 
-```bash
+bash
 cd ../frontend
 
 # Install dependencies
@@ -720,11 +722,11 @@ cp .env.example .env.local
 # Start frontend dev server
 npm run dev
 # App running at http://localhost:5173
-```
+
 
 ### 4. Verify
 
-Open `http://localhost:5173` and log in with the seeded credentials. You should see the product catalog with demo data populated immediately.
+Open http://localhost:5173 and log in with the seeded credentials. You should see the product catalog with demo data populated immediately.
 
 ### Docker — One-Command Setup (Bonus)
 
@@ -743,9 +745,9 @@ docker compose up --build
 ### Authentication Header
 
 All protected endpoints require:
-```
+
 Authorization: Bearer <jwt_token>
-```
+
 
 Token payload: `user_id`, `org_id`, `role`, `exp`
 
