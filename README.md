@@ -579,37 +579,44 @@ The approval + price update + audit log operation must execute atomically. If th
 
 ### Product Catalog Dashboard
 > SKU list with current price, recommendation status badges, inventory health indicators, and margin display
+>
+> 
 
 ![Product Catalog Dashboard](./screenshots/dashboard-catalog.png)
+
+
 
 
 ### AI Recommendation Generation
 > Triggering multi-agent orchestration and receiving a confidence-scored recommendation with rationale
 
 
+
+
 ![AI Recommendation Generation](./screenshots/recommendation-generation.png)
+
+
 
 
 ### Explainability Panel — Agent Breakdown
 > Per-agent signal cards showing market pressure, demand trend, inventory health, source attribution, and per-agent confidence
 
 
+
+
 ![Explainability Panel](./screenshots/explainability-panel.png)
+
+
 
 
 ### Approval Queue — Manager View
 > Pending recommendations sorted by confidence with approve, reject, and modify action controls
 
 
+
+
 ![Approval Queue](./screenshots/approval-queue.png)
 
-
-### Audit Trail
-> Immutable decision log showing reviewer identity, price before and after, AI recommended price vs applied price
-
-
-[ screenshot: audit-history.png ]
- 
 
 
 
