@@ -8,9 +8,8 @@
 
 <br/>
 
-[![Live App](https://img.shields.io/badge/🚀_Live_App-Frontend_Demo-22c55e?style=for-the-badge)](https://your-frontend-url.vercel.app)
-[![API](https://img.shields.io/badge/📡_API-Backend_Live-3b82f6?style=for-the-badge)](https://your-backend-url.onrender.com/api/health)
-[![GitHub](https://img.shields.io/badge/⭐_GitHub-Repository-0f172a?style=for-the-badge&logo=github)](https://github.com/yourusername/klypup)
+[![Live App](https://img.shields.io/badge/🚀_Live_App-Frontend_Demo-22c55e?style=for-the-badge)](https://dynamic-pricing-intelligence-platfo.vercel.app/login)
+[![GitHub](https://img.shields.io/badge/⭐_GitHub-Repository-0f172a?style=for-the-badge&logo=github)](https://github.com/parthTyagi-tech/dynamic-pricing-intelligence-platform.git)
 
 <br/>
 
@@ -53,7 +52,7 @@
 
 ---
 
-## 🎯 Why I Chose Option B
+## 🎯 Why I Chose this 
 
 I chose the **Dynamic Pricing Intelligence Dashboard** because it directly exercises the intersection of skills I want to develop: multi-agent AI system design, business workflow automation, and governance-first product thinking.
 
@@ -633,8 +632,8 @@ The approval + price update + audit log operation must execute atomically. If th
 
 <div align="center">
 
-[![Open App](https://img.shields.io/badge/🚀_Open_Live_App-22c55e?style=for-the-badge)](https://your-frontend-url.vercel.app)
-[![API Health](https://img.shields.io/badge/📡_API_Health_Check-3b82f6?style=for-the-badge)](https://your-backend-url.onrender.com/api/health)
+[![Open App](https://img.shields.io/badge/🚀_Open_Live_App-22c55e?style=for-the-badge)](https://dynamic-pricing-intelligence-platfo.vercel.app/login)
+
 
 </div>
 
@@ -875,38 +874,7 @@ Authorization: Bearer eyJhbGc...
 
 ---
 
-## 🔑 Environment Variables
 
-### Backend `.env`
-
-```env
-# Flask
-FLASK_ENV=development
-SECRET_KEY=change-this-to-32-plus-random-chars
-
-# Database
-DATABASE_URL=postgresql://user:password@localhost:5432/klypup
-
-# JWT
-JWT_SECRET_KEY=change-this-to-32-plus-random-chars
-JWT_ACCESS_TOKEN_EXPIRES=86400
-
-# Anthropic
-ANTHROPIC_API_KEY=sk-ant-api03-...
-
-# CORS
-FRONTEND_URL=http://localhost:5173
-```
-
-### Frontend `.env.local`
-
-```env
-VITE_API_URL=http://localhost:5000
-```
-
-See `.env.example` in `backend/` and `frontend/` for full variable list with descriptions.
-
----
 
 ## ⚠️ Known Limitations
 
@@ -953,13 +921,12 @@ Designing the agent I/O contracts so each agent produces structured, validated o
 
 <div align="center">
 
-**Submitted for the Klypup Applied AI Intern Technical Assessment — Option B**
 
 *Multi-agent architecture · Human-in-the-loop governance · Multi-tenant isolation · End-to-end in 5 days*
 
 <br/>
 
-[![Open App](https://img.shields.io/badge/🚀_Launch_App-22c55e?style=for-the-badge)](https://your-frontend-url.vercel.app)
-[![GitHub](https://img.shields.io/badge/⭐_Star_on_GitHub-0f172a?style=for-the-badge&logo=github)](https://github.com/yourusername/klypup)
+[![Open App](https://img.shields.io/badge/🚀_Launch_App-22c55e?style=for-the-badge)](https://dynamic-pricing-intelligence-platfo.vercel.app/login)
+[![GitHub](https://img.shields.io/badge/⭐_Star_on_GitHub-0f172a?style=for-the-badge&logo=github)](https://github.com/parthTyagi-tech/dynamic-pricing-intelligence-platform.git)
 
 </div>
