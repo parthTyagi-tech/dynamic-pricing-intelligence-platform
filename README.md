@@ -1,8 +1,8 @@
 <div align="center">
 
-# 🧠 Klypup — Dynamic Pricing Intelligence Dashboard
+# 🧠 Dynamic Pricing Intelligence Dashboard
 
-### *Option B: Applied AI Intern Technical Assessment Submission*
+###  Applied AI Intern Technical Assessment Submission*
 
 > **An operational multi-agent AI decision-support platform** that monitors market conditions, generates explainable pricing recommendations with confidence scores, and enforces a human-in-the-loop approval workflow — built end-to-end in 5 days.
 
