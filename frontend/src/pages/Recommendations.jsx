@@ -107,7 +107,7 @@ export default function Recommendations() {
 
   const handleApplyRecommendation = (recommendation) => {
 
-    navigate("/approval", {
+    navigate("/approvals", {
       state: {
         recommendation,
       },
