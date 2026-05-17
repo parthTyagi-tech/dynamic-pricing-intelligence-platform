@@ -578,7 +578,7 @@ The approval + price update + audit log operation must execute atomically. If th
 > The running application — all claimed features verified visually.
 
 ### Product Catalog Dashboard
-> SKU list with current price, recommendation status badges, inventory health indicators, and margin display
+ SKU list with current price, recommendation status badges, inventory health indicators, and margin display
 
  
 
@@ -588,7 +588,7 @@ The approval + price update + audit log operation must execute atomically. If th
 
 
 ### AI Recommendation Generation
-> Triggering multi-agent orchestration and receiving a confidence-scored recommendation with rationale
+ Triggering multi-agent orchestration and receiving a confidence-scored recommendation with rationale
 
 
 
@@ -599,7 +599,7 @@ The approval + price update + audit log operation must execute atomically. If th
 
 
 ### Explainability Panel — Agent Breakdown
-> Per-agent signal cards showing market pressure, demand trend, inventory health, source attribution, and per-agent confidence
+ Per-agent signal cards showing market pressure, demand trend, inventory health, source attribution, and per-agent confidence
 
 
 
@@ -610,7 +610,7 @@ The approval + price update + audit log operation must execute atomically. If th
 
 
 ### Approval Queue — Manager View
-> Pending recommendations sorted by confidence with approve, reject, and modify action controls
+Pending recommendations sorted by confidence with approve, reject, and modify action controls
 
 
 
