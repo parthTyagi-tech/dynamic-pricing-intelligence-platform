@@ -1,6 +1,6 @@
 # ARCHITECTURE.md
 # Dynamic Pricing Intelligence Dashboard
-### Klypup Applied AI Intern Assessment — Option B
+### Klypup Applied AI Intern Assessment — 
 
 ---
 
@@ -820,4 +820,4 @@ graph LR
 
 ---
 
-*Document version 1.0 — Klypup Applied AI Intern Assessment — Option B submission*
+
