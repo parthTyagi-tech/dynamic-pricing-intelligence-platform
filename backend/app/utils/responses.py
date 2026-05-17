@@ -45,3 +45,19 @@ def paginated_response(
             },
         },
     }), status_code
+"""
+Standardized response helpers used across the app.
+Keeps API responses consistent.
+"""
+from flask import jsonify
+
+
+def success_response(data: dict = None, message: str = "Success", status: int = 200):
+    payload = {"success": True, "message": message}
+    if data:
+        payload.update(data)
+    return jsonify(payload), status
+
+
+def error_response(message: str, status: int = 400):
+    return jsonify({"success": False, "message": message}), status

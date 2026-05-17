@@ -1,8 +1,9 @@
+load_dotenv()
 import os
 from datetime import timedelta
 from dotenv import load_dotenv
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-load_dotenv()
+
 
 
 class BaseConfig:

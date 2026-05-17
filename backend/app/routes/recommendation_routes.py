@@ -19,7 +19,10 @@ from app.models.market_data import (
 )
 
 from app.models.recommendation import (
-    PricingRecommendation
+    PricingRecommendation,
+    RecommendationStatus,
+    ApprovalAction,
+    ApprovalActionType
 )
 
 from app.services.ai_pricing_service import (
@@ -259,3 +262,102 @@ def get_recommendations():
         ]
 
     }, 200
+
+
+# =====================================
+# APPROVE RECOMMENDATION
+# =====================================
+
+@recommendation_bp.route(
+    "/<string:recommendation_id>/approve",
+    methods=["POST"]
+)
+@jwt_required()
+def approve_recommendation(recommendation_id):
+
+    current_user_id = get_jwt_identity()
+
+    current_user = User.query.get(
+        current_user_id
+    )
+
+    if not current_user:
+
+        return {
+            "success": False,
+            "message": "User not found"
+        }, 404
+
+    recommendation = PricingRecommendation.query.filter_by(
+        id=recommendation_id,
+        organization_id=current_user.organization_id
+    ).first()
+
+    if not recommendation:
+
+        return {
+            "success": False,
+            "message": "Recommendation not found"
+        }, 404
+
+    try:
+
+        recommendation.status = (
+            RecommendationStatus.APPROVED
+        )
+
+        product = Product.query.get(
+            recommendation.product_id
+        )
+
+        if product:
+
+            previous_price = (
+                product.current_price
+            )
+
+            product.current_price = (
+                recommendation.recommended_price
+            )
+
+            approval_action = ApprovalAction(
+
+                recommendation_id=recommendation.id,
+
+                action_type=ApprovalActionType.APPROVE,
+
+                previous_price=previous_price,
+
+                executed_price=(
+                    recommendation.recommended_price
+                ),
+
+                approved_by=current_user.id
+            )
+
+            db.session.add(
+                approval_action
+            )
+
+        db.session.commit()
+
+        return {
+
+            "success": True,
+
+            "message":
+            "Recommendation approved successfully"
+
+        }, 200
+
+    except Exception as e:
+
+        db.session.rollback()
+
+        return {
+
+            "success": False,
+
+            "message": str(e)
+
+        }, 500

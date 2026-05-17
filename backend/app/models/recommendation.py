@@ -189,10 +189,6 @@ class PricingRecommendation(db.Model):
             "created_by_agent":
             self.created_by_agent,
 
-            # =====================================
-            # EXPLAINABILITY DATA
-            # =====================================
-
             "agent_analysis":
             self.agent_analysis,
 
@@ -339,10 +335,6 @@ class ApprovalAction(db.Model):
             "timestamp":
             self.timestamp.isoformat()
             if self.timestamp else None,
-
-            # =====================================
-            # PRODUCT DETAILS
-            # =====================================
 
             "product": {
 
