@@ -1,11 +1,11 @@
 
 # DECISIONS.md
 # Dynamic Pricing Intelligence Dashboard — Engineering Decisions
-### Klypup Applied AI Intern Assessment — Option B
+### Klypup Applied AI Intern Assessment 
 
 ---
 
-## 1. Why I Chose Option B
+## 1. Why I Chose this 
 
 I chose the Dynamic Pricing Intelligence Dashboard because it sits at the intersection of the three areas I find most technically interesting: **multi-agent system design**, **human-in-the-loop workflow automation**, and **governance-first product thinking**.
 
@@ -215,4 +215,4 @@ Building governance into the architecture from day one — rather than bolting i
 
 ---
 
-*Document version 1.0 — Klypup Applied AI Intern Assessment — Option B submission*
+
