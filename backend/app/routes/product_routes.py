@@ -49,11 +49,11 @@ def create_product():
     data = request.get_json()
 
     required_fields = [
-        "sku",
+        
         "name",
-        "category",
+        
         "current_price",
-        "cost_price"
+        
     ]
 
     for field in required_fields:
@@ -66,7 +66,7 @@ def create_product():
             }, 400
 
     existing_product = Product.query.filter_by(
-        sku=data["sku"]
+        sku=data.get("sku", "AUTO-SKU"),
     ).first()
 
     if existing_product:
@@ -79,7 +79,7 @@ def create_product():
     product = Product(
         sku=data["sku"],
         name=data["name"],
-        category=data["category"],
+        category=data.get("category", "General"),
         description=data.get("description"),
         current_price=data["current_price"],
         cost_price=data["cost_price"],
