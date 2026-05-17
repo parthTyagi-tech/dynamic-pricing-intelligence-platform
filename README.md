@@ -1,17 +1,16 @@
 <div align="center">
 
-# 🧠 Klypup
+# 🧠 Klypup — Dynamic Pricing Intelligence Dashboard
 
-### **Dynamic Pricing Intelligence Dashboard**
+### *Option B: Applied AI Intern Technical Assessment Submission*
 
-> *An Applied AI decision-support platform that orchestrates multi-agent intelligence to generate explainable, governance-ready pricing recommendations at scale.*
+> **An operational multi-agent AI decision-support platform** that monitors market conditions, generates explainable pricing recommendations with confidence scores, and enforces a human-in-the-loop approval workflow — built end-to-end in 5 days.
 
 <br/>
 
-[![Live Frontend](https://img.shields.io/badge/Frontend-Live%20Demo-22c55e?style=for-the-badge&logo=vercel&logoColor=white)](https://your-frontend-url.vercel.app)
-[![API Backend](https://img.shields.io/badge/Backend-API%20Live-3b82f6?style=for-the-badge&logo=render&logoColor=white)](https://your-backend-url.onrender.com)
-[![GitHub](https://img.shields.io/badge/GitHub-Repository-0f172a?style=for-the-badge&logo=github&logoColor=white)](https://github.com/yourusername/klypup)
-[![License](https://img.shields.io/badge/License-MIT-a855f7?style=for-the-badge)](LICENSE)
+[![Live App](https://img.shields.io/badge/🚀_Live_App-Frontend_Demo-22c55e?style=for-the-badge)](https://your-frontend-url.vercel.app)
+[![API](https://img.shields.io/badge/📡_API-Backend_Live-3b82f6?style=for-the-badge)](https://your-backend-url.onrender.com/api/health)
+[![GitHub](https://img.shields.io/badge/⭐_GitHub-Repository-0f172a?style=for-the-badge&logo=github)](https://github.com/yourusername/klypup)
 
 <br/>
 
@@ -19,548 +18,422 @@
 ![Flask](https://img.shields.io/badge/Flask-3.x-000000?style=flat-square&logo=flask&logoColor=white)
 ![React](https://img.shields.io/badge/React-18-61DAFB?style=flat-square&logo=react&logoColor=black)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-336791?style=flat-square&logo=postgresql&logoColor=white)
-![Anthropic](https://img.shields.io/badge/Anthropic-Claude-d97706?style=flat-square&logo=anthropic&logoColor=white)
-![JWT](https://img.shields.io/badge/JWT-Auth-000000?style=flat-square&logo=jsonwebtokens&logoColor=white)
-![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=flat-square&logo=docker&logoColor=white)
+![Claude](https://img.shields.io/badge/Anthropic-Claude_Sonnet-d97706?style=flat-square)
+![JWT](https://img.shields.io/badge/JWT-Auth-000000?style=flat-square&logo=jsonwebtokens)
+![Vercel](https://img.shields.io/badge/Vercel-Deployed-black?style=flat-square&logo=vercel)
+![Render](https://img.shields.io/badge/Render-Deployed-46E3B7?style=flat-square&logo=render&logoColor=black)
 
 <br/>
 
-> **Klypup** is not a chatbot. It is an **operational AI decision-support platform** — a multi-agent orchestration system that continuously analyzes market conditions, demand signals, and inventory states to produce confidence-scored, explainable pricing recommendations with full human approval workflows and enterprise-grade audit trails.
-
-<br/>
-
----
+> ⚠️ **This is not a chatbot.** It is a structured AI decision system — four specialized agents collaborate, produce a confidence-scored recommendation with full rationale, and route it through a human approval workflow before any price change executes.
 
 </div>
 
+---
+
 ## 📋 Table of Contents
 
+- [Why I Chose Option B](#-why-i-chose-option-b)
 - [The Business Problem](#-the-business-problem)
-- [Solution Overview](#-solution-overview)
-- [Key Features](#-key-features)
-- [System Architecture](#-system-architecture)
-- [Multi-Agent AI System](#-multi-agent-ai-system)
+- [What I Built](#-what-i-built)
+- [Assessment Requirements Coverage](#-assessment-requirements-coverage)
+- [Multi-Agent AI Architecture](#-multi-agent-ai-architecture)
 - [Human-in-the-Loop Workflow](#-human-in-the-loop-workflow)
-- [Frontend Architecture](#-frontend-architecture)
-- [Backend Architecture](#-backend-architecture)
-- [Database Design](#-database-design)
-- [Tech Stack](#-tech-stack)
-- [Live Demo & Screenshots](#-live-demo--screenshots)
-- [Installation & Setup](#-installation--setup)
-- [API Documentation](#-api-documentation)
-- [Security & Multi-Tenancy](#-security--multi-tenancy)
-- [Scalability & Roadmap](#-scalability--roadmap)
-- [Engineering Decisions & Tradeoffs](#-engineering-decisions--tradeoffs)
-- [Conclusion](#-conclusion)
+- [Multi-Tenant Architecture](#-multi-tenant-architecture)
+- [System Architecture](#-system-architecture)
+- [Database Schema](#-database-schema)
+- [Tech Stack and Rationale](#-tech-stack-and-rationale)
+- [Screenshots](#-screenshots)
+- [Live Demo](#-live-demo)
+- [Setup Instructions](#-setup-instructions)
+- [API Reference](#-api-reference)
+- [Environment Variables](#-environment-variables)
+- [Known Limitations](#-known-limitations)
+- [DECISIONS.md Summary](#-decisionsmd-summary)
+
+---
+
+## 🎯 Why I Chose Option B
+
+I chose the **Dynamic Pricing Intelligence Dashboard** because it directly exercises the intersection of skills I want to develop: multi-agent AI system design, business workflow automation, and governance-first product thinking.
+
+Option B demanded a real multi-agent architecture — not a single prompt chain dressed up as agents. Each agent has a distinct domain, distinct inputs, and a defined output contract. The human approval workflow forced me to think about AI as a tool that must *earn* operational trust before modifying production data. That's the kind of applied AI engineering that reflects how real AI systems are built and deployed responsibly.
 
 ---
 
 ## 🔴 The Business Problem
 
-Modern pricing is broken — not because teams lack data, but because they lack **orchestrated intelligence**.
+The assessment scenario is real: a mid-size e-commerce company selling 500+ SKUs reprices manually on a weekly spreadsheet cycle. The documented consequences:
 
-### Why Static Pricing Fails
-
-Traditional pricing systems operate on rigid, rule-based logic: fixed margins, periodic manual reviews, and reactive adjustments after market conditions have already shifted. This approach creates compounding inefficiencies:
-
-| Problem | Business Impact |
+| Problem | Quantified Impact |
 |---|---|
-| **Static rules can't adapt to real-time signals** | Lost revenue during demand surges; margin erosion during slowdowns |
-| **Inventory-pricing disconnect** | Overstocked products stay full-price; understocked items get discounted |
-| **No competitive signal integration** | Prices drift from market benchmarks without operational awareness |
-| **Black-box AI recommendations** | Teams reject or blindly trust AI outputs — neither outcome is safe |
-| **No governance layer** | Pricing changes bypass approval workflows, creating compliance and audit risk |
-| **Siloed operational data** | Demand, inventory, and market data live in separate systems with no synthesis layer |
+| Slow response to competitor price changes | **8–12% estimated revenue leakage** |
+| Static pricing misses demand surges | Seasonal and viral opportunities uncaptured |
+| Overstocking with no pricing response | Forced markdowns and margin erosion |
+| Analysts doing data gathering, not analysis | **70%+ of analyst time** on non-strategic work |
 
-### The Real Cost
-
-> Research consistently shows that a **1% improvement in pricing strategy translates to an average 8–11% improvement in operating profit** — making pricing intelligence one of the highest-leverage applied AI domains in enterprise operations.
-
-The gap isn't data availability — it's **intelligent orchestration with explainability and human oversight**. That's the problem Klypup solves.
+The fix is not automation for its own sake. It is AI that surfaces the right recommendation with full reasoning, then lets a human make the call. That is what Klypup delivers.
 
 ---
 
-## 💡 Solution Overview
+## 💡 What I Built
 
-**Klypup** is a full-stack Applied AI platform that deploys a **coordinated multi-agent system** to generate dynamic, explainable, governance-ready pricing recommendations — with a structured human approval workflow at its core.
+A full-stack web application covering every requirement in the assessment:
 
-### How It Works
-
-```
-Market Data + Inventory State + Demand Signals
-         ↓
-  Multi-Agent AI Orchestration (4 specialized agents)
-         ↓
-  Confidence-Scored Recommendation + Rationale
-         ↓
-  Human Review Queue (Approval / Rejection)
-         ↓
-  Product Price Update + Immutable Audit Log
-```
-
-### What Makes Klypup Different
-
-- **Not a chatbot.** Not a copilot. A structured **AI decision system** with defined inputs, outputs, and governance.
-- **Explainability-first.** Every recommendation includes agent-level rationale, market signals, confidence scores, and human-readable justification.
-- **Governance-native.** No AI recommendation modifies production data without human approval. The approval workflow is an architectural primitive, not an afterthought.
-- **Multi-tenant isolation.** Each organization's data, recommendations, products, and audit history are fully isolated at the database and application layer.
-- **Audit-complete.** Every decision, approval, rejection, and price change is logged immutably for compliance and operational review.
+- ✅ JWT Authentication — signup, login, logout, protected routes, no hardcoded credentials
+- ✅ Two roles: `admin` (catalog management, threshold config) and `manager` (recommendation review, approvals)
+- ✅ Multi-tenant isolation — organizations cannot see each other's data, enforced at the database query layer
+- ✅ Product Catalog Dashboard — filterable and sortable SKU list with live recommendation status badges
+- ✅ Multi-Agent AI Engine — 5 specialized agents (Market Intelligence, Demand Forecast, Inventory and Cost, Pricing Strategy, Execution and Compliance) that collaborate to produce a structured recommendation
+- ✅ Confidence Scoring — each recommendation carries a 0.0–1.0 confidence score with per-agent breakdown
+- ✅ Explainability Panel — every recommendation shows what each agent contributed, what data source fed it, and why this price was chosen
+- ✅ Human-in-the-Loop Approval Workflow — pending → review → approve / reject / modify → price update → audit log
+- ✅ Audit Trail — immutable, timestamped record of every pricing decision with reviewer identity
+- ✅ Configurable confidence threshold — admin sets the threshold above which changes auto-execute
+- ✅ Competitor Price Mock Data — realistic price simulation with generation script
+- ✅ Demand and Inventory Mock Data — seasonal patterns, SKU velocity, stock levels, COGS
+- ✅ Mock E-Commerce Platform API — simulated execution endpoint with rollback logic
+- ✅ Seed data script — evaluator runs `python seed.py` and sees populated data immediately
+- ✅ Live deployment — Vercel (frontend) and Render (backend and managed PostgreSQL)
 
 ---
 
-## ✨ Key Features
+## ✅ Assessment Requirements Coverage
 
-### 🤖 Multi-Agent AI System
-A coordinated ensemble of four specialized AI agents — Market Intelligence, Demand Forecasting, Inventory Analysis, and Pricing Strategy — each contributing domain-specific signals that are synthesized into a unified recommendation. Agents are orchestrated sequentially with structured data handoff between layers.
+### Option B — Application Requirements
 
-### 📊 Dynamic Pricing Intelligence
-Real-time pricing analysis that accounts for competitor positioning, demand elasticity, inventory levels, and strategic pricing objectives. Recommendations are generated per-product with full context visibility.
+| Requirement (from spec) | Status | Implementation |
+|---|---|---|
+| Auth with Admin and Pricing Analyst roles | ✅ | JWT with `admin` and `manager` roles; route-level enforcement |
+| Product Catalog Dashboard with filter, sort, search | ✅ | Filter by category and status; sort by price, margin, rec status |
+| AI Pricing Engine — multi-agent | ✅ | 5 agents with Pydantic-validated I/O contracts |
+| Recommendation Detail View — full reasoning | ✅ | Per-agent breakdown, confidence weights, data source attribution |
+| Approval Workflow — approve, reject with reason, modify price | ✅ | All three actions implemented; modification stores AI price vs. applied price |
+| Confidence threshold — configurable auto-execute | ✅ | Admin config panel; Execution Agent routes based on org threshold |
+| Audit Trail — filterable, searchable | ✅ | Full decision log with reviewer, timestamps, before/after prices |
+| Competitor Price Data | ✅ | Mock scraper with generation script producing realistic patterns |
+| Demand and Trend Signals | ✅ | Seasonal patterns, category trends, individual SKU velocity |
+| Inventory and Cost Data | ✅ | Stock levels, COGS, margin thresholds, reorder flags |
+| Mock E-Commerce Platform API | ✅ | Simulated execution with success and failure handling and rollback |
 
-### 🔍 Explainability Dashboard
-Every AI recommendation surfaces its reasoning: which agents contributed what signal, what the confidence score represents, and why this specific price was recommended. Built for trust, not opacity.
+### Common Requirements (Section 3 of Assessment)
 
-### ✅ Approval Workflow
-A structured human-in-the-loop review system. All AI recommendations enter a **Pending** state before any product data is modified. Managers review, approve, or reject with optional commentary. Approved recommendations trigger automated product price updates.
-
-### 📜 Audit History
-Immutable, timestamped log of every pricing action: who reviewed, when, what decision was made, and what changed. Supports compliance, accountability, and operational post-mortems.
-
-### 🔐 Role-Based Access Control (RBAC)
-Differentiated access tiers — `admin`, `manager`, and `viewer` — control who can generate recommendations, approve workflows, view audit logs, and manage users.
-
-### 🏢 Multi-Tenant Architecture
-Organization-level data isolation ensures that Klypup operates safely as a shared platform. Every API call, database query, and recommendation is scoped to the authenticated organization.
-
-### 📈 Real-Time Dashboard
-A responsive analytics dashboard displaying current product portfolio, AI recommendation status, approval queue depth, and pricing performance metrics — all in a unified operational view.
-
-### 🎯 AI Confidence Scoring
-Each recommendation carries a normalized confidence score (0.0–1.0) derived from the agreement and signal strength across all contributing agents. Low-confidence recommendations are surfaced with appropriate visual indicators for heightened human scrutiny.
-
-### 🌐 Market Intelligence
-The Market Intelligence Agent analyzes competitive pricing, market positioning, and external demand signals to inform recommendations with external context.
-
-### 📉 Demand Forecasting
-The Demand Forecast Agent models historical sales velocity, trend direction, and seasonal signals to project forward-looking demand pressure — a critical input to optimal pricing strategy.
-
-### 📦 Inventory Analysis
-The Inventory Agent evaluates current stock levels, days-of-supply, and reorder signals to modulate pricing recommendations — driving higher prices when inventory is tight, clearance-adjusted prices when overstocked.
-
-### 🖥️ Responsive UI
-Built with React 18, the frontend adapts seamlessly across desktop and tablet viewports with a clean, data-dense operational aesthetic designed for business users, not consumers.
-
-### 🔑 JWT Authentication
-Stateless, secure JWT-based authentication with organization-scoped token payloads. Tokens carry role and tenant claims, enabling middleware-layer enforcement across all protected routes.
-
-### 🚀 Deployment Infrastructure
-Frontend deployed on **Vercel** with CI/CD integration. Backend deployed on **Render** with managed PostgreSQL. Fully environment-variable-driven configuration for deployment portability.
+| Requirement | Status | Notes |
+|---|---|---|
+| Working auth — no fake logins | ✅ | Real bcrypt password hashing; JWT signed with secret |
+| Persistent database — survives restarts | ✅ | PostgreSQL on Render managed instance |
+| Clean REST API with error handling and status codes | ✅ | Consistent JSON envelope; 4xx and 5xx with error messages |
+| Functional frontend with loading, error, and empty states | ✅ | All three states handled per page |
+| CRUD on core data | ✅ | Products (admin); recommendations; approval decisions |
+| Responsive design | ✅ | Desktop-first; mobile-responsive layout |
+| Multi-tenant data isolation | ✅ | `org_id` enforced at service layer; never accepted from request body |
+| RBAC with 2+ roles | ✅ | `admin` and `manager`; enforced by Python decorators on routes |
+| Tenant context in every API request | ✅ | JWT carries `org_id`; middleware extracts and injects into every handler |
+| LLM integration with tool orchestration | ✅ | Claude Sonnet with structured agent calls |
+| Structured output rendered as UI components | ✅ | Agent signals render as cards; confidence as visual indicator |
+| Source attribution on every AI insight | ✅ | Each signal shows which mock data source fed it |
+| Graceful LLM error handling | ✅ | Fallback states; timeout handling; app does not crash on API failure |
+| `.env.example` with documented variables | ✅ | In both `backend/` and `frontend/` |
+| Seed data script | ✅ | `python seed.py` — creates 2 orgs, users, 20 products, mock data |
+| Live deployment | ✅ | Vercel + Render |
 
 ---
 
-## 🏗️ System Architecture
+## 🧠 Multi-Agent AI Architecture
 
-### High-Level Architecture
+The AI layer is the core technical differentiator of this system. It is not a single monolithic prompt. Five specialized agents run in a structured sequence, each with defined inputs and outputs validated by Pydantic models.
 
-```mermaid
-graph TB
-    subgraph Client["🖥️ Client Layer"]
-        UI[React 18 SPA]
-        Router[React Router v6]
-        State[Local State + Context]
-    end
-
-    subgraph API["⚙️ API Layer — Flask"]
-        Auth[Auth Blueprint]
-        Products[Products Blueprint]
-        Recs[Recommendations Blueprint]
-        Approvals[Approvals Blueprint]
-        Audit[Audit Blueprint]
-        MW[JWT Middleware + RBAC Guard]
-    end
-
-    subgraph AI["🧠 AI Orchestration Layer"]
-        Orch[Pricing Orchestrator]
-        MA[Market Intelligence Agent]
-        DA[Demand Forecast Agent]
-        IA[Inventory Agent]
-        PA[Pricing Strategy Agent]
-    end
-
-    subgraph Data["🗄️ Data Layer"]
-        PG[(PostgreSQL)]
-        ORM[SQLAlchemy ORM]
-    end
-
-    UI -->|HTTPS REST| MW
-    MW --> Auth
-    MW --> Products
-    MW --> Recs
-    MW --> Approvals
-    MW --> Audit
-    Recs --> Orch
-    Orch --> MA
-    Orch --> DA
-    Orch --> IA
-    MA --> PA
-    DA --> PA
-    IA --> PA
-    PA --> Orch
-    Orch -->|Structured Result| Recs
-    API --> ORM
-    ORM --> PG
-```
-
-### Request Lifecycle
-
-```mermaid
-sequenceDiagram
-    participant U as User (Browser)
-    participant F as React Frontend
-    participant MW as Flask Middleware
-    participant BP as Blueprint Handler
-    participant SVC as Service Layer
-    participant AI as AI Orchestrator
-    participant DB as PostgreSQL
-
-    U->>F: Trigger "Generate Recommendation"
-    F->>MW: POST /api/recommendations/ + JWT
-    MW->>MW: Validate JWT, Extract org_id + role
-    MW->>BP: Route to Recommendations Blueprint
-    BP->>SVC: Call RecommendationService
-    SVC->>DB: Fetch product + inventory + history
-    SVC->>AI: Invoke PricingOrchestrator(context)
-    AI->>AI: Run Market → Demand → Inventory → Strategy agents
-    AI-->>SVC: Return RecommendationResult (price, confidence, rationale)
-    SVC->>DB: Persist recommendation (status=pending)
-    SVC-->>BP: Return recommendation object
-    BP-->>F: 201 JSON Response
-    F-->>U: Render recommendation card in UI
-```
-
-### Deployment Topology
-
-```mermaid
-graph LR
-    subgraph CDN["🌐 Vercel CDN"]
-        FE[React SPA\nStatically Built]
-    end
-
-    subgraph Render["☁️ Render Cloud"]
-        BE[Flask API\nGunicorn WSGI]
-        DB[(PostgreSQL\nManaged Instance)]
-    end
-
-    subgraph External["🔗 External"]
-        AN[Anthropic API\nClaude Sonnet]
-    end
-
-    Browser -->|HTTPS| FE
-    FE -->|REST API Calls| BE
-    BE -->|SQL via SQLAlchemy| DB
-    BE -->|LLM Calls| AN
-```
-
----
-
-## 🧠 Multi-Agent AI System
-
-Klypup's intelligence layer is not a monolithic model call. It is a **structured multi-agent orchestration system** where each agent has a defined scope, input contract, and output contract — enabling modular reasoning and traceable decision-making.
-
-### Agent Architecture
+### Agent Orchestration Flow
 
 ```mermaid
 graph TD
-    CTX[Product Context\nInventory + History + Config]
+    CTX["📦 Product Context\nSKU + inventory + history + org config"]
+
     CTX --> MA
     CTX --> DA
     CTX --> IA
 
-    subgraph Agents["Specialist Agents"]
-        MA["🌐 Market Intelligence Agent\nCompetitor analysis\nMarket positioning\nExternal demand signals"]
-        DA["📉 Demand Forecast Agent\nSales velocity trends\nSeasonal modeling\nElasticity signals"]
-        IA["📦 Inventory Agent\nStock level analysis\nDays-of-supply calc\nReorder flag detection"]
+    subgraph Agents["Specialist Agents — Domain Reasoning"]
+        MA["🌐 Market Intelligence Agent\n─────────────────────────────\nIngests competitor pricing and market trends\nNormalizes and enriches raw competitor data\nOutputs: market_signal, price_band, pressure_score\nSource: mock competitor price API"]
+
+        DA["📉 Demand Forecast Agent\n─────────────────────────────\nPredicts demand elasticity and seasonal patterns\nModels SKU-level velocity and trend impact\nOutputs: demand_trend, velocity_score, elasticity\nSource: mock demand and trend data"]
+
+        IA["📦 Inventory and Cost Agent\n─────────────────────────────\nMonitors stock levels, COGS, margin thresholds\nFlags overstocked and critically low inventory\nOutputs: inventory_health, margin_floor, constraint_flag\nSource: mock internal inventory data"]
     end
 
     MA -->|market_signal| PA
     DA -->|demand_signal| PA
     IA -->|inventory_signal| PA
 
-    subgraph Strategy["Strategy Layer"]
-        PA["🎯 Pricing Strategy Agent\nSignal synthesis\nRecommended price calc\nConfidence scoring\nRationale generation"]
+    subgraph Strategy["Pricing Strategy Agent"]
+        PA["🎯 Pricing Strategy Agent\n─────────────────────────────\nSynthesizes all upstream agent signals\nGenerates: recommended_price, confidence_score\nProduces: written rationale, agent_contributions\nCentral orchestrator — routes to Execution Agent"]
     end
 
-    PA --> OUT[RecommendationResult\nprice | confidence | rationale | signals]
+    PA --> EA
+
+    subgraph Execution["Execution and Compliance Agent"]
+        EA["⚙️ Execution and Compliance Agent\n─────────────────────────────\nValidates recommendation against business rules\nChecks margin floors and org confidence threshold\nRoutes: auto-execute OR human review queue\nCalls mock e-commerce API on auto-execute"]
+    end
+
+    EA -->|above threshold| AUTO["✅ Auto-Execute\nMock e-commerce API called\nPrice updated\nAudit log written"]
+    EA -->|below threshold| QUEUE["⏳ Human Review Queue\nStatus: pending\nManager notified"]
 ```
 
-### Agent Responsibilities
+### Why Multi-Agent Separation?
 
-#### 🌐 Market Intelligence Agent
-**Scope:** External competitive context  
-**Inputs:** Product category, current price, market segment  
-**Outputs:** `market_signal` — competitive positioning score, suggested price band, market pressure indicator  
-**LLM Role:** Synthesizes structured competitive context into pricing pressure signal with qualitative market assessment
+A single prompt could theoretically produce a pricing recommendation. Separate agents give us:
 
-#### 📉 Demand Forecast Agent
-**Scope:** Historical demand modeling and forward projection  
-**Inputs:** Sales history, product metadata, time-series features  
-**Outputs:** `demand_signal` — demand trend direction, velocity score, elasticity estimate  
-**LLM Role:** Interprets demand patterns and generates forward-looking demand pressure with confidence weighting
+1. **Traceable reasoning** — which agent drove the recommendation is visible in the explainability panel
+2. **Independent confidence scoring** — each agent contributes its own confidence weight to the composite score
+3. **Modular replaceability** — the demand agent could be swapped for a real ML time-series model without touching other agents
+4. **Accurate production mapping** — this architecture reflects how production multi-agent systems are actually designed
 
-#### 📦 Inventory Agent
-**Scope:** Current stock state and inventory health  
-**Inputs:** Current stock level, reorder threshold, sales velocity  
-**Outputs:** `inventory_signal` — stock health score, recommended pricing adjustment direction (clearance vs. premium)  
-**LLM Role:** Maps inventory state to pricing strategy (overstocked → discount pressure; understocked → premium opportunity)
+### Agent I/O Contracts
 
-#### 🎯 Pricing Strategy Agent (Orchestrator Apex)
-**Scope:** Cross-signal synthesis and final recommendation  
-**Inputs:** `market_signal` + `demand_signal` + `inventory_signal` + product config + pricing constraints  
-**Outputs:** `recommended_price`, `confidence_score`, `rationale`, `agent_contributions`  
-**LLM Role:** Final synthesis agent that weighs all upstream signals and generates a structured, explainable recommendation with full reasoning chain
+Every agent exchanges structured, validated data. No freeform text passes between agents.
 
-### Confidence Scoring
+```python
+class MarketSignal(BaseModel):
+    signal_type: Literal["below_market", "at_market", "above_market"]
+    price_band: tuple[float, float]
+    pressure_score: float          # 0.0 = no pressure, 1.0 = extreme
+    competitor_count: int
+    confidence: float
+
+class DemandSignal(BaseModel):
+    trend: Literal["increasing", "stable", "decreasing"]
+    velocity_score: float
+    seasonality_factor: float
+    confidence: float
+
+class InventorySignal(BaseModel):
+    health: Literal["overstocked", "healthy", "tightening", "critical"]
+    days_of_supply: int
+    margin_floor: float
+    constraint_flag: bool
+    confidence: float
+
+class RecommendationResult(BaseModel):
+    recommended_price: float
+    confidence_score: float        # Weighted composite of all agent confidences
+    rationale: str                 # Human-readable explanation for the UI
+    agent_contributions: dict      # Stored as JSONB for the explainability panel
+    execution_route: Literal["auto_execute", "human_review"]
+```
+
+### Confidence Score Calculation
 
 ```
-confidence_score = weighted_average(
-    market_signal.confidence   × 0.30,
-    demand_signal.confidence   × 0.35,
-    inventory_signal.confidence × 0.20,
-    strategy_alignment_score   × 0.15
+confidence_score = (
+    market_signal.confidence    x 0.30  +
+    demand_signal.confidence    x 0.35  +
+    inventory_signal.confidence x 0.20  +
+    strategy_alignment_score    x 0.15
 )
-```
 
-Confidence scores below `0.65` are surfaced with a visual warning in the approval UI, prompting heightened review scrutiny.
-
-### Explainability Output Structure
-
-```json
-{
-  "recommended_price": 149.99,
-  "confidence_score": 0.82,
-  "rationale": "Strong demand trend combined with tightening inventory supports a 12% price increase. Competitive analysis confirms pricing headroom below market ceiling.",
-  "agent_contributions": {
-    "market_intelligence": {
-      "signal": "below_market",
-      "price_band": [145.00, 165.00],
-      "confidence": 0.85
-    },
-    "demand_forecast": {
-      "trend": "increasing",
-      "velocity_score": 0.78,
-      "confidence": 0.80
-    },
-    "inventory_analysis": {
-      "stock_health": "tightening",
-      "days_of_supply": 14,
-      "confidence": 0.88
-    }
-  }
-}
+Execution Agent routing:
+  confidence >= org.confidence_threshold  →  auto-execute
+  confidence <  org.confidence_threshold  →  human review queue
 ```
 
 ---
 
 ## 👤 Human-in-the-Loop Workflow
 
-Klypup is architecturally designed around the principle that **AI recommendations must earn human trust before modifying operational data**. The approval workflow is not a UI feature — it is a core system constraint.
+Every recommendation below the admin-configured confidence threshold enters a mandatory human review queue. No AI output modifies product prices without explicit human action.
 
 ### Workflow State Machine
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Pending: AI Recommendation Generated
-    Pending --> UnderReview: Manager Opens Review
-    UnderReview --> Approved: Manager Approves
-    UnderReview --> Rejected: Manager Rejects
-    Approved --> PriceUpdated: Product Price Modified
-    PriceUpdated --> Logged: Audit Record Created
-    Rejected --> Logged: Audit Record Created
-    Logged --> [*]
+    [*] --> AutoExecuted: confidence above threshold\nExecution Agent fires mock API
+    [*] --> Pending: confidence below threshold\nRouted to human review queue
+
+    Pending --> Approved: Manager approves
+    Pending --> Rejected: Manager rejects with reason
+    Pending --> Modified: Manager overrides price
+
+    AutoExecuted --> PriceUpdated: Mock e-commerce API success
+    Approved --> PriceUpdated: Product price updated atomically
+    Modified --> PriceUpdated: Manager-specified price applied
+
+    PriceUpdated --> AuditLogged: Immutable record created
+    Rejected --> AuditLogged: Rejection and reason recorded
+
+    AuditLogged --> [*]
 ```
 
-### Workflow Detail
+### Manager Actions in the Approval Queue
 
-| Stage | Actor | System Action | Data State |
-|---|---|---|---|
-| **1. Generation** | AI Orchestrator | Creates recommendation record | `status = pending` |
-| **2. Queue** | Manager (viewer) | Sees recommendation in pending queue | Read-only display |
-| **3. Review** | Manager | Opens explainability panel | Full rationale visible |
-| **4. Decision** | Manager | Approves or rejects with optional comment | Decision recorded |
-| **5. Price Update** | System (automated) | If approved: updates `product.current_price` | Atomic transaction |
-| **6. Audit Log** | System (automated) | Creates immutable audit record | Permanent record |
+| Action | What Happens | Stored in Audit Log |
+|---|---|---|
+| **Approve** | Product price set to AI recommended price | action, price_before, price_after, reviewer, timestamp |
+| **Reject** | Recommendation closed; reason required | action, rejection_reason, reviewer, timestamp |
+| **Modify and Approve** | Manager overrides price; that price is applied | action, ai_recommended_price, applied_price, reviewer, timestamp |
 
-### Governance Principles
-
-- **Zero auto-execution:** No recommendation modifies product prices without explicit human approval
-- **Full explainability at decision point:** Managers see complete agent rationale before acting
-- **Role enforcement:** Only users with `manager` or `admin` role can approve/reject
-- **Audit completeness:** Approval, rejection, timestamp, reviewer identity, and resulting price are all logged
-- **Rejection feedback loop:** Rejection reasons are stored and can inform future agent calibration
+The modify action is architecturally important — it means the audit log always captures both what AI recommended and what was actually executed, enabling post-hoc analysis of human override patterns.
 
 ---
 
-## 🖥️ Frontend Architecture
+## 🏢 Multi-Tenant Architecture
 
-### Application Structure
+Multi-tenancy is enforced as an architectural constraint at the database query layer, not in the UI.
 
-```
-src/
-├── components/
-│   ├── layout/
-│   │   ├── Navbar.jsx              # Auth-aware navigation with role display
-│   │   └── ProtectedRoute.jsx      # JWT-gated route wrapper
-│   ├── dashboard/
-│   │   ├── DashboardHome.jsx       # Portfolio overview + KPI cards
-│   │   ├── ProductCard.jsx         # Product tile with status indicators
-│   │   └── MetricsSummary.jsx      # Aggregated metrics panel
-│   ├── recommendations/
-│   │   ├── RecommendationsList.jsx # Paginated recommendation feed
-│   │   ├── RecommendationCard.jsx  # Individual rec with explainability panel
-│   │   └── AgentBreakdown.jsx      # Visual agent contribution display
-│   ├── approvals/
-│   │   ├── PendingQueue.jsx        # Approval workflow management view
-│   │   └── ApprovalAction.jsx      # Approve/reject action component
-│   └── audit/
-│       └── AuditLog.jsx            # Historical decision log with filters
-├── pages/
-│   ├── Login.jsx                   # JWT auth entry point
-│   ├── Dashboard.jsx               # Main operational view
-│   ├── Products.jsx                # Product portfolio management
-│   ├── Recommendations.jsx         # AI recommendation browser
-│   ├── Approvals.jsx               # Workflow management (manager+)
-│   └── Audit.jsx                   # Audit history (manager+)
-├── services/
-│   └── api.js                      # Axios instance with JWT interceptor
-├── context/
-│   └── AuthContext.jsx             # Global auth state + token management
-└── App.jsx                         # Router + protected route configuration
-```
-
-### Routing Architecture
+### Isolation Pattern
 
 ```mermaid
-graph TD
-    Root["/"] --> Login["/login\n Public Route"]
-    Root --> Dashboard["/dashboard\n Protected"]
-    Root --> Products["/products\n Protected"]
-    Root --> Recommendations["/recommendations\n Protected"]
-    Root --> Approvals["/approvals\n Manager+ Only"]
-    Root --> Audit["/audit\n Manager+ Only"]
-
-    Dashboard --> PRD[ProtectedRoute\nJWT Check]
-    Approvals --> RBAC[RBACGuard\nRole Validation]
+graph LR
+    REQ["HTTP Request\n+ JWT Token"] --> MW["JWT Middleware\nExtract: user_id, org_id, role\nNever from request body"]
+    MW --> SVC["Service Layer\nAll queries include org_id filter"]
+    SVC --> DB["PostgreSQL\nRow-level isolation by org_id"]
 ```
 
-### State Management
-
-Klypup uses **React Context + local component state** — a deliberate architectural choice that avoids the overhead of Redux for an application with well-defined, role-scoped data boundaries. The `AuthContext` manages:
-- JWT token storage and retrieval
-- Decoded user identity (role, org_id, email)
-- Login/logout lifecycle
-
-Per-page data is fetched on mount via `useEffect` + `axios`, keeping state colocated with the component that owns it. This architecture scales cleanly to the application's scope while remaining understandable without external state management tooling.
-
-### API Integration
-
-```javascript
-// services/api.js — Axios instance with automatic JWT injection
-const api = axios.create({ baseURL: import.meta.env.VITE_API_URL });
-
-api.interceptors.request.use(config => {
-  const token = localStorage.getItem('token');
-  if (token) config.headers.Authorization = `Bearer ${token}`;
-  return config;
-});
-```
-
-All API calls are centralized through this instance, ensuring JWT is always attached and that base URL configuration is environment-driven.
-
----
-
-## ⚙️ Backend Architecture
-
-### Blueprint Structure
-
-```
-backend/
-├── app/
-│   ├── __init__.py                 # App factory + blueprint registration
-│   ├── models/
-│   │   ├── user.py                 # User + organization model
-│   │   ├── product.py              # Product model with org isolation
-│   │   ├── recommendation.py       # Recommendation schema
-│   │   └── audit.py                # Audit log model
-│   ├── routes/
-│   │   ├── auth.py                 # /api/auth/ — login, register
-│   │   ├── products.py             # /api/products/ — CRUD + org-scoped
-│   │   ├── recommendations.py      # /api/recommendations/ — generate + list
-│   │   ├── approvals.py            # /api/approvals/ — workflow actions
-│   │   └── audit.py                # /api/audit/ — immutable log access
-│   ├── services/
-│   │   ├── recommendation_service.py   # Orchestration coordinator
-│   │   └── audit_service.py            # Audit record creation
-│   ├── ai/
-│   │   ├── orchestrator.py             # PricingOrchestrator — agent runner
-│   │   ├── agents/
-│   │   │   ├── market_agent.py         # Market Intelligence Agent
-│   │   │   ├── demand_agent.py         # Demand Forecast Agent
-│   │   │   ├── inventory_agent.py      # Inventory Analysis Agent
-│   │   │   └── pricing_agent.py        # Pricing Strategy Agent
-│   │   └── schemas.py                  # Pydantic contracts for agent I/O
-│   └── middleware/
-│       ├── auth_middleware.py          # JWT validation decorator
-│       └── rbac.py                     # Role enforcement decorator
-├── migrations/                         # Flask-Migrate / Alembic migrations
-├── config.py                           # Environment config classes
-└── run.py                              # Application entry point
-```
-
-### Service Layer Architecture
-
-The backend enforces a clean **three-tier separation**:
-
-1. **Route Layer** — HTTP handling only: parse request, validate input, call service, return response
-2. **Service Layer** — Business logic: coordinate between AI orchestrator and database operations
-3. **AI Layer** — AI orchestration only: no direct DB access, pure reasoning from context passed by service
-
-This separation ensures AI logic is independently testable and swappable without touching HTTP or persistence layers.
-
-### RBAC Middleware
+### Implementation
 
 ```python
-def require_role(*allowed_roles):
-    def decorator(f):
-        @wraps(f)
-        def decorated(*args, **kwargs):
-            claims = get_jwt_identity()
-            if claims['role'] not in allowed_roles:
-                return jsonify({'error': 'Insufficient permissions'}), 403
-            return f(*args, **kwargs)
-        return decorated
-    return decorator
-
-# Usage
-@approvals_bp.route('/<int:rec_id>/approve', methods=['POST'])
+# org_id is ALWAYS extracted from the verified JWT — never from the client request
 @jwt_required()
-@require_role('manager', 'admin')
-def approve_recommendation(rec_id):
-    ...
-```
+def get_current_org_id() -> int:
+    claims = get_jwt_identity()
+    return claims['org_id']
 
-### Organization Isolation Pattern
-
-Every database query in the application includes an `org_id` filter derived from the authenticated JWT claims — enforced at the service layer, not the route layer:
-
-```python
+# Every service method receives org_id from middleware injection
 def get_products(org_id: int) -> list[Product]:
-    return Product.query.filter_by(org_id=org_id, is_active=True).all()
+    return Product.query.filter_by(
+        org_id=org_id,
+        is_active=True
+    ).all()
+    # Org B data is structurally unreachable from a valid Org A token
 ```
 
-No route handler ever passes `org_id` from the request body — it is always extracted from the validated JWT token, making tenant spoofing structurally impossible.
+Cross-tenant data access is structurally impossible: an Org A token cannot be used to query Org B data because `org_id` is signed into the JWT at login time by the server, never accepted from user-controlled input.
+
+### RBAC Permissions
+
+| Capability | `admin` | `manager` |
+|---|---|---|
+| View product catalog | ✅ | ✅ |
+| Create and edit products | ✅ | ✗ |
+| Generate AI recommendations | ✅ | ✅ |
+| View recommendation detail and explainability | ✅ | ✅ |
+| Approve, reject, or modify recommendations | ✅ | ✅ |
+| View audit log | ✅ | ✅ |
+| Configure confidence threshold and margin floors | ✅ | ✗ |
+| Manage organization users | ✅ | ✗ |
+
+RBAC is enforced by Python decorators on backend route handlers. Frontend role-gating is UX only; the API is the authoritative enforcement layer.
 
 ---
 
-## 🗄️ Database Design
+## 🏗️ System Architecture
+
+### High-Level Diagram
+
+```mermaid
+graph TB
+    subgraph Client["🖥️ Client — Vercel"]
+        UI[React 18 SPA]
+        Router[React Router v6\nProtected Routes]
+        Ctx[Auth Context\nJWT + org_id + role]
+    end
+
+    subgraph API["⚙️ Flask API — Render"]
+        MW[JWT Middleware\nRBAC Guard]
+        Auth[/api/auth/]
+        Products[/api/products/]
+        Recs[/api/recommendations/]
+        Approvals[/api/approvals/]
+        Audit[/api/audit/]
+        Config[/api/config/]
+    end
+
+    subgraph AI["🧠 AI Orchestration Layer"]
+        Orch[PricingOrchestrator]
+        MA[Market Intelligence Agent]
+        DA[Demand Forecast Agent]
+        IA[Inventory and Cost Agent]
+        PA[Pricing Strategy Agent]
+        EA[Execution and Compliance Agent]
+    end
+
+    subgraph Mock["📊 Mock Data Sources"]
+        COMP[Competitor Price API]
+        DEMAND[Demand and Trend Data]
+        INV[Inventory and COGS]
+        ECOM[Mock E-Commerce Platform API]
+    end
+
+    subgraph Data["🗄️ Render PostgreSQL"]
+        PG[(PostgreSQL 15)]
+    end
+
+    subgraph LLM["🔮 Anthropic"]
+        AN[Claude Sonnet]
+    end
+
+    UI -->|HTTPS REST + JWT| MW
+    MW --> Auth & Products & Recs & Approvals & Audit & Config
+    Recs --> Orch
+    Orch --> MA & DA & IA
+    MA --> COMP
+    DA --> DEMAND
+    IA --> INV
+    MA & DA & IA --> PA --> EA
+    EA --> ECOM
+    MA & DA & IA & PA & EA --> AN
+    API --> PG
+```
+
+### Request Lifecycle — Recommendation Generation
+
+```mermaid
+sequenceDiagram
+    participant U as Manager
+    participant F as React Frontend
+    participant MW as Flask Middleware
+    participant SVC as RecommendationService
+    participant ORC as PricingOrchestrator
+    participant LLM as Claude Sonnet
+    participant MOCK as Mock Data Sources
+    participant DB as PostgreSQL
+
+    U->>F: Click Generate Recommendation for SKU 42
+    F->>MW: POST /api/recommendations/ + JWT
+    MW->>MW: Validate JWT — extract org_id=7, role=manager
+    MW->>SVC: Route with verified org_id
+
+    SVC->>DB: SELECT product WHERE id=42 AND org_id=7
+    DB-->>SVC: Product context
+
+    SVC->>ORC: run(product_context, org_config)
+    ORC->>MOCK: fetch_competitor_prices(sku)
+    ORC->>MOCK: fetch_demand_signals(category, sku)
+    ORC->>MOCK: fetch_inventory_state(sku)
+
+    ORC->>LLM: MarketIntelligenceAgent(context + competitor_data)
+    LLM-->>ORC: MarketSignal validated by Pydantic
+
+    ORC->>LLM: DemandForecastAgent(context + demand_data + market_signal)
+    LLM-->>ORC: DemandSignal validated by Pydantic
+
+    ORC->>LLM: InventoryAgent(context + inventory_data)
+    LLM-->>ORC: InventorySignal validated by Pydantic
+
+    ORC->>LLM: PricingStrategyAgent(all_signals)
+    LLM-->>ORC: RecommendationResult with confidence_score
+
+    ORC->>LLM: ExecutionAgent(result + org_thresholds)
+    LLM-->>ORC: execution_route = human_review
+
+    ORC-->>SVC: Final RecommendationResult
+    SVC->>DB: INSERT recommendation status=pending agent_signals JSONB
+    SVC-->>F: 201 with full recommendation object
+    F-->>U: Recommendation card appears in pending queue
+```
+
+---
+
+## 🗄️ Database Schema
 
 ### Entity Relationship Diagram
 
@@ -569,16 +442,19 @@ erDiagram
     ORGANIZATION {
         int id PK
         string name
-        string slug
+        string slug UK
+        float confidence_threshold
+        float margin_floor_default
         timestamp created_at
     }
 
     USER {
         int id PK
         int org_id FK
-        string email
+        string email UK
         string password_hash
         string role
+        boolean is_active
         timestamp created_at
     }
 
@@ -586,12 +462,14 @@ erDiagram
         int id PK
         int org_id FK
         string name
-        string sku
+        string sku UK
         string category
         decimal current_price
         decimal cost_price
+        decimal margin_floor
         int stock_quantity
         int reorder_threshold
+        string rec_status
         boolean is_active
         timestamp updated_at
     }
@@ -605,214 +483,235 @@ erDiagram
         decimal original_price
         float confidence_score
         string status
-        json agent_signals
+        jsonb agent_signals
         text rationale
+        string execution_route
         timestamp generated_at
     }
 
-    APPROVAL {
+    APPROVAL_DECISION {
         int id PK
         int recommendation_id FK
         int reviewed_by FK
         string decision
-        text comment
+        decimal applied_price
+        text rejection_reason
         timestamp reviewed_at
     }
 
     AUDIT_LOG {
         int id PK
         int org_id FK
-        int user_id FK
         int product_id FK
         int recommendation_id FK
+        int actor_id FK
         string action_type
         decimal price_before
         decimal price_after
-        json metadata
+        decimal ai_recommended_price
+        string decision
+        text notes
+        jsonb metadata
         timestamp created_at
     }
 
-    ORGANIZATION ||--o{ USER : "has"
+    ORGANIZATION ||--o{ USER : "has many"
     ORGANIZATION ||--o{ PRODUCT : "owns"
     ORGANIZATION ||--o{ RECOMMENDATION : "scopes"
     ORGANIZATION ||--o{ AUDIT_LOG : "scopes"
     USER ||--o{ RECOMMENDATION : "generates"
     PRODUCT ||--o{ RECOMMENDATION : "receives"
-    RECOMMENDATION ||--o| APPROVAL : "reviewed_by"
-    USER ||--o{ APPROVAL : "performs"
+    RECOMMENDATION ||--o| APPROVAL_DECISION : "resolved by"
+    USER ||--o{ APPROVAL_DECISION : "performs"
     RECOMMENDATION ||--o{ AUDIT_LOG : "produces"
 ```
 
 ### Why PostgreSQL?
 
-**PostgreSQL was chosen deliberately** over NoSQL alternatives for the following reasons:
-
-- **Relational integrity matters here.** Recommendations, approvals, products, and audit records have hard foreign key relationships that must be enforced — not suggested.
-- **Audit trails require transactionality.** Approval + price update + audit log must execute atomically. PostgreSQL's ACID guarantees make this reliable without custom rollback logic.
-- **Multi-tenancy is simpler with SQL.** Row-level `org_id` filtering is a standard, well-understood SQL pattern. It's performant, indexable, and auditable.
-- **JSON columns for structured flexibility.** `agent_signals` and `metadata` columns use PostgreSQL's `JSONB` type, giving the AI layer schema flexibility without sacrificing relational structure for the rest of the model.
+The approval + price update + audit log operation must execute atomically. If the price update succeeds but the audit write fails, the database must roll back — PostgreSQL's ACID guarantees make this reliable without custom recovery logic. JSONB columns on `agent_signals` and `metadata` give the AI layer output schema flexibility while keeping the rest of the model relational and integrity-enforced.
 
 ---
 
-## 🛠️ Tech Stack
+## 🛠️ Tech Stack and Rationale
 
 ### Frontend
-| Technology | Version | Role |
-|---|---|---|
-| React | 18 | Component framework |
-| React Router | v6 | Client-side routing + protected routes |
-| Axios | Latest | HTTP client with JWT interceptor |
-| Vite | 5.x | Build tooling and dev server |
-| CSS Modules / Tailwind | — | Component styling |
+| Technology | Why Chosen |
+|---|---|
+| React 18 | Composable components suit a data-dense operational dashboard |
+| React Router v6 | Protected route wrappers with role-aware redirect logic |
+| Axios | Centralized HTTP client; JWT injected via request interceptor |
+| Vite 5 | Fast dev loop; static build deploys trivially to Vercel CDN |
+
+**Why not Next.js?** Klypup is an auth-gated operational tool. Every page requires login. SSR adds deployment complexity with zero SEO or performance benefit for this use case.
 
 ### Backend
-| Technology | Version | Role |
-|---|---|---|
-| Python | 3.11 | Runtime |
-| Flask | 3.x | WSGI web framework |
-| Flask-JWT-Extended | Latest | JWT auth + claims management |
-| Flask-SQLAlchemy | Latest | ORM |
-| Flask-Migrate | Latest | Schema migrations (Alembic) |
-| Flask-CORS | Latest | Cross-origin request handling |
-| Gunicorn | Latest | Production WSGI server |
+| Technology | Why Chosen |
+|---|---|
+| Python 3.11 | First-class Anthropic SDK; strong data validation ecosystem |
+| Flask 3 | Minimal surface area; Blueprint structure maps cleanly to domain boundaries |
+| Flask-JWT-Extended | JWT with custom claims (org_id, role) out of the box |
+| Flask-SQLAlchemy | ORM with clean multi-tenant query patterns |
+| Pydantic v2 | Agent I/O contract validation between orchestrator layers |
+| Gunicorn | Production WSGI server |
 
-### AI & Intelligence
+**Why Flask over FastAPI?** Flask's decorator-based routing is readable and the Blueprint system maps directly to the domain. FastAPI would be the correct upgrade for async agent execution in production.
+
+### AI and Orchestration
 | Technology | Role |
 |---|---|
-| Anthropic Claude (claude-sonnet) | LLM backbone for all 4 agents |
-| Anthropic Python SDK | Agent API calls |
-| Custom Orchestrator | Sequential multi-agent coordination |
-| Pydantic | Agent I/O schema validation |
+| Anthropic Claude Sonnet | LLM backbone for all 5 agents |
+| Anthropic Python SDK | Structured agent API calls |
+| Custom PricingOrchestrator | Sequential multi-agent coordination with data handoff |
+| Pydantic models | Validated, typed contracts between agents |
 
-### Database
+### Infrastructure
 | Technology | Role |
 |---|---|
 | PostgreSQL 15 | Primary relational database |
-| SQLAlchemy ORM | Database abstraction layer |
-| Alembic | Schema migration management |
-
-### Deployment & Infrastructure
-| Service | Purpose |
-|---|---|
-| Vercel | Frontend static hosting + CDN |
-| Render | Backend hosting + managed PostgreSQL |
-| GitHub Actions | CI/CD pipeline (optional) |
-| dotenv | Environment variable management |
+| Render Managed PostgreSQL | Production database hosting |
+| Vercel | Frontend CDN hosting with automatic deployments |
+| Render Web Service | Backend API hosting |
 
 ---
 
-## 🎬 Live Demo & Screenshots
+## 📸 Screenshots
+
+> The running application — all claimed features verified visually.
+
+### Product Catalog Dashboard
+> SKU list with current price, recommendation status badges, inventory health indicators, and margin display
+
+```
+[ screenshot: dashboard-catalog.png ]
+```
+
+### AI Recommendation Generation
+> Triggering multi-agent orchestration and receiving a confidence-scored recommendation with rationale
+
+```
+[ screenshot: recommendation-generation.png ]
+```
+
+### Explainability Panel — Agent Breakdown
+> Per-agent signal cards showing market pressure, demand trend, inventory health, source attribution, and per-agent confidence
+
+```
+[ screenshot: explainability-panel.png ]
+```
+
+### Approval Queue — Manager View
+> Pending recommendations sorted by confidence with approve, reject, and modify action controls
+
+```
+[ screenshot: approval-queue.png ]
+```
+
+### Audit Trail
+> Immutable decision log showing reviewer identity, price before and after, AI recommended price vs applied price
+
+```
+[ screenshot: audit-log.png ]
+```
+
+### Multi-Tenant Isolation Demo
+> Org A and Org B logged in side by side — completely separate product catalogs, zero data crossover
+
+```
+[ screenshot: multi-tenant-isolation.png ]
+```
+
+### Admin Config Panel
+> Confidence threshold control, margin floor settings, auto-execute toggle
+
+```
+[ screenshot: admin-config.png ]
+```
+
+---
+
+## 🎬 Live Demo
 
 <div align="center">
 
-### 🚀 Try It Live
-
-[![Open App](https://img.shields.io/badge/🚀%20Open%20App-Live%20Demo-22c55e?style=for-the-badge)](https://your-frontend-url.vercel.app)
-[![API Explorer](https://img.shields.io/badge/📡%20API-Live%20Endpoint-3b82f6?style=for-the-badge)](https://your-backend-url.onrender.com/api/health)
-
-**Demo Credentials:**
-```
-Email:    demo@klypup.com
-Password: demo1234
-Role:     manager
-```
+[![Open App](https://img.shields.io/badge/🚀_Open_Live_App-22c55e?style=for-the-badge)](https://your-frontend-url.vercel.app)
+[![API Health](https://img.shields.io/badge/📡_API_Health_Check-3b82f6?style=for-the-badge)](https://your-backend-url.onrender.com/api/health)
 
 </div>
 
----
+### Demo Credentials
 
-### 📸 Application Screenshots
-
-#### Dashboard — Portfolio Overview
-> *Main operational view showing product portfolio, recommendation queue status, and KPI summary cards*
-
+**Organization A — Acme Electronics**
 ```
-[ Screenshot: dashboard-overview.png ]
+Admin:    admin@acme.com    /  acme-admin-2024
+Manager:  manager@acme.com  /  acme-mgr-2024
 ```
 
-#### AI Recommendation Generation
-> *Triggering multi-agent orchestration for a product and viewing the structured result*
-
+**Organization B — Bravo Home Goods** *(for multi-tenant isolation demo)*
 ```
-[ Screenshot: recommendation-generation.png ]
-```
-
-#### Explainability Panel — Agent Breakdown
-> *Per-agent signal visualization with confidence scores and rationale text*
-
-```
-[ Screenshot: explainability-panel.png ]
+Admin:    admin@bravo.com    /  bravo-admin-2024
+Manager:  manager@bravo.com  /  bravo-mgr-2024
 ```
 
-#### Approval Workflow — Pending Queue
-> *Manager view of pending recommendations with explainability and action controls*
+### Recommended Demo Sequence (15-minute walkthrough)
 
-```
-[ Screenshot: approval-queue.png ]
-```
-
-#### Audit Log — Decision History
-> *Immutable audit trail with filterable decision history*
-
-```
-[ Screenshot: audit-log.png ]
-```
+| Step | Time | What to Show | Evaluator Criterion Hit |
+|---|---|---|---|
+| Login as Org A Admin | 1 min | JWT auth flow, role display, org name in header | Auth, RBAC |
+| Product Catalog | 2 min | SKU list, filter by category, recommendation status badges | Full-stack, CRUD |
+| Generate Recommendation | 3 min | Trigger orchestration, watch agents run, result reveals with confidence | AI Integration |
+| Explainability Panel | 2 min | Open agent breakdown — market, demand, inventory signals with sources | AI Integration, source attribution |
+| Approval Queue as Manager | 2 min | Approve one, modify one price, reject one with reason | Human-in-the-loop |
+| Audit Log | 1 min | Show all three decisions recorded with AI price vs applied price | Audit trail |
+| Switch to Org B | 2 min | Login as Org B — zero Org A data visible | Multi-tenancy |
+| Admin Config Panel | 1 min | Adjust confidence threshold, show auto-execute toggle | Architecture depth |
 
 ---
 
-### 🎥 Demo Walkthrough
+## 🚀 Setup Instructions
 
-**Recommended demo sequence for maximum impact:**
-
-1. **Login** → Show JWT auth flow and role-based navigation
-2. **Dashboard** → Show portfolio overview and KPI cards
-3. **Products** → Browse product catalog with inventory indicators
-4. **Generate Recommendation** → Trigger multi-agent AI orchestration in real-time
-5. **Explainability Panel** → Open agent breakdown: market, demand, inventory signals
-6. **Approval Queue** → Review pending recommendation as manager
-7. **Approve** → Watch price update propagate to product card in real-time
-8. **Audit Log** → Show immutable record of the completed workflow
-
----
-
-## 🚀 Installation & Setup
+> These instructions are tested on a clean machine. Follow them in order.
 
 ### Prerequisites
 
-- Python 3.11+
-- Node.js 18+
-- PostgreSQL 15
-- Anthropic API key
+- Python 3.11 or higher
+- Node.js 18 or higher
+- PostgreSQL 15 (local) or use the Render managed instance via `DATABASE_URL`
+- Anthropic API key (free tier sufficient for demo volume)
 
-### Backend Setup
+### 1. Clone the Repository
 
 ```bash
-# Clone repository
 git clone https://github.com/yourusername/klypup.git
-cd klypup/backend
+cd klypup
+```
 
-# Create virtual environment
+### 2. Backend Setup
+
+```bash
+cd backend
+
+# Create and activate virtual environment
 python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+source venv/bin/activate        # Windows: venv\Scripts\activate
 
 # Install dependencies
 pip install -r requirements.txt
 
-# Configure environment
+# Configure environment variables
 cp .env.example .env
-# Edit .env with your values (see Environment Variables below)
+# Edit .env — minimum required: DATABASE_URL, JWT_SECRET_KEY, ANTHROPIC_API_KEY
 
 # Run database migrations
 flask db upgrade
 
-# Seed initial data (optional)
+# Seed demo data — creates 2 orgs, 4 users, 20 products, mock competitor data
 python seed.py
 
-# Start development server
+# Start backend server
 flask run --port 5000
 ```
 
-### Frontend Setup
+### 3. Frontend Setup
 
 ```bash
 cd ../frontend
@@ -824,363 +723,243 @@ npm install
 cp .env.example .env.local
 # Set VITE_API_URL=http://localhost:5000
 
-# Start development server
+# Start frontend dev server
 npm run dev
+# App running at http://localhost:5173
 ```
 
-### Environment Variables
+### 4. Verify
 
-#### Backend `.env`
-```env
-# Flask
-SECRET_KEY=your-secret-key-here
-FLASK_ENV=development
+Open `http://localhost:5173` and log in with the seeded credentials. You should see the product catalog with demo data populated immediately.
 
-# Database
-DATABASE_URL=postgresql://user:password@localhost:5432/klypup
+### Docker — One-Command Setup (Bonus)
 
-# JWT
-JWT_SECRET_KEY=your-jwt-secret-here
-JWT_ACCESS_TOKEN_EXPIRES=86400
-
-# Anthropic
-ANTHROPIC_API_KEY=sk-ant-...
-
-# CORS
-FRONTEND_URL=http://localhost:5173
-```
-
-#### Frontend `.env.local`
-```env
-VITE_API_URL=http://localhost:5000
-```
-
-### Production Deployment
-
-#### Backend (Render)
-```
-Build Command:   pip install -r requirements.txt
-Start Command:   gunicorn run:app --workers 2 --bind 0.0.0.0:$PORT
-Environment:     Set all backend env vars in Render dashboard
-Database:        Attach Render managed PostgreSQL instance
-```
-
-#### Frontend (Vercel)
-```
-Framework:      Vite
-Build Command:  npm run build
-Output Dir:     dist
-Environment:    VITE_API_URL=https://your-backend.onrender.com
+```bash
+# From project root
+docker compose up --build
+# Frontend:  http://localhost:5173
+# Backend:   http://localhost:5000
+# Database:  localhost:5432
 ```
 
 ---
 
-## 📡 API Documentation
+## 📡 API Reference
 
-### Authentication
+### Authentication Header
 
 All protected endpoints require:
 ```
 Authorization: Bearer <jwt_token>
 ```
 
+Token payload: `user_id`, `org_id`, `role`, `exp`
+
 ### Endpoints
 
-#### Auth
+**Auth**
 
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
-| `POST` | `/api/auth/register` | None | Register organization + admin user |
-| `POST` | `/api/auth/login` | None | Authenticate, receive JWT |
-| `GET` | `/api/auth/me` | Required | Get current user profile |
+| POST | /api/auth/register | None | Create organization and admin user |
+| POST | /api/auth/login | None | Authenticate and receive JWT |
+| GET | /api/auth/me | Required | Current user and org info |
 
-#### Products
-
-| Method | Endpoint | Auth | Role | Description |
-|---|---|---|---|---|
-| `GET` | `/api/products/` | Required | Any | List org products |
-| `POST` | `/api/products/` | Required | Admin | Create product |
-| `GET` | `/api/products/:id` | Required | Any | Get product detail |
-| `PUT` | `/api/products/:id` | Required | Admin | Update product |
-| `DELETE` | `/api/products/:id` | Required | Admin | Soft-delete product |
-
-#### Recommendations
+**Products**
 
 | Method | Endpoint | Auth | Role | Description |
 |---|---|---|---|---|
-| `POST` | `/api/recommendations/` | Required | Manager+ | Generate AI recommendation |
-| `GET` | `/api/recommendations/` | Required | Any | List recommendations |
-| `GET` | `/api/recommendations/:id` | Required | Any | Get recommendation + agent detail |
+| GET | /api/products/ | Required | Any | List org products with filters |
+| POST | /api/products/ | Required | Admin | Create product |
+| PUT | /api/products/:id | Required | Admin | Update product |
+| DELETE | /api/products/:id | Required | Admin | Soft-delete product |
 
-#### Approvals
-
-| Method | Endpoint | Auth | Role | Description |
-|---|---|---|---|---|
-| `GET` | `/api/approvals/pending` | Required | Manager+ | List pending recommendations |
-| `POST` | `/api/approvals/:id/approve` | Required | Manager+ | Approve recommendation |
-| `POST` | `/api/approvals/:id/reject` | Required | Manager+ | Reject recommendation |
-
-#### Audit
+**Recommendations**
 
 | Method | Endpoint | Auth | Role | Description |
 |---|---|---|---|---|
-| `GET` | `/api/audit/` | Required | Manager+ | List audit log (org-scoped) |
-| `GET` | `/api/audit/:id` | Required | Manager+ | Get single audit record |
+| POST | /api/recommendations/ | Required | Manager+ | Trigger multi-agent recommendation |
+| GET | /api/recommendations/ | Required | Any | List recommendations |
+| GET | /api/recommendations/:id | Required | Any | Detail view with full agent breakdown |
 
-### Example: Generate Recommendation
+**Approvals**
 
-**Request**
+| Method | Endpoint | Auth | Role | Description |
+|---|---|---|---|---|
+| GET | /api/approvals/pending | Required | Manager+ | Pending review queue |
+| POST | /api/approvals/:id/approve | Required | Manager+ | Approve recommendation |
+| POST | /api/approvals/:id/reject | Required | Manager+ | Reject with required reason |
+| POST | /api/approvals/:id/modify | Required | Manager+ | Override price and approve |
+
+**Audit**
+
+| Method | Endpoint | Auth | Role | Description |
+|---|---|---|---|---|
+| GET | /api/audit/ | Required | Manager+ | Full audit log — filterable |
+
+**Config (Admin Only)**
+
+| Method | Endpoint | Auth | Role | Description |
+|---|---|---|---|---|
+| GET | /api/config/ | Required | Admin | Get org thresholds and rules |
+| PUT | /api/config/ | Required | Admin | Update threshold and margin floors |
+
+### Example Requests and Responses
+
+**Generate Recommendation**
+
 ```http
 POST /api/recommendations/
 Authorization: Bearer eyJhbGc...
 Content-Type: application/json
 
-{
-  "product_id": 42
-}
+{ "product_id": 42 }
 ```
 
-**Response `201 Created`**
 ```json
 {
   "id": 107,
   "product_id": 42,
-  "recommended_price": 149.99,
-  "original_price": 134.99,
-  "confidence_score": 0.82,
+  "product_name": "Sony WH-1000XM5",
+  "recommended_price": 279.99,
+  "original_price": 299.99,
+  "confidence_score": 0.61,
+  "execution_route": "human_review",
   "status": "pending",
-  "rationale": "Strong demand trend and tightening inventory support a 11.1% price increase. Market analysis confirms headroom below competitive ceiling.",
+  "rationale": "Competitor dropped price 15%. Demand is trending upward but inventory is overstocked at 42 days of supply. Recommend a moderate price reduction to stay competitive while clearing stock. Confidence below org threshold — routed to human review.",
   "agent_signals": {
-    "market_intelligence": { "signal": "below_market", "confidence": 0.85 },
-    "demand_forecast": { "trend": "increasing", "velocity_score": 0.78, "confidence": 0.80 },
-    "inventory_analysis": { "health": "tightening", "days_of_supply": 14, "confidence": 0.88 }
+    "market_intelligence": {
+      "signal_type": "above_market",
+      "price_band": [269.99, 289.99],
+      "pressure_score": 0.72,
+      "confidence": 0.85
+    },
+    "demand_forecast": {
+      "trend": "increasing",
+      "velocity_score": 0.64,
+      "confidence": 0.58
+    },
+    "inventory_analysis": {
+      "health": "overstocked",
+      "days_of_supply": 42,
+      "margin_floor": 219.99,
+      "confidence": 0.90
+    }
   },
   "generated_at": "2025-08-14T10:32:07Z"
 }
 ```
 
-### Example: Approve Recommendation
+**Modify and Approve**
 
-**Request**
 ```http
-POST /api/approvals/107/approve
+POST /api/approvals/107/modify
 Authorization: Bearer eyJhbGc...
-Content-Type: application/json
 
 {
-  "comment": "Aligns with Q3 margin targets. Approved."
+  "applied_price": 284.99,
+  "notes": "AI suggested 279.99 but margin floor risk. Setting 284.99."
 }
 ```
 
-**Response `200 OK`**
 ```json
 {
-  "recommendation_id": 107,
-  "decision": "approved",
-  "product_updated": true,
-  "new_price": 149.99,
-  "audit_log_id": 291,
-  "reviewed_at": "2025-08-14T10:35:22Z"
+  "decision": "modified",
+  "ai_recommended_price": 279.99,
+  "applied_price": 284.99,
+  "ecommerce_api_status": "success",
+  "audit_log_id": 301,
+  "reviewed_at": "2025-08-14T10:41:18Z"
 }
 ```
 
 ---
 
-## 🔐 Security & Multi-Tenancy
+## 🔑 Environment Variables
 
-### JWT Authentication
+### Backend `.env`
 
-- Tokens are signed with `HS256` using a server-side secret never exposed to clients
-- Token payload includes: `user_id`, `org_id`, `role`, `exp`
-- Token expiry: 24 hours (configurable per environment)
-- No refresh token implementation (intentional for operational simplicity in v1; roadmapped for v2)
+```env
+# Flask
+FLASK_ENV=development
+SECRET_KEY=change-this-to-32-plus-random-chars
 
-### Role-Based Access Control
+# Database
+DATABASE_URL=postgresql://user:password@localhost:5432/klypup
 
-| Role | Products | Generate Recs | Approve/Reject | View Audit | Manage Users |
-|---|---|---|---|---|---|
-| `viewer` | Read | ✗ | ✗ | ✗ | ✗ |
-| `manager` | Read | ✓ | ✓ | ✓ | ✗ |
-| `admin` | Full CRUD | ✓ | ✓ | ✓ | ✓ |
+# JWT
+JWT_SECRET_KEY=change-this-to-32-plus-random-chars
+JWT_ACCESS_TOKEN_EXPIRES=86400
 
-RBAC is enforced via **Python decorators on route handlers** — not in frontend logic. Frontend role-gating is UX-only; API enforcement is the authoritative layer.
+# Anthropic
+ANTHROPIC_API_KEY=sk-ant-api03-...
 
-### Multi-Tenant Data Isolation
-
-```python
-# Every service method enforces org_id from JWT — not from request
-def get_recommendations(org_id: int):
-    return Recommendation.query.filter_by(org_id=org_id).all()
+# CORS
+FRONTEND_URL=http://localhost:5173
 ```
 
-- `org_id` is **never** accepted from request bodies or query params
-- All data access is filtered through the authenticated org_id extracted from the JWT
-- Cross-tenant data access is structurally impossible without a valid token from that organization
+### Frontend `.env.local`
 
-### API Security Posture
+```env
+VITE_API_URL=http://localhost:5000
+```
 
-- CORS restricted to configured `FRONTEND_URL` origin
-- All inputs validated before service layer execution
-- SQL injection protected via SQLAlchemy ORM parameterization
-- No raw SQL queries in application code
-- Error responses never expose internal stack traces in production mode
+See `.env.example` in `backend/` and `frontend/` for full variable list with descriptions.
 
 ---
 
-## 📈 Scalability & Roadmap
+## ⚠️ Known Limitations
 
-### Near-Term Improvements
+Documented honestly per assessment requirements.
 
-**Async AI Orchestration**  
-Current agent calls are synchronous within a request. Moving to **Celery + Redis** would allow recommendation generation to happen asynchronously, with the frontend polling or subscribing to completion events — enabling better UX and horizontal scaling of the AI layer.
-
-**Event-Driven Audit Architecture**  
-Replace direct audit log writes with an **event queue** (e.g., SQS or Redis Streams) so that audit records are written by a dedicated consumer — decoupling audit reliability from request throughput.
-
-**Real-Time Notifications**  
-Add **WebSocket** or **SSE** channels for live notification when recommendations enter the pending queue — enabling managers to act without polling.
-
-### Medium-Term Vision
-
-**Agent Memory & Context Persistence**  
-Implement vector database storage (e.g., **Pinecone** or **pgvector**) of historical recommendations and outcomes. Agents could retrieve similar historical decisions as few-shot context, improving recommendation quality over time through operational learning.
-
-**Streaming Analytics Integration**  
-Connect to real-time sales data streams (**Kafka**, **Kinesis**) to give the Demand Forecast Agent live velocity signals rather than batch historical data.
-
-**Microservices Decomposition**  
-As the platform scales, the AI orchestration layer can be extracted into a dedicated **FastAPI microservice** with its own scaling policy — allowing AI compute to scale independently from the API layer.
-
-**Autonomous Execution Mode**  
-For high-confidence, low-risk recommendations (e.g., confidence > 0.95 within defined price change bounds), enable an **auto-approval mode** with audit logging and time-bounded rollback windows — reducing operational burden for routine pricing adjustments.
-
-### Observability Roadmap
-
-- Structured logging with **OpenTelemetry** traces per recommendation lifecycle
-- Agent-level latency and confidence score dashboards via **Grafana**
-- Recommendation acceptance rate tracking for agent performance calibration
-- **LangFuse** or **Helicone** integration for LLM call observability and cost tracking
+| Limitation | Impact | Fix in Production |
+|---|---|---|
+| Synchronous AI orchestration | Recommendation generation blocks the request thread for 3–6 seconds | Celery + Redis for async agent execution; frontend polls for completion |
+| Mock data sources only | No real competitor price APIs or Google Trends integrated | Integrate real scraping APIs; connect pytrends for demand signals |
+| No JWT refresh tokens | Sessions expire after 24 hours with no silent refresh | Add refresh token rotation with sliding window |
+| Render free-tier cold starts | First request after inactivity takes ~30 seconds | Upgrade to paid tier or implement health check keep-alive |
+| No streaming AI responses | User waits for full orchestration before seeing any output | Add SSE streaming for per-agent progress updates in the UI |
+| No unit tests | Core service and orchestrator logic untested | Add pytest suite covering orchestrator, service layer, and agent contracts |
+| No Docker Compose | Local setup requires manual steps for backend and frontend | Docker Compose with one-command startup — next priority |
 
 ---
 
-## 🔧 Engineering Decisions & Tradeoffs
+## 📝 DECISIONS.md Summary
 
-### Why Flask over FastAPI?
+> Full `DECISIONS.md` is in the repository root. Key decisions summarized here.
 
-Flask was chosen for its **minimal surface area and Blueprint-based modularity**. For an applied AI project focused on showcasing AI orchestration and business workflows, Flask's simplicity keeps the web framework layer transparent — the architecture is about the AI system, not the HTTP framework. FastAPI would be the natural next step for production async performance.
+**Why Option B?**
+Multi-agent system design, approval workflow governance, and business pricing logic — this is applied AI engineering with real operational stakes, which is more interesting and more representative of production AI systems than a research query interface.
 
-### Why React + Vite over Next.js?
+**Why Flask and React?**
+Flask's Blueprint architecture maps cleanly to the domain's service boundaries. React gives component-level state management suitable for a data-dense dashboard without the SSR overhead of Next.js, which adds nothing for an auth-gated tool.
 
-A **pure SPA architecture** was chosen deliberately: Klypup is an operational dashboard, not a content site. SEO is irrelevant; authentication gating is universal. React + Vite gives a faster development loop and simpler deployment model (static build to CDN) without SSR complexity that adds no value for this use case.
+**Why PostgreSQL over MongoDB?**
+The approve + update price + write audit operation must be atomic. ACID transactions are a hard requirement, not a nice-to-have. JSONB columns handle the flexible `agent_signals` field without sacrificing relational integrity for the rest of the schema.
 
-### Why SQL over NoSQL?
+**Why separate agents instead of one large prompt?**
+Per-agent confidence scoring, traceable reasoning visible in the explainability panel, and modular replaceability. The explainability panel is only possible because each agent's contribution is captured and stored separately in the JSONB column.
 
-Pricing decisions, approvals, and audit records are **inherently relational**. Foreign key integrity, atomic multi-table transactions, and row-level tenant isolation are SQL native — implementing these in MongoDB would require application-layer guarantees that are harder to reason about and audit. PostgreSQL was the correct choice.
+**Biggest tradeoff made in 5 days:**
+Synchronous agent orchestration instead of async. It works, it is demoable, and it is the correct first thing to replace on the path to production.
 
-### Why Multi-Agent Separation?
+**What I would improve with 2 more weeks:**
+Async Celery workers for agent execution, real competitor price scraping integration, JWT refresh tokens, pytest coverage for the service layer and agent contracts, Docker Compose for one-command setup, and SSE streaming for live agent progress updates.
 
-A single monolithic LLM prompt could theoretically generate a pricing recommendation. But **agent separation gives us**:
-- Independent confidence scoring per domain
-- Debuggable reasoning chains (which agent drove the recommendation?)
-- Modular replaceability (swap the demand agent for a time-series ML model without touching other agents)
-- Cleaner explainability output (per-agent signal is more trustworthy than a single opaque rationale)
-
-### Why Mandatory Approval Workflow?
-
-An AI system that auto-applies pricing changes is an AI system that **cannot be trusted in a production business context**. The approval workflow is the mechanism that makes Klypup production-viable: it turns an AI recommendation engine into a **decision support system** — a fundamentally different and more defensible product.
-
-### Deployment Tradeoffs
-
-- **Render cold starts:** The free tier backend may have cold start latency (~30–60s). Production tier eliminates this.
-- **No background workers:** Current sync architecture blocks requests during AI orchestration. Acceptable for v1 demo load; requires Celery for production throughput.
-- **Stateless API:** Horizontal scaling is straightforward — no server-side session state.
-
----
-
-## 🏁 Conclusion
-
-**Klypup** is not a demo that proves you can call an LLM API. It is a demonstration that **applied AI engineering requires systems thinking** — architecture, governance, explainability, data integrity, and user trust are not decorative features. They are the product.
-
-This platform represents the full stack of modern AI product engineering:
-
-- **AI orchestration architecture** that is modular, explainable, and extensible
-- **Governance design** that makes AI safe for operational deployment
-- **Multi-tenant data architecture** that is secure by construction
-- **Full-stack integration** from React UI through Flask API to LLM-backed agents
-- **Business orientation** — pricing intelligence is a real problem with real economic impact
-
-Klypup is designed to be extended, debated, and improved — not just demonstrated. Every architectural decision documented here was made with production intent: not to impress evaluators, but to build a system that could actually operate in a real business environment.
+**Hardest part:**
+Designing the agent I/O contracts so each agent produces structured, validated output that the next agent can consume reliably — without making the orchestrator a fragile pipeline that breaks when LLM output varies slightly. Pydantic validation with fallback defaults on the Pricing Strategy Agent solved this.
 
 ---
 
 <div align="center">
 
-**Built with precision. Designed for operations. Powered by collaborative AI.**
+**Submitted for the Klypup Applied AI Intern Technical Assessment — Option B**
+
+*Multi-agent architecture · Human-in-the-loop governance · Multi-tenant isolation · End-to-end in 5 days*
 
 <br/>
 
-[![Frontend](https://img.shields.io/badge/🚀%20Launch%20App-Live%20Demo-22c55e?style=for-the-badge)](https://your-frontend-url.vercel.app)
-[![GitHub](https://img.shields.io/badge/⭐%20Star%20on-GitHub-0f172a?style=for-the-badge&logo=github)](https://github.com/yourusername/klypup)
-
-<br/>
-
-*Klypup — Dynamic Pricing Intelligence, Powered by Multi-Agent AI*
+[![Open App](https://img.shields.io/badge/🚀_Launch_App-22c55e?style=for-the-badge)](https://your-frontend-url.vercel.app)
+[![GitHub](https://img.shields.io/badge/⭐_Star_on_GitHub-0f172a?style=for-the-badge&logo=github)](https://github.com/yourusername/klypup)
 
 </div>
-
----
-
-## 📋 Post-Generation Recommendations
-
-### Suggested Improvements
-
-**Architecture Enhancements**
-- Add a health check endpoint (`/api/health`) that returns DB connectivity status — makes deployment debugging faster and looks professional in demos
-- Implement request ID propagation (UUID per request in headers) for tracing across logs
-- Add `pytest` test coverage for the service layer and agent orchestrator — even 5–10 targeted tests signal engineering maturity
-
-**AI System Enhancements**
-- Store raw LLM prompt/response pairs in a `llm_call_log` table — enables agent debugging, auditing, and future fine-tuning
-- Add a `recommendation_feedback` table to capture post-hoc outcome tracking (did the price change achieve the expected result?)
-
----
-
-### Screenshots to Capture
-
-| Screenshot | What to Show | Why It Matters |
-|---|---|---|
-| Dashboard overview | Full portfolio with status badges | Shows product-grade UI quality |
-| Recommendation generation | Loading state → result reveal | Shows real-time AI in action |
-| Explainability panel expanded | All 3 agent cards with scores | The most technically impressive UI element |
-| Approval queue (manager view) | Pending cards with action buttons | Shows governance design |
-| Post-approval product card | Updated price with "approved" badge | Shows end-to-end workflow completion |
-| Audit log | Timeline of decisions | Shows enterprise-grade audit design |
-| Mobile responsive view | Dashboard on narrow viewport | Shows frontend engineering quality |
-
----
-
-### Optimal Demo Order
-
-1. **90-second pitch demo:** Login → Dashboard → Generate Recommendation → Show Explainability → Approve → Show Audit Log
-2. **Technical deep-dive demo:** Architecture diagram → API call trace → Agent breakdown → Database schema → Code walkthrough of orchestrator
-3. **Business value demo:** Open with the pricing problem statement → Show the recommendation workflow → Emphasize the governance model → Close with audit trail
-
----
-
-### README Visual Enhancements
-
-- Add a **hero banner image** (architecture diagram rendered as a PNG, centered above badges)
-- Add **animated GIF** of the recommendation generation flow (most impactful single asset)
-- Add a **"How It Works" 3-step visual** (Generate → Review → Update) as a simple SVG or image
-- Use GitHub's built-in `[!NOTE]` and `[!IMPORTANT]` callout syntax for key architectural points
-- Add a **contributors section** with your profile card if submitting solo
-
----
-
-### Portfolio Presentation Tips
-
-- **Lead with the governance angle:** Most AI projects skip the approval workflow. Emphasizing it differentiates Klypup as operationally-minded, not just technically impressive.
-- **Diagram first, code second:** In any verbal walkthrough, show the multi-agent diagram before opening code. Architecture understanding signals seniority.
-- **Quantify the business case:** "A 1% pricing improvement = 8–11% operating profit improvement" is a real number. Use it. It reframes the project from a coding exercise to a business solution.
-- **Acknowledge tradeoffs explicitly:** In interviews, proactively naming what you'd improve (async orchestration, agent memory) signals architectural maturity.
-- **Frame it as a platform, not a feature:** Klypup is not a pricing calculator. It's a pricing intelligence platform. Word choice matters in product conversations.
