@@ -609,8 +609,8 @@ The approval + price update + audit log operation must execute atomically. If th
 > Immutable decision log showing reviewer identity, price before and after, AI recommended price vs applied price
 
 ```
-[ <img width="1902" height="968" alt="Screenshot 2026-05-17 235722" src="https://github.com/user-attachments/assets/9204e8aa-0b5e-4b17-93c7-e1113079f3c4" />
- ]
+<img width="1902" height="968" alt="Screenshot 2026-05-17 235722" src="https://github.com/user-attachments/assets/9204e8aa-0b5e-4b17-93c7-e1113079f3c4" />
+ 
 ```
 
 ### Multi-Tenant Isolation Demo
