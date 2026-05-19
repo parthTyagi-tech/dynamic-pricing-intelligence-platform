@@ -144,7 +144,7 @@ The AI layer is the core technical differentiator of this system. It is not a si
 
 ### Agent Orchestration Flow
 
-```mermaid
+mermaid
 graph TD
     CTX["📦 Product Context\nSKU + inventory + history + org config"]
 
