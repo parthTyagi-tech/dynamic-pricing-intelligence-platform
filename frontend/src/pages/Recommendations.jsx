@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
+import { AnimatePresence } from "framer-motion";
 
 import {
   Sparkles,
@@ -29,6 +30,9 @@ export default function Recommendations() {
   const [loading, setLoading] = useState(true);
 
   const [generatingId, setGeneratingId] = useState(null);
+  
+  const [showToast, setShowToast] = useState(false);
+  const recommendationsRef = useRef(null);
 
   const fetchProducts = async () => {
 
@@ -89,6 +93,15 @@ export default function Recommendations() {
       );
 
       fetchRecommendations();
+      
+      // Show custom popup toast
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+      
+      // Smooth slide down to the recommendations section
+      if (recommendationsRef.current) {
+        recommendationsRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
 
     } catch (error) {
 
@@ -413,7 +426,7 @@ export default function Recommendations() {
 
       {/* GENERATED RECOMMENDATIONS */}
 
-      <div className="space-y-6">
+      <div className="space-y-6" ref={recommendationsRef} style={{ scrollMarginTop: "24px" }}>
 
         <div>
 
@@ -564,6 +577,12 @@ export default function Recommendations() {
                     <InfoRow
                       label="Confidence"
                       value={`${rec.confidence_score}%`}
+                    />
+
+                    <InfoRow
+                      label="Projected Profit Lift"
+                      value={`+₹${rec.projected_monthly_profit_lift || 0}/mo`}
+                      green
                     />
 
                     <InfoRow
@@ -765,7 +784,21 @@ export default function Recommendations() {
         )}
 
       </div>
-
+      
+      {/* SUCCESS TOAST POPUP */}
+      <AnimatePresence>
+        {showToast && (
+          <motion.div
+            initial={{ opacity: 0, y: 50, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.9 }}
+            className="fixed bottom-10 right-10 z-50 flex items-center gap-3 bg-[#00A19B] text-white px-6 py-4 rounded-2xl shadow-2xl shadow-[#00A19B]/30 font-semibold"
+          >
+            <Sparkles size={20} />
+            Recommendation generated successfully!
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

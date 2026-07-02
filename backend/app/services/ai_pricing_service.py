@@ -1,111 +1,179 @@
-import json
-import random
-import os
-
-from groq import Groq
-
-
-# =====================================
-# INITIALIZE GROQ CLIENT
-# =====================================
-
-client = Groq(
-    api_key=os.getenv("GROQ_API_KEY")
+"""
+AI Pricing Service Orchestrator
+Chains the 5 specialized agents concurrently in parallel using Python's asyncio.
+"""
+import asyncio
+from app.models.audit_loging import PricingRule
+from app.services.agents import (
+    market_intelligence_agent,
+    demand_forecast_agent,
+    inventory_cost_agent,
+    pricing_strategy_agent,
+    compliance_agent
 )
+from app.services.notification_service import send_slack_alert
+
+
+async def _run_pipeline_async(product):
+    """Executes the Market, Demand, and Inventory agents concurrently."""
+    # 1. Query relationship data inside transaction context
+    competitor_prices = [cp.to_dict() for cp in product.competitor_prices.all()]
+    demand_signals = [ds.to_dict() for ds in product.demand_signals.all()]
+    product_dict = product.to_dict()
+
+    # 2. Run Market, Demand, and Inventory agents in parallel using asyncio.gather
+    market_task = market_intelligence_agent.run(product_dict, competitor_prices)
+    demand_task = demand_forecast_agent.run(product_dict, demand_signals)
+    inventory_task = inventory_cost_agent.run(product_dict)
+
+    market_res, demand_res, inventory_res = await asyncio.gather(
+        market_task,
+        demand_task,
+        inventory_task
+    )
+
+    # Map legacy keys for backward compatibility
+    market_res["competitor_price"] = market_res.get("avg_competitor_price", product.current_price)
+    market_res["market_trend"] = market_res.get("market_position", "stable")
+
+    demand_res["demand_score"] = int(demand_res.get("avg_trend_score", 0.5) * 100)
+    demand_res["trend"] = demand_res.get("trend_direction", "stable")
+
+    inventory_res["stock_status"] = inventory_res.get("inventory_status", "healthy")
+    inventory_res["inventory_level"] = product.inventory_quantity
+
+    # =====================================
+    # PHASE 4: PREDICTIVE SUPPLY CHAIN AI
+    # =====================================
+    velocity = demand_res.get("avg_velocity", 0.0)
+    safe_velocity = velocity if velocity > 0 else 1.0
+    days_to_stockout = product.inventory_quantity / safe_velocity
+    inventory_res["days_to_stockout"] = round(days_to_stockout, 1)
+
+    if days_to_stockout < 14 and product.inventory_quantity > 0 and velocity > 0:
+        inventory_res["supply_chain_warning"] = f"CRITICAL: Product will stock out in {round(days_to_stockout)} days!"
+        send_slack_alert(
+            message=f"SUPPLY CHAIN ALERT: {product.name} will stock out in {round(days_to_stockout)} days! Re-order now.",
+            recommendation={"rationale": "High velocity detected by DemandForecastAgent."},
+            product=product_dict
+        )
+
+    # 3. Retrieve organizational rules
+    rule = PricingRule.query.filter_by(organization_id=product.organization_id).first()
+    rule_dict = rule.to_dict() if rule else {"auto_execute_threshold": 0.90, "minimum_margin": 0.15}
+
+    # 4. Generate pricing strategy
+    strategy_res = await pricing_strategy_agent.run(
+        product_dict,
+        market_res,
+        demand_res,
+        inventory_res,
+        rule_dict
+    )
+
+    # 5. Run compliance checks
+    compliance_res = await compliance_agent.run(
+        product_dict,
+        strategy_res["recommended_price"],
+        rule_dict
+    )
+
+    # Format recommendations
+    final_price = compliance_res["final_recommended_price"]
+    strategy_res["recommended_price"] = final_price
+
+    if not compliance_res["compliant"]:
+        strategy_res["rationale"] += " " + compliance_res["compliance_notes"]
+
+    threshold = rule_dict.get("auto_execute_threshold", 0.90)
+    confidence = strategy_res["confidence_score"]
+    if confidence > 1.0:
+        confidence /= 100.0
+
+    if confidence >= threshold and compliance_res["compliant"]:
+        strategy_res["execution_route"] = "auto_execute"
+    else:
+        strategy_res["execution_route"] = "human_review"
+
+    strategy_res["ai_summary"] = strategy_res.get("ai_summary") or f"Recommended price update generated for {product.name}"
+    strategy_res["compliance"] = compliance_res
+    
+    # Store sub-agent analysis details inside result
+    strategy_res["agent_analysis"] = {
+        "market_agent": market_res,
+        "demand_agent": demand_res,
+        "inventory_agent": inventory_res,
+        "compliance_agent": compliance_res
+    }
+
+    # Trigger Slack alert for high-impact recommendations
+    send_slack_alert(
+        message=f"New AI Price Recommendation for {product.name}",
+        recommendation=strategy_res,
+        product=product_dict
+    )
+
+    return strategy_res
 
 
 # =====================================
-# MARKET INTELLIGENCE AGENT
+# Legacy Wrappers (Synchronous Delegates)
 # =====================================
 
 class MarketIntelligenceAgent:
-
     @staticmethod
     def analyze(product):
+        # Fallback helper: runs async loop synchronously
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            
+        competitor_prices = [cp.to_dict() for cp in product.competitor_prices.all()]
+        product_dict = product.to_dict()
+        
+        result = loop.run_until_complete(market_intelligence_agent.run(product_dict, competitor_prices))
+        result["competitor_price"] = result.get("avg_competitor_price", product.current_price)
+        result["market_trend"] = result.get("market_position", "stable")
+        return result
 
-        current_price = product.current_price
-
-        competitor_price = round(
-            current_price * random.uniform(0.85, 1.05),
-            2
-        )
-
-        market_trend = random.choice([
-            "competitor_price_drop",
-            "stable_market",
-            "high_competition",
-            "seasonal_demand"
-        ])
-
-        return {
-
-            "competitor_price": competitor_price,
-
-            "market_trend": market_trend
-        }
-
-
-# =====================================
-# DEMAND FORECAST AGENT
-# =====================================
 
 class DemandForecastAgent:
-
     @staticmethod
     def analyze(product):
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            
+        demand_signals = [ds.to_dict() for ds in product.demand_signals.all()]
+        product_dict = product.to_dict()
+        
+        result = loop.run_until_complete(demand_forecast_agent.run(product_dict, demand_signals))
+        result["demand_score"] = int(result.get("avg_trend_score", 0.5) * 100)
+        result["trend"] = result.get("trend_direction", "stable")
+        return result
 
-        demand_score = random.randint(55, 95)
-
-        trend = random.choice([
-            "rising",
-            "stable",
-            "declining"
-        ])
-
-        return {
-
-            "demand_score": demand_score,
-
-            "trend": trend
-        }
-
-
-# =====================================
-# INVENTORY AGENT
-# =====================================
 
 class InventoryAgent:
-
     @staticmethod
     def analyze(product):
-
-        inventory_level = product.inventory_quantity
-
-        stock_status = (
-
-            "overstocked"
-
-            if inventory_level > 50
-
-            else "low_stock"
-
-            if inventory_level < 10
-
-            else "healthy"
-        )
-
-        return {
-
-            "inventory_level": inventory_level,
-
-            "stock_status": stock_status,
-
-            "margin_floor": 10
-        }
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            
+        product_dict = product.to_dict()
+        result = loop.run_until_complete(inventory_cost_agent.run(product_dict))
+        result["stock_status"] = result.get("inventory_status", "healthy")
+        return result
 
 
 # =====================================
-# PRICING STRATEGY AGENT
+# PRICING STRATEGY ORCHESTRATOR
 # =====================================
 
 class PricingStrategyAgent:
@@ -113,111 +181,83 @@ class PricingStrategyAgent:
     @staticmethod
     def generate(
         product,
-        market_data,
-        demand_data,
-        inventory_data
+        market_data=None,
+        demand_data=None,
+        inventory_data=None
     ):
+        # If any upstream data is missing, launch parallel async execution
+        if market_data is None or demand_data is None or inventory_data is None:
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                
+            return loop.run_until_complete(_run_pipeline_async(product))
 
-        prompt = f"""
-You are an enterprise AI Pricing Strategy Agent.
+        # Synchronous legacy synthesis (used when precalculated metrics are supplied)
+        product_dict = product.to_dict()
+        
+        rule = PricingRule.query.filter_by(
+            organization_id=product.organization_id
+        ).first()
+        
+        rule_dict = rule.to_dict() if rule else {
+            "auto_execute_threshold": 0.90,
+            "minimum_margin": 0.15
+        }
 
-Analyze the product and generate a pricing recommendation.
-
-PRODUCT:
-- Name: {product.name}
-- Current Price: {product.current_price}
-- Cost Price: {product.cost_price}
-
-MARKET DATA:
-{json.dumps(market_data, indent=2)}
-
-DEMAND DATA:
-{json.dumps(demand_data, indent=2)}
-
-INVENTORY DATA:
-{json.dumps(inventory_data, indent=2)}
-
-IMPORTANT:
-Return ONLY valid JSON.
-
-DO NOT include markdown.
-DO NOT include explanation outside JSON.
-
-Required JSON format:
-
-{{
-  "recommended_price": number,
-  "confidence_score": number_between_0_and_1,
-  "rationale": "detailed reasoning",
-  "ai_summary": "short summary"
-}}
-"""
-
-        completion = client.chat.completions.create(
-
-            model="llama-3.3-70b-versatile",
-
-            messages=[
-                {
-                    "role": "system",
-                    "content":
-                    "You are an enterprise AI pricing strategist."
-                },
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ],
-
-            temperature=0.4
-        )
-
-        content = completion.choices[0].message.content
-
-        # =====================================
-        # CLEAN AI RESPONSE
-        # =====================================
-
-        content = content.strip()
-
-        content = content.replace(
-            "```json",
-            ""
-        )
-
-        content = content.replace(
-            "```",
-            ""
-        )
-
-        # =====================================
-        # PARSE RESPONSE
-        # =====================================
-
+        # Run legacy strategy & compliance logic synchronously
         try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            
+        strategy_res = loop.run_until_complete(pricing_strategy_agent.run(
+            product_dict,
+            market_data,
+            demand_data,
+            inventory_data,
+            rule_dict
+        ))
 
-            parsed = json.loads(content)
+        compliance_res = loop.run_until_complete(compliance_agent.run(
+            product_dict,
+            strategy_res["recommended_price"],
+            rule_dict
+        ))
 
-        except Exception:
+        final_price = compliance_res["final_recommended_price"]
+        strategy_res["recommended_price"] = final_price
 
-            # =====================================
-            # FALLBACK RESPONSE
-            # =====================================
+        if not compliance_res["compliant"]:
+            strategy_res["rationale"] += " " + compliance_res["compliance_notes"]
 
-            parsed = {
+        threshold = rule_dict.get("auto_execute_threshold", 0.90)
+        confidence = strategy_res["confidence_score"]
+        if confidence > 1.0:
+            confidence /= 100.0
 
-                "recommended_price": round(
-                    product.current_price * 1.03,
-                    2
-                ),
+        if confidence >= threshold and compliance_res["compliant"]:
+            strategy_res["execution_route"] = "auto_execute"
+        else:
+            strategy_res["execution_route"] = "human_review"
 
-                "confidence_score": 0.82,
+        strategy_res["ai_summary"] = strategy_res.get("ai_summary") or f"Recommended price update generated for {product.name}"
+        strategy_res["compliance"] = compliance_res
+        strategy_res["agent_analysis"] = {
+            "market_agent": market_data,
+            "demand_agent": demand_data,
+            "inventory_agent": inventory_data,
+            "compliance_agent": compliance_res
+        }
 
-                "rationale":
-                "AI generated fallback recommendation based on market trends, inventory health, and demand analysis.",
+        # Trigger Slack alert for high-impact recommendations
+        send_slack_alert(
+            message=f"New AI Price Recommendation for {product.name}",
+            recommendation=strategy_res,
+            product=product_dict
+        )
 
-                "ai_summary":
-                f"Recommended price update generated for {product.name}"
-            }
-
-        return parsed
+        return strategy_res

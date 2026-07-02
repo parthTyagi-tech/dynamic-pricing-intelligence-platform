@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 import {
   Outlet,
@@ -18,6 +18,11 @@ import {
   LogOut,
   Menu,
   Zap,
+  MessageSquare,
+  Paperclip,
+  Send,
+  Bot,
+  X,
 } from "lucide-react";
 
 import Sidebar from "../components/Sidebar";
@@ -43,6 +48,171 @@ const pageTransition = {
   },
 };
 
+// Simple custom component to parse basic Markdown formatting (bold, headers, bullets, inline code, links, tables)
+function MessageFormatter({ content }) {
+  if (!content) return null;
+
+  const lines = content.split("\n");
+  const parsedElements = [];
+  let currentTable = null;
+
+  const parseInline = (text) => {
+    const formatBoldAndCode = (str) => {
+      const boldParts = str.split(/\*\*(.*?)\*\*/g);
+      return boldParts.map((bPart, idx) => {
+        if (idx % 2 === 1) {
+          return <strong key={`bold-${idx}`} className="text-white font-bold">{bPart}</strong>;
+        }
+        
+        const codeParts = bPart.split(/`(.*?)`/g);
+        return codeParts.map((cPart, cIdx) => {
+          if (cIdx % 2 === 1) {
+            return (
+              <code key={`code-${cIdx}`} className="bg-white/10 text-teal-300 font-mono text-xs px-1.5 py-0.5 rounded border border-white/5">
+                {cPart}
+              </code>
+            );
+          }
+          
+          const linkParts = cPart.split(/\[(.*?)\]\((.*?)\)/g);
+          if (linkParts.length > 1) {
+            return linkParts.map((lPart, lIdx) => {
+              if (lIdx % 3 === 1) {
+                const label = lPart;
+                const url = linkParts[lIdx + 1];
+                return (
+                  <a
+                    key={`link-${lIdx}`}
+                    href={url}
+                    className="text-[#00A19B] hover:text-[#2dd4bf] hover:underline font-semibold transition-all inline-flex items-center gap-1"
+                  >
+                    {label}
+                  </a>
+                );
+              } else if (lIdx % 3 === 2) {
+                return null;
+              }
+              return lPart;
+            });
+          }
+          
+          return cPart;
+        });
+      });
+    };
+
+    return formatBoldAndCode(text);
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+
+    if (line.startsWith("|")) {
+      const cells = line.split("|").map(c => c.trim()).filter((_, idx, arr) => idx > 0 && idx < arr.length - 1);
+      
+      if (line.includes("---")) {
+        continue;
+      }
+
+      if (!currentTable) {
+        currentTable = { headers: cells, rows: [] };
+      } else {
+        currentTable.rows.push(cells);
+      }
+      continue;
+    } else if (currentTable) {
+      const table = currentTable;
+      parsedElements.push(
+        <div key={`table-${i}`} className="my-2 overflow-x-auto rounded-lg border border-white/10 bg-white/5 text-[11px]">
+          <table className="min-w-full divide-y divide-white/10">
+            <thead className="bg-white/10">
+              <tr>
+                {table.headers.map((h, hIdx) => (
+                  <th key={hIdx} className="px-2 py-1.5 text-left font-semibold text-white">
+                    {parseInline(h)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {table.rows.map((row, rIdx) => (
+                <tr key={rIdx} className="hover:bg-white/5">
+                  {row.map((cell, cIdx) => (
+                    <td key={cIdx} className="px-2 py-1 text-slate-300">
+                      {parseInline(cell)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+      currentTable = null;
+    }
+
+    if (line.startsWith("###")) {
+      parsedElements.push(
+        <h3 key={i} className="text-sm font-bold text-white mt-2 mb-1">
+          {parseInline(line.substring(3).trim())}
+        </h3>
+      );
+    } else if (line.startsWith("####")) {
+      parsedElements.push(
+        <h4 key={i} className="text-xs font-semibold text-white mt-1.5 mb-0.5">
+          {parseInline(line.substring(4).trim())}
+        </h4>
+      );
+    } else if (line.startsWith("-") || line.startsWith("*")) {
+      parsedElements.push(
+        <li key={i} className="ml-3 list-disc text-xs text-slate-300 py-0.5">
+          {parseInline(line.substring(1).trim())}
+        </li>
+      );
+    } else if (line === "") {
+      parsedElements.push(<div key={i} className="h-1" />);
+    } else {
+      parsedElements.push(
+        <p key={i} className="text-xs text-slate-300 leading-relaxed my-0.5">
+          {parseInline(line)}
+        </p>
+      );
+    }
+  }
+
+  if (currentTable) {
+    const table = currentTable;
+    parsedElements.push(
+      <div key="table-end" className="my-2 overflow-x-auto rounded-lg border border-white/10 bg-white/5 text-[11px]">
+        <table className="min-w-full divide-y divide-white/10">
+          <thead className="bg-white/10">
+            <tr>
+              {table.headers.map((h, hIdx) => (
+                <th key={hIdx} className="px-2 py-1.5 text-left font-semibold text-white">
+                  {parseInline(h)}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-white/5">
+            {table.rows.map((row, rIdx) => (
+              <tr key={rIdx} className="hover:bg-white/5">
+                {row.map((cell, cIdx) => (
+                  <td key={cIdx} className="px-2 py-1 text-slate-300">
+                    {parseInline(cell)}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  }
+
+  return <div className="space-y-0.5">{parsedElements}</div>;
+}
+
 export default function DashboardLayout() {
   const { user, logout } = useAuth();
 
@@ -64,6 +234,63 @@ export default function DashboardLayout() {
 
   const [notifications,
     setNotifications] = useState([]);
+
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatInput, setChatInput] = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatMessages, setChatMessages] = useState([
+    {
+      sender: "ai",
+      text: `Welcome to Klypup AI. How can I help you today?`
+    }
+  ]);
+  const chatMessagesEndRef = useRef(null);
+
+  useEffect(() => {
+    if (chatOpen) {
+      chatMessagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [chatMessages, chatOpen]);
+
+  const handleSendChatMessage = async (textToSend) => {
+    const text = (typeof textToSend === "string" ? textToSend : chatInput).trim();
+    if (!text) return;
+
+    if (typeof textToSend !== "string") {
+      setChatInput("");
+    }
+
+    setChatMessages((prev) => [...prev, { sender: "user", text }]);
+    setChatLoading(true);
+
+    try {
+      const historyFormatted = chatMessages.map((m) => ({
+        role: m.sender === "user" ? "user" : "assistant",
+        content: m.text,
+      }));
+
+      const response = await apiClient.post("/chatbot/chat", {
+        message: text,
+        history: historyFormatted,
+      });
+
+      setChatMessages((prev) => [
+        ...prev,
+        { sender: "ai", text: response.data.response || "No response received." },
+      ]);
+    } catch (error) {
+      console.error(error);
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          sender: "ai",
+          text: "⚠️ Sorry, I encountered an error communicating with the coordinator backend. Make sure the Flask server is running."
+        },
+      ]);
+    } finally {
+      setChatLoading(false);
+    }
+  };
 
   /* ======================================
      UNREAD COUNT
@@ -918,6 +1145,163 @@ export default function DashboardLayout() {
         />
 
       )}
+
+      {/* =========================================================================
+          FLOATING CHATBOT WIDGET
+      ========================================================================= */}
+      <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
+        {/* Chat window panel */}
+        <AnimatePresence>
+          {chatOpen && (
+            <motion.div
+              initial={{ opacity: 0, y: 50, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 50, scale: 0.9 }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
+              className="w-96 h-[560px] rounded-3xl border border-white/12 shadow-2xl overflow-hidden mb-4 flex flex-col"
+              style={{
+                background: "linear-gradient(135deg, rgba(12, 17, 34, 0.95), rgba(8, 11, 22, 0.95))",
+                boxShadow: "0 24px 60px rgba(0,0,0,0.5)",
+              }}
+            >
+              {/* Purple Header */}
+              <div 
+                className="px-5 py-4 flex items-center justify-between border-b border-white/10 text-white relative overflow-hidden"
+                style={{ background: "linear-gradient(135deg, #6366f1, #3b82f6)" }}
+              >
+                {/* Header glow */}
+                <div className="absolute top-0 right-0 w-24 h-24 opacity-25 blur-xl bg-teal-400" />
+                <div className="flex items-center gap-3 relative z-10">
+                  <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center border border-white/10 shadow-inner">
+                    <Bot size={20} className="text-white" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold tracking-wide">Klypup AI</h4>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
+                      <span className="text-[10px] text-blue-100 font-medium">Online</span>
+                    </div>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setChatOpen(false)}
+                  className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center text-white/80 hover:text-white transition-all cursor-pointer border border-white/5 relative z-10"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              {/* Chat Log Body */}
+              <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3.5 scrollbar-thin">
+                {chatMessages.map((msg, index) => (
+                  <div key={index} className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}>
+                    <div className={`flex gap-2 max-w-[85%] ${msg.sender === "user" ? "flex-row-reverse" : "flex-row"}`}>
+                      <div className={`w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 mt-0.5 shadow ${
+                        msg.sender === "user" ? "bg-indigo-600" : "bg-teal-700"
+                      }`}>
+                        {msg.sender === "user" ? <MessageSquare size={10} className="text-white" /> : <Bot size={10} className="text-white" />}
+                      </div>
+                      
+                      <div className={`rounded-xl px-3 py-2 shadow border ${
+                        msg.sender === "user"
+                          ? "bg-indigo-600/35 border-indigo-500/30 text-white rounded-tr-none"
+                          : "bg-white/5 border-white/10 text-slate-300 rounded-tl-none"
+                      }`}>
+                        <MessageFormatter content={msg.text} />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                
+                {/* Typing status */}
+                {chatLoading && (
+                  <div className="flex justify-start">
+                    <div className="flex gap-2">
+                      <div className="w-6 h-6 rounded-md flex items-center justify-center bg-teal-700 shadow">
+                        <Bot size={10} className="text-white" />
+                      </div>
+                      <div className="bg-white/5 border border-white/10 rounded-xl rounded-tl-none px-3 py-2.5 flex items-center gap-1">
+                        <div className="w-1.5 h-1.5 bg-[#00A19B] rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                        <div className="w-1.5 h-1.5 bg-[#00A19B] rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                        <div className="w-1.5 h-1.5 bg-[#00A19B] rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                      </div>
+                    </div>
+                  </div>
+                )}
+                <div ref={chatMessagesEndRef} />
+              </div>
+
+              {/* Suggestions chips */}
+              <div className="px-4 py-1.5 flex gap-1.5 overflow-x-auto scrollbar-none flex-nowrap border-t border-white/5 bg-white/[0.01]">
+                <button
+                  onClick={() => handleSendChatMessage("help")}
+                  className="flex-shrink-0 px-2.5 py-1 text-[10px] bg-white/5 hover:bg-white/10 border border-white/8 rounded-full text-slate-300 transition-all cursor-pointer"
+                >
+                  💡 Help Guide
+                </button>
+                <button
+                  onClick={() => handleSendChatMessage("list products")}
+                  className="flex-shrink-0 px-2.5 py-1 text-[10px] bg-white/5 hover:bg-white/10 border border-white/8 rounded-full text-slate-300 transition-all cursor-pointer"
+                >
+                  📋 Catalog
+                </button>
+                <button
+                  onClick={() => handleSendChatMessage("analyse Premium Wireless Headphones")}
+                  className="flex-shrink-0 px-2.5 py-1 text-[10px] bg-white/5 hover:bg-white/10 border border-white/8 rounded-full text-slate-300 transition-all cursor-pointer"
+                >
+                  🧠 Analyze SKU-000
+                </button>
+              </div>
+
+              {/* Input Form Footer */}
+              <div className="p-3 border-t border-white/8 bg-white/5 flex flex-col gap-2">
+                <form 
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    handleSendChatMessage();
+                  }}
+                  className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-full px-3 py-1.5 focus-within:border-indigo-500/50 transition-all"
+                >
+                  <button type="button" className="text-slate-400 hover:text-white transition-all cursor-pointer">
+                    <Paperclip size={14} />
+                  </button>
+                  <input
+                    type="text"
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e.target.value)}
+                    placeholder="Type a message..."
+                    className="flex-1 bg-transparent text-white text-xs outline-none placeholder:text-slate-500 py-1"
+                  />
+                  <button 
+                    type="submit" 
+                    disabled={!chatInput.trim() || chatLoading}
+                    className="w-7 h-7 rounded-full bg-[#6366f1] hover:bg-[#4f46e5] text-white flex items-center justify-center transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Send size={12} />
+                  </button>
+                </form>
+                <div className="text-center text-[9px] text-slate-600 tracking-wider">
+                  Powered by Klypup
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Circular toggle button */}
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => setChatOpen(!chatOpen)}
+          className="w-14 h-14 rounded-full bg-gradient-to-br from-[#6366f1] to-[#3b82f6] hover:from-[#4f46e5] hover:to-[#2563eb] text-white flex items-center justify-center shadow-lg shadow-indigo-650/40 cursor-pointer border border-white/10 relative"
+        >
+          {chatOpen ? <X size={22} /> : <MessageSquare size={22} />}
+          {/* Notification Badge if closed */}
+          {!chatOpen && (
+            <span className="absolute top-0 right-0 w-3.5 h-3.5 bg-emerald-400 border-2 border-slate-900 rounded-full" />
+          )}
+        </motion.button>
+      </div>
 
     </div>
   );

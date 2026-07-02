@@ -102,7 +102,9 @@ Return JSON with keys:
 - strategy: "penetration"|"competitive"|"premium"|"clearance"|"maintain"
 - rationale: string (2-3 sentences explaining the recommendation)
 - confidence_score: float (0.0 to 1.0)
-- risk_level: "low"|"medium"|"high" """
+- risk_level: "low"|"medium"|"high"
+- projected_volume_increase_pct: float (predicted increase in sales volume)
+- projected_monthly_profit_lift: float (predicted extra profit in dollars) """
 
 
 def compliance_prompt(

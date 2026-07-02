@@ -9,6 +9,7 @@ class CompetitorPrice(db.Model):
     id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     competitor_name = db.Column(db.String(255), nullable=False)
     competitor_price = db.Column(db.Float, nullable=False)
+    in_stock = db.Column(db.Boolean, nullable=False, default=True)
     product_id = db.Column(
         db.String(36), db.ForeignKey("products.id"), nullable=False, index=True
     )
@@ -25,6 +26,7 @@ class CompetitorPrice(db.Model):
             "id": self.id,
             "competitor_name": self.competitor_name,
             "competitor_price": self.competitor_price,
+            "in_stock": self.in_stock,
             "product_id": self.product_id,
             "organization_id": self.organization_id,
             "checked_at": self.checked_at.isoformat(),

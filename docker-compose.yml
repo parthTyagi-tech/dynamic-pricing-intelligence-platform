@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: klypup_db
+    restart: always
+    environment:
+      POSTGRES_USER: klypup
+      POSTGRES_PASSWORD: klypup_secure_password
+      POSTGRES_DB: klypup
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  backend:
+    build: ./backend
+    container_name: klypup_backend
+    restart: always
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=production
+      - DATABASE_URL=postgresql://klypup:klypup_secure_password@db:5432/klypup
+      - JWT_SECRET_KEY=dec54f6cbdb8f541d4fd65a4c3ed54d9ae5cd1daf023c7cd2ab68061e1b74ab0
+      - SECRET_KEY=another_secret_key
+      - CORS_ORIGINS=http://localhost,http://localhost:5173,http://127.0.0.1
+      - GROQ_API_KEY="your_groq_api_key_here"
+      - GOOGLE_API_KEY=AIzaSyCBvHRSzujFCYqSoau9bAhg7gZpWaRtwgg
+      - AI_PROVIDER=groq
+    depends_on:
+      - db
+
+  frontend:
+    build: ./frontend
+    container_name: klypup_frontend
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:

@@ -25,6 +25,12 @@ from app.routes.recommendation_routes import recommendation_bp
 from app.routes.approval_routes import approval_bp
 
 from app.routes.dashboard_routes import dashboard_bp
+from app.routes.chatbot_routes import chatbot_bp
+from app.routes.observability_routes import observability_bp
+from app.routes.simulation_routes import simulation_bp
+from app.routes.startup_routes import startup_bp
+from app.routes.webhook_routes import webhook_bp
+from app.routes.ab_test_routes import ab_test_bp
 
 from flask_cors import CORS
 from flask_cors import CORS
@@ -85,6 +91,36 @@ app.register_blueprint(
 app.register_blueprint(
     dashboard_bp,
     url_prefix="/api/dashboard"
+)
+
+app.register_blueprint(
+    chatbot_bp,
+    url_prefix="/api/chatbot"
+)
+
+app.register_blueprint(
+    observability_bp,
+    url_prefix="/api/observability"
+)
+
+app.register_blueprint(
+    simulation_bp,
+    url_prefix="/api/simulation"
+)
+
+app.register_blueprint(
+    startup_bp,
+    url_prefix="/api/startup"
+)
+
+app.register_blueprint(
+    webhook_bp,
+    url_prefix="/api/webhooks"
+)
+
+app.register_blueprint(
+    ab_test_bp,
+    url_prefix="/api/ab-test"
 )
 
 

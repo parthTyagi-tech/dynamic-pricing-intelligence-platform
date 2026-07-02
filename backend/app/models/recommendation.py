@@ -109,6 +109,16 @@ class PricingRecommendation(db.Model):
         nullable=True
     )
 
+    projected_volume_increase_pct = db.Column(
+        db.Float,
+        nullable=True
+    )
+
+    projected_monthly_profit_lift = db.Column(
+        db.Float,
+        nullable=True
+    )
+
     # =====================================
     # EXPLAINABILITY STORAGE
     # =====================================
@@ -173,7 +183,7 @@ class PricingRecommendation(db.Model):
 
             "confidence_score":
             round(
-                float(self.confidence_score),
+                float(self.confidence_score) * (100 if self.confidence_score <= 1.0 else 1),
                 0
             ),
 
@@ -194,6 +204,12 @@ class PricingRecommendation(db.Model):
 
             "organization_id":
             self.organization_id,
+
+            "projected_volume_increase_pct":
+            self.projected_volume_increase_pct,
+
+            "projected_monthly_profit_lift":
+            self.projected_monthly_profit_lift,
 
             "created_at":
             self.created_at.isoformat()

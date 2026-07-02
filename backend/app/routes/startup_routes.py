@@ -1,0 +1,177 @@
+import random
+from datetime import datetime, timezone
+from flask import Blueprint, request, jsonify
+from flask_jwt_extended import jwt_required, get_jwt_identity
+from app.extensions import db
+from app.models.user import User
+from app.models.product import Product
+import asyncio
+from app.services.realtime_scraper import fetch_realtime_competitor_prices
+
+startup_bp = Blueprint("startup", __name__)
+
+# In-memory storage for mock integrations configurations
+INTEGRATIONS_STORE = {
+    "shopify": {
+        "connected": True,
+        "store_url": "acme-wear.myshopify.com",
+        "api_version": "2024-04",
+        "last_sync": "2026-07-01T18:30:00Z"
+    },
+    "woocommerce": {
+        "connected": False,
+        "store_url": "",
+        "api_version": "",
+        "last_sync": None
+    }
+}
+
+
+@startup_bp.route("/matcher", methods=["POST"])
+@jwt_required()
+def competitor_matcher():
+    current_user_id = get_jwt_identity()
+    current_user = User.query.get(current_user_id)
+    if not current_user:
+        return {"success": False, "message": "User not found"}, 404
+
+    data = request.get_json() or {}
+    search_query = data.get("search_query", "headphones")
+    target_url = data.get("url", "https://competitor.com/catalog")
+
+    # Generate true AI-backed real-time prices for this search query
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+    # We use a baseline of 199.99 for the query to anchor the AI's generation
+    baseline_price = 199.99
+    live_prices = loop.run_until_complete(fetch_realtime_competitor_prices(search_query, baseline_price))
+
+    matched_results = []
+    base_similarity = 0.98
+
+    idx = 0
+    for comp_name, comp_data in live_prices.items():
+        price = comp_data.get("price")
+        matched_results.append({
+            "id": f"comp-match-{idx}",
+            "competitor_name": comp_name,
+            "competitor_price": price,
+            "in_stock": comp_data.get("in_stock", True),
+            "match_score": 100, # Simulated
+            "product_url": f"https://{comp_name.lower()}.com/search?q={search_query.replace(' ', '+')}"
+        })
+        idx += 1
+
+    return {
+        "success": True,
+        "query": search_query,
+        "scraped_url": target_url,
+        "matches": matched_results
+    }, 200
+
+
+@startup_bp.route("/billing", methods=["GET"])
+@jwt_required()
+def get_billing_summary():
+    current_user_id = get_jwt_identity()
+    current_user = User.query.get(current_user_id)
+    if not current_user:
+        return {"success": False, "message": "User not found"}, 404
+
+    # Calculate dynamic mock invoice values based on actual DB product counts
+    product_count = Product.query.filter_by(organization_id=current_user.organization_id).count()
+    # Assume AI generates an average of $1,420 lift per managed product
+    revenue_lift = float(product_count * 1420.00) if product_count > 0 else 45210.00
+    
+    commission_rate = 0.005 # 0.5%
+    commission_charge = round(revenue_lift * commission_rate, 2)
+    plan_fee = 149.00 # Pro tier fee
+    total_due = round(plan_fee + commission_charge, 2)
+
+    return {
+        "success": True,
+        "subscription": {
+            "tier": "Pro Growth Plan",
+            "price_monthly": plan_fee,
+            "billing_cycle": "Monthly",
+            "next_billing_date": "2026-07-28"
+        },
+        "usage_metrics": {
+            "ai_assisted_revenue_lift": revenue_lift,
+            "commission_rate_pct": commission_rate * 100,
+            "commission_due": commission_charge,
+            "subscription_due": plan_fee,
+            "total_invoice_due": total_due
+        },
+        "billing_history": [
+            {"invoice_id": "INV-2026-06", "date": "2026-06-28", "amount": 349.50, "status": "paid"},
+            {"invoice_id": "INV-2026-05", "date": "2026-05-28", "amount": 298.12, "status": "paid"},
+            {"invoice_id": "INV-2026-04", "date": "2026-04-28", "amount": 149.00, "status": "paid"}
+        ]
+    }, 200
+
+
+@startup_bp.route("/integrations", methods=["GET", "POST"])
+@jwt_required()
+def handle_integrations():
+    current_user_id = get_jwt_identity()
+    current_user = User.query.get(current_user_id)
+    if not current_user:
+        return {"success": False, "message": "User not found"}, 404
+
+    if request.method == "POST":
+        data = request.get_json() or {}
+        platform = data.get("platform")
+        connected = bool(data.get("connected", False))
+        store_url = data.get("store_url", "")
+
+        if platform not in INTEGRATIONS_STORE:
+            return {"success": False, "message": f"Platform '{platform}' is not supported"}, 400
+
+        INTEGRATIONS_STORE[platform]["connected"] = connected
+        INTEGRATIONS_STORE[platform]["store_url"] = store_url if connected else ""
+        INTEGRATIONS_STORE[platform]["last_sync"] = datetime.now(timezone.utc).isoformat() if connected else None
+
+        return {
+            "success": True,
+            "message": f"{platform.capitalize()} integration updated successfully",
+            "integration": INTEGRATIONS_STORE[platform]
+        }, 200
+
+    # GET returns current status and mock webhook logs list
+    webhook_logs = [
+        {
+            "event": "orders/create",
+            "topic": "Order Placed",
+            "payload_id": "shopify-ord-82918",
+            "timestamp": "2026-07-01T19:22:15Z",
+            "status": "processed",
+            "ai_adjusted": True
+        },
+        {
+            "event": "products/update",
+            "topic": "Catalog Sync",
+            "payload_id": "shopify-prod-10928",
+            "timestamp": "2026-07-01T18:45:00Z",
+            "status": "processed",
+            "ai_adjusted": False
+        },
+        {
+            "event": "orders/create",
+            "topic": "Order Placed",
+            "payload_id": "shopify-ord-82909",
+            "timestamp": "2026-07-01T17:10:04Z",
+            "status": "processed",
+            "ai_adjusted": True
+        }
+    ]
+
+    return {
+        "success": True,
+        "integrations": INTEGRATIONS_STORE,
+        "webhook_logs": webhook_logs
+    }, 200

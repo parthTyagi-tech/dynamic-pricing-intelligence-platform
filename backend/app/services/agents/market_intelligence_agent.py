@@ -4,7 +4,7 @@ Analyzes competitor pricing and market position.
 """
 import random
 from typing import Dict, Any, List
-from app.services.ai.client import structured_json_completion
+from app.services.ai.client import async_structured_json_completion
 from app.services.ai.prompts import MARKET_INTELLIGENCE_SYSTEM, market_intelligence_prompt
 
 
@@ -25,7 +25,7 @@ def _mock_market_analysis(product: dict, competitor_prices: list) -> dict:
     }
 
 
-def run(product: dict, competitor_prices: List[dict]) -> Dict[str, Any]:
+async def run(product: dict, competitor_prices: List[dict]) -> Dict[str, Any]:
     """
     Run market intelligence analysis.
 
@@ -49,13 +49,15 @@ def run(product: dict, competitor_prices: List[dict]) -> Dict[str, Any]:
         }
 
     prompt = market_intelligence_prompt(product, competitor_prices)
-    result = structured_json_completion(
+    result = await async_structured_json_completion(
         system_prompt=MARKET_INTELLIGENCE_SYSTEM,
         user_prompt=prompt,
+        agent_name="MarketIntelligenceAgent"
     )
 
     if not result:
         result = _mock_market_analysis(product, competitor_prices)
 
     result["agent"] = "market_intelligence"
+    result["competitors"] = competitor_prices
     return result

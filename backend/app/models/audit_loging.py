@@ -52,6 +52,6 @@ class AuditLog(db.Model):
             "action": self.action,
             "entity_type": self.entity_type,
             "entity_id": self.entity_id,
-            "metadata": self.metadata,
+            "metadata": self.extra_metadata,
             "timestamp": self.timestamp.isoformat(),
         }

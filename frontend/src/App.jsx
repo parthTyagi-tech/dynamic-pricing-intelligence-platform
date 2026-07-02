@@ -50,6 +50,30 @@ const AuditHistory = lazy(() =>
   import("./pages/AuditHistory")
 );
 
+const Chat = lazy(() =>
+  import("./pages/Chat")
+);
+
+const Observability = lazy(() =>
+  import("./pages/Observability")
+);
+
+const Backtesting = lazy(() =>
+  import("./pages/Backtesting")
+);
+
+const CompetitorMatcher = lazy(() =>
+  import("./pages/CompetitorMatcher")
+);
+
+const Integrations = lazy(() =>
+  import("./pages/Integrations")
+);
+
+const Billing = lazy(() =>
+  import("./pages/Billing")
+);
+
 const NotFound = lazy(() =>
   import("./pages/NotFound")
 );
@@ -278,6 +302,36 @@ export default function App() {
                 element={
                   <AuditHistory />
                 }
+              />
+
+              <Route
+                path="/chat"
+                element={<Chat />}
+              />
+
+              <Route
+                path="/observability"
+                element={<Observability />}
+              />
+
+              <Route
+                path="/backtesting"
+                element={<Backtesting />}
+              />
+
+              <Route
+                path="/competitor-matcher"
+                element={<CompetitorMatcher />}
+              />
+
+              <Route
+                path="/integrations"
+                element={<Integrations />}
+              />
+
+              <Route
+                path="/billing"
+                element={<Billing />}
               />
             </Route>
 

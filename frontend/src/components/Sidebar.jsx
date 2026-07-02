@@ -6,6 +6,12 @@ import {
   History,
   LogOut,
   Zap,
+  MessageSquare,
+  Cpu,
+  TrendingUp,
+  Globe,
+  ShoppingCart,
+  CreditCard,
 } from "lucide-react";
 
 import { NavLink } from "react-router-dom";
@@ -43,6 +49,42 @@ const navItems = [
     label: "Audit History",
     icon: History,
     path: "/audit-history",
+  },
+
+  {
+    label: "AI Assistant",
+    icon: MessageSquare,
+    path: "/chat",
+  },
+
+  {
+    label: "AI Observability",
+    icon: Cpu,
+    path: "/observability",
+  },
+
+  {
+    label: "Pricing Backtester",
+    icon: TrendingUp,
+    path: "/backtesting",
+  },
+
+  {
+    label: "Competitor Matcher",
+    icon: Globe,
+    path: "/competitor-matcher",
+  },
+
+  {
+    label: "Integrations Hub",
+    icon: ShoppingCart,
+    path: "/integrations",
+  },
+
+  {
+    label: "Plans & Billing",
+    icon: CreditCard,
+    path: "/billing",
   },
 ];
 

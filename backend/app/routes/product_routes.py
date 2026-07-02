@@ -1,14 +1,12 @@
 from flask import Blueprint, request
-
 from flask_jwt_extended import (
     jwt_required,
     get_jwt_identity
 )
-
 from app.extensions import db
-
 from app.models.user import User
 from app.models.product import Product
+from app.utils.decorators import admin_required
 
 
 product_bp = Blueprint(
@@ -25,26 +23,12 @@ product_bp = Blueprint(
     "",
     methods=["POST"]
 )
-@jwt_required()
+@admin_required()
 def create_product():
 
     current_user_id = get_jwt_identity()
 
     current_user = User.query.get(current_user_id)
-
-    if not current_user:
-
-        return {
-            "success": False,
-            "message": "User not found"
-        }, 404
-
-    if not current_user.is_admin():
-
-        return {
-            "success": False,
-            "message": "Only admins can create products"
-        }, 403
 
     data = request.get_json()
 
@@ -171,19 +155,12 @@ def get_product(product_id):
     "/<product_id>",
     methods=["PUT"]
 )
-@jwt_required()
+@admin_required()
 def update_product(product_id):
 
     current_user_id = get_jwt_identity()
 
     current_user = User.query.get(current_user_id)
-
-    if not current_user.is_admin():
-
-        return {
-            "success": False,
-            "message": "Only admins can update products"
-        }, 403
 
     product = Product.query.filter_by(
         id=product_id,
@@ -246,19 +223,12 @@ def update_product(product_id):
     "/<product_id>",
     methods=["DELETE"]
 )
-@jwt_required()
+@admin_required()
 def delete_product(product_id):
 
     current_user_id = get_jwt_identity()
 
     current_user = User.query.get(current_user_id)
-
-    if not current_user.is_admin():
-
-        return {
-            "success": False,
-            "message": "Only admins can delete products"
-        }, 403
 
     product = Product.query.filter_by(
         id=product_id,
