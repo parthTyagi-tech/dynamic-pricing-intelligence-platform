@@ -1,0 +1,7 @@
+name,sku,category,description,brand,barcode,current_price,cost_price,inventory_quantity
+"iPhone 15 (128GB)",IP15-128-BLK,electronics,"Apple iPhone 15 128GB Black",Apple,0194253713028,79900.00,65000.00,50
+"Sony WH-1000XM5",SONY-WH5-BLK,electronics,"Wireless Noise Canceling Headphones",Sony,4548736132924,29990.00,22000.00,30
+"Samsung Galaxy S24 Ultra",S24-ULT-256,electronics,"Samsung Galaxy S24 Ultra 256GB Titanium Gray",Samsung,8806095361280,129999.00,105000.00,25
+"AirPods Pro (2nd Gen)",APP-2G,electronics,"Apple AirPods Pro 2nd Gen with MagSafe",Apple,0194253396733,24900.00,18500.00,120
+"Nike Air Force 1 '07",NK-AF1-07,apparel,"Men's Classic Sneakers White",Nike,193151817814,7495.00,4500.00,200
+"Philips OneBlade Pro",PH-OBP-360,beauty,"Philips OneBlade Pro 360 Hybrid Trimmer",Philips,8710103986422,4499.00,3100.00,85

@@ -1,0 +1,26 @@
+To: whatsapp:+919368687948
+From: whatsapp:+14155238886
+Timestamp: 2026-07-06T08:37:43.947867+00:00
+==================================================
+✅ *Klypup Pricing Alert — Approved*
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📦 *Product:* UltraSound Wireless Earbuds
+🏷️ *SKU:* SKU-ELE-001
+
+💰 *Previous Price:* ₹99.99
+💎 *Approved Price:* ₹95.96
+
+🧠 *LLM Rationale:*
+_The recommended price adjustment is driven by the market analysis, which indicates that our product is priced higher than the competitor. To stay competitive, a price reduction of 4.23% is suggested. This adjustment will help to increase sales volume and maintain market share._
+
+📈 *Confidence Score:* 80%
+
+🏪 *Competitor Prices:*
+  • Target: ₹95.96 (✅ In Stock)
+  • AI Market Agent: ₹95.96 (✅ In Stock)
+
+🕐 *Timestamp:* 2026-07-06 08:37:43 UTC
+🔖 *Tracking ID:* 5a4d04ac-e81f-4326-9860-2abe90f55970
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+_Automated alert from Klypup AI. Do not reply._

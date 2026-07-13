@@ -37,11 +37,11 @@ def send_slack_alert(message: str, recommendation: dict, product: dict):
                 "fields": [
                     {
                         "type": "mrkdwn",
-                        "text": f"*Current Price:*\n${product.get('current_price')}"
+                        "text": f"*Current Price:*\n₹{product.get('current_price')}"
                     },
                     {
                         "type": "mrkdwn",
-                        "text": f"*Recommended Price:*\n${recommendation.get('recommended_price')}"
+                        "text": f"*Recommended Price:*\n₹{recommendation.get('recommended_price')}"
                     },
                     {
                         "type": "mrkdwn",
@@ -49,7 +49,7 @@ def send_slack_alert(message: str, recommendation: dict, product: dict):
                     },
                     {
                         "type": "mrkdwn",
-                        "text": f"*Projected Profit Lift:*\n+${profit_lift}/mo"
+                        "text": f"*Projected Profit Lift:*\n+₹{profit_lift}/mo"
                     }
                 ]
             },

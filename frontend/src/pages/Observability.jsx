@@ -93,7 +93,7 @@ export default function Observability() {
       {/* METRICS ROW */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         {[
-          { label: "Total LLM Cost", val: `$${metrics.total_cost.toFixed(4)}`, icon: DollarSign, color: "text-emerald-400" },
+          { label: "Total LLM Cost", val: `₹${metrics.total_cost.toFixed(4)}`, icon: DollarSign, color: "text-emerald-400" },
           { label: "Total Tokens", val: metrics.total_tokens.toLocaleString(), icon: BarChart2, color: "text-blue-400" },
           { label: "Avg Latency", val: `${metrics.avg_latency} ms`, icon: Zap, color: "text-amber-400" },
           { label: "Total Calls", val: metrics.total_calls, icon: Activity, color: "text-purple-400" },
@@ -115,7 +115,7 @@ export default function Observability() {
         {/* Cumulative cost chart */}
         <div className="bg-white/5 border border-white/8 rounded-3xl p-6"
              style={{ background: "rgba(10, 15, 30, 0.4)", backdropFilter: "blur(12px)" }}>
-          <h3 className="text-sm font-bold text-white mb-4">Cumulative API Spend ($ USD)</h3>
+          <h3 className="text-sm font-bold text-white mb-4">Cumulative API Spend (₹ INR)</h3>
           {timeline.length > 1 ? (
             <div className="w-full">
               <svg className="w-full h-40 overflow-visible" viewBox="0 0 600 150">
@@ -198,7 +198,7 @@ export default function Observability() {
                   <th className="px-4 py-3 text-left font-semibold text-slate-300">Agent Name</th>
                   <th className="px-4 py-3 text-left font-semibold text-slate-300">Total Calls</th>
                   <th className="px-4 py-3 text-left font-semibold text-slate-300">Avg Latency</th>
-                  <th className="px-4 py-3 text-left font-semibold text-slate-300">Est Cost (USD)</th>
+                  <th className="px-4 py-3 text-left font-semibold text-slate-300">Est Cost (INR)</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
@@ -207,7 +207,7 @@ export default function Observability() {
                     <td className="px-4 py-3 text-white font-medium">{ag.name}</td>
                     <td className="px-4 py-3 text-slate-400">{ag.calls}</td>
                     <td className="px-4 py-3 text-slate-400">{ag.avg_latency} ms</td>
-                    <td className="px-4 py-3 text-teal-400 font-mono">${ag.cost.toFixed(5)}</td>
+                    <td className="px-4 py-3 text-teal-400 font-mono">₹{ag.cost.toFixed(5)}</td>
                   </tr>
                 ))}
                 {agents.length === 0 && (
@@ -273,7 +273,7 @@ export default function Observability() {
                   <td className="px-4 py-3 text-slate-400 font-mono">{log.model_name}</td>
                   <td className="px-4 py-3 text-slate-400">{log.total_tokens.toLocaleString()}</td>
                   <td className="px-4 py-3 text-slate-400">{log.latency_ms} ms</td>
-                  <td className="px-4 py-3 text-teal-400 font-mono">${log.cost.toFixed(5)}</td>
+                  <td className="px-4 py-3 text-teal-400 font-mono">₹{log.cost.toFixed(5)}</td>
                   <td className="px-4 py-3">
                     <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
                       log.status === "success" 

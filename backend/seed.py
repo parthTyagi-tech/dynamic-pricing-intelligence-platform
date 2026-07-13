@@ -8,7 +8,7 @@ from app.models.user import User, UserRole
 from app.models.organization import Organization
 from app.models.product import Product, ProductCategory, RecommendationStatus
 from app.models.recommendation import PricingRecommendation, ApprovalAction, ApprovalActionType
-from app.models.market_data import CompetitorPrice, DemandSignal
+from app.models.market_data import CompetitorPrice, DemandSignal, Sale
 from app.models.audit_loging import PricingRule, AuditLog
 from app.models.ab_test import ABTest
 
@@ -65,24 +65,24 @@ def seed_database():
         print("Seeding product catalog...")
         seed_products = [
             # Electronics
-            {"name": "Premium Wireless Headphones", "category": ProductCategory.ELECTRONICS, "desc": "Active noise cancelling bluetooth headphones", "price": 199.99, "cost": 110.00, "inventory": 45},
-            {"name": "Mechanical Gaming Keyboard", "category": ProductCategory.ELECTRONICS, "desc": "RGB backlit tactile mechanical keyboard", "price": 129.99, "cost": 65.00, "inventory": 9},
-            {"name": "Ultra HD Projector 4K", "category": ProductCategory.ELECTRONICS, "desc": "High brightness home theater projector", "price": 799.99, "cost": 450.00, "inventory": 5},
-            {"name": "Smart Watch Series X", "category": ProductCategory.ELECTRONICS, "desc": "Fitness tracker with heart rate monitor", "price": 249.99, "cost": 140.00, "inventory": 28},
+            {"name": "Premium Wireless Headphones", "brand": "Sony", "category": ProductCategory.ELECTRONICS, "desc": "Active noise cancelling bluetooth headphones", "price": 199.99, "cost": 110.00, "inventory": 45},
+            {"name": "Mechanical Gaming Keyboard", "brand": "Razer", "category": ProductCategory.ELECTRONICS, "desc": "RGB backlit tactile mechanical keyboard", "price": 129.99, "cost": 65.00, "inventory": 9},
+            {"name": "Ultra HD Projector 4K", "brand": "BenQ", "category": ProductCategory.ELECTRONICS, "desc": "High brightness home theater projector", "price": 799.99, "cost": 450.00, "inventory": 5},
+            {"name": "Smart Watch Series X", "brand": "Apple", "category": ProductCategory.ELECTRONICS, "desc": "Fitness tracker with heart rate monitor", "price": 249.99, "cost": 140.00, "inventory": 28},
             # Apparel
-            {"name": "Running Sneakers Zoom", "category": ProductCategory.APPAREL, "desc": "Lightweight breathable mesh running shoes", "price": 89.99, "cost": 40.00, "inventory": 110},
-            {"name": "Waterproof Windbreaker Jacket", "category": ProductCategory.APPAREL, "desc": "All-weather outdoor shell jacket", "price": 119.99, "cost": 55.00, "inventory": 15},
-            {"name": "Classic Denim Jeans", "category": ProductCategory.APPAREL, "desc": "Straight fit stretch raw denim jeans", "price": 59.99, "cost": 22.00, "inventory": 75},
+            {"name": "Running Sneakers Zoom", "brand": "Nike", "category": ProductCategory.APPAREL, "desc": "Lightweight breathable mesh running shoes", "price": 89.99, "cost": 40.00, "inventory": 110},
+            {"name": "Waterproof Windbreaker Jacket", "brand": "The North Face", "category": ProductCategory.APPAREL, "desc": "All-weather outdoor shell jacket", "price": 119.99, "cost": 55.00, "inventory": 15},
+            {"name": "Classic Denim Jeans", "brand": "Levi's", "category": ProductCategory.APPAREL, "desc": "Straight fit stretch raw denim jeans", "price": 59.99, "cost": 22.00, "inventory": 75},
             # Home Goods
-            {"name": "Ergonomic Office Chair", "category": ProductCategory.HOME_GOODS, "desc": "Mesh high-back executive task chair", "price": 349.99, "cost": 180.00, "inventory": 12},
-            {"name": "Cold Brew Coffee Maker", "category": ProductCategory.HOME_GOODS, "desc": "Glass carafe pitcher with stainless filter", "price": 39.99, "cost": 15.00, "inventory": 60},
-            {"name": "Dimmable LED Desk Lamp", "category": ProductCategory.HOME_GOODS, "desc": "Smart desk light with USB charging port", "price": 29.99, "cost": 10.50, "inventory": 40},
+            {"name": "Ergonomic Office Chair", "brand": "Herman Miller", "category": ProductCategory.HOME_GOODS, "desc": "Mesh high-back executive task chair", "price": 349.99, "cost": 180.00, "inventory": 12},
+            {"name": "Cold Brew Coffee Maker", "brand": "Bodum", "category": ProductCategory.HOME_GOODS, "desc": "Glass carafe pitcher with stainless filter", "price": 39.99, "cost": 15.00, "inventory": 60},
+            {"name": "Dimmable LED Desk Lamp", "brand": "Philips", "category": ProductCategory.HOME_GOODS, "desc": "Smart desk light with USB charging port", "price": 29.99, "cost": 10.50, "inventory": 40},
             # Beauty
-            {"name": "Hydrating Face Serum", "category": ProductCategory.BEAUTY, "desc": "Pure hyaluronic acid moisture booster", "price": 35.00, "cost": 12.00, "inventory": 200},
-            {"name": "Mineral Sunscreen SPF 50", "category": ProductCategory.BEAUTY, "desc": "Broad spectrum non-greasy face sunscreen", "price": 22.50, "cost": 8.00, "inventory": 95},
+            {"name": "Hydrating Face Serum", "brand": "The Ordinary", "category": ProductCategory.BEAUTY, "desc": "Pure hyaluronic acid moisture booster", "price": 35.00, "cost": 12.00, "inventory": 200},
+            {"name": "Mineral Sunscreen SPF 50", "brand": "La Roche-Posay", "category": ProductCategory.BEAUTY, "desc": "Broad spectrum non-greasy face sunscreen", "price": 22.50, "cost": 8.00, "inventory": 95},
             # Sports
-            {"name": "Resistance Bands Set", "category": ProductCategory.SPORTS, "desc": "Heavy duty loop fitness workout bands", "price": 24.99, "cost": 8.50, "inventory": 15},
-            {"name": "Premium Yoga Mat", "category": ProductCategory.SPORTS, "desc": "Extra thick non-slip eco friendly exercise mat", "price": 45.00, "cost": 18.00, "inventory": 32},
+            {"name": "Resistance Bands Set", "brand": "Boldfit", "category": ProductCategory.SPORTS, "desc": "Heavy duty loop fitness workout bands", "price": 24.99, "cost": 8.50, "inventory": 15},
+            {"name": "Premium Yoga Mat", "brand": "Manduka", "category": ProductCategory.SPORTS, "desc": "Extra thick non-slip eco friendly exercise mat", "price": 45.00, "cost": 18.00, "inventory": 32},
         ]
 
         products_db = []
@@ -90,10 +90,11 @@ def seed_database():
             p = Product(
                 sku=f"SKU-{sp['category'].upper()[:3]}-{idx:03d}",
                 name=sp['name'],
+                brand=sp.get('brand', ''),
                 category=sp['category'],
                 description=sp['desc'],
-                current_price=sp['price'],
-                cost_price=sp['cost'],
+                current_price=round(sp['price'] * 83, 2),
+                cost_price=round(sp['cost'] * 83, 2),
                 inventory_quantity=sp['inventory'],
                 min_margin_percentage=15.0,
                 organization_id=org.id,

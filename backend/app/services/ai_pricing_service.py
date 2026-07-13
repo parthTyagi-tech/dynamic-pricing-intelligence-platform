@@ -58,6 +58,14 @@ async def _run_pipeline_async(product):
             product=product_dict
         )
 
+    # Fetch actual sales records
+    from app.models.market_data import Sale
+    sales = Sale.query.filter_by(
+        product_id=product.id,
+        organization_id=product.organization_id
+    ).order_by(Sale.timestamp.desc()).limit(15).all()
+    sales_history = [s.to_dict() for s in sales]
+
     # 3. Retrieve organizational rules
     rule = PricingRule.query.filter_by(organization_id=product.organization_id).first()
     rule_dict = rule.to_dict() if rule else {"auto_execute_threshold": 0.90, "minimum_margin": 0.15}
@@ -68,7 +76,8 @@ async def _run_pipeline_async(product):
         market_res,
         demand_res,
         inventory_res,
-        rule_dict
+        rule_dict,
+        sales_history
     )
 
     # 5. Run compliance checks
@@ -78,22 +87,40 @@ async def _run_pipeline_async(product):
         rule_dict
     )
 
-    # Format recommendations
-    final_price = compliance_res["final_recommended_price"]
-    strategy_res["recommended_price"] = final_price
+    # Detect fallback status across all agents
+    fallback_used = (
+        market_res.get("llm_failed", False) or
+        demand_res.get("llm_failed", False) or
+        inventory_res.get("llm_failed", False) or
+        strategy_res.get("llm_failed", False) or
+        compliance_res.get("llm_failed", False)
+    )
+    strategy_res["fallback_used"] = fallback_used
 
-    if not compliance_res["compliant"]:
-        strategy_res["rationale"] += " " + compliance_res["compliance_notes"]
-
-    threshold = rule_dict.get("auto_execute_threshold", 0.90)
-    confidence = strategy_res["confidence_score"]
-    if confidence > 1.0:
-        confidence /= 100.0
-
-    if confidence >= threshold and compliance_res["compliant"]:
-        strategy_res["execution_route"] = "auto_execute"
-    else:
+    if fallback_used:
+        strategy_res["recommended_price"] = product.current_price
+        strategy_res["price_change_pct"] = 0.0
         strategy_res["execution_route"] = "human_review"
+        strategy_res["strategy"] = "maintain"
+        strategy_res["rationale"] = "LLM agent execution failed. Safe fallback applied: maintaining current catalog price."
+        strategy_res["confidence_score"] = 1.0
+    else:
+        # Format recommendations
+        final_price = compliance_res["final_recommended_price"]
+        strategy_res["recommended_price"] = final_price
+
+        if not compliance_res["compliant"]:
+            strategy_res["rationale"] += " " + compliance_res["compliance_notes"]
+
+        threshold = rule_dict.get("auto_execute_threshold", 0.90)
+        confidence = strategy_res["confidence_score"]
+        if confidence > 1.0:
+            confidence /= 100.0
+
+        if confidence >= threshold and compliance_res["compliant"]:
+            strategy_res["execution_route"] = "auto_execute"
+        else:
+            strategy_res["execution_route"] = "human_review"
 
     strategy_res["ai_summary"] = strategy_res.get("ai_summary") or f"Recommended price update generated for {product.name}"
     strategy_res["compliance"] = compliance_res
@@ -214,12 +241,21 @@ class PricingStrategyAgent:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             
+        # Fetch actual sales records
+        from app.models.market_data import Sale
+        sales = Sale.query.filter_by(
+            product_id=product.id,
+            organization_id=product.organization_id
+        ).order_by(Sale.timestamp.desc()).limit(15).all()
+        sales_history = [s.to_dict() for s in sales]
+
         strategy_res = loop.run_until_complete(pricing_strategy_agent.run(
             product_dict,
             market_data,
             demand_data,
             inventory_data,
-            rule_dict
+            rule_dict,
+            sales_history
         ))
 
         compliance_res = loop.run_until_complete(compliance_agent.run(
@@ -228,21 +264,39 @@ class PricingStrategyAgent:
             rule_dict
         ))
 
-        final_price = compliance_res["final_recommended_price"]
-        strategy_res["recommended_price"] = final_price
+        # Detect fallback status across all agents
+        fallback_used = (
+            market_data.get("llm_failed", False) or
+            demand_data.get("llm_failed", False) or
+            inventory_data.get("llm_failed", False) or
+            strategy_res.get("llm_failed", False) or
+            compliance_res.get("llm_failed", False)
+        )
+        strategy_res["fallback_used"] = fallback_used
 
-        if not compliance_res["compliant"]:
-            strategy_res["rationale"] += " " + compliance_res["compliance_notes"]
-
-        threshold = rule_dict.get("auto_execute_threshold", 0.90)
-        confidence = strategy_res["confidence_score"]
-        if confidence > 1.0:
-            confidence /= 100.0
-
-        if confidence >= threshold and compliance_res["compliant"]:
-            strategy_res["execution_route"] = "auto_execute"
-        else:
+        if fallback_used:
+            strategy_res["recommended_price"] = product.current_price
+            strategy_res["price_change_pct"] = 0.0
             strategy_res["execution_route"] = "human_review"
+            strategy_res["strategy"] = "maintain"
+            strategy_res["rationale"] = "LLM agent execution failed. Safe fallback applied: maintaining current catalog price."
+            strategy_res["confidence_score"] = 1.0
+        else:
+            final_price = compliance_res["final_recommended_price"]
+            strategy_res["recommended_price"] = final_price
+
+            if not compliance_res["compliant"]:
+                strategy_res["rationale"] += " " + compliance_res["compliance_notes"]
+
+            threshold = rule_dict.get("auto_execute_threshold", 0.90)
+            confidence = strategy_res["confidence_score"]
+            if confidence > 1.0:
+                confidence /= 100.0
+
+            if confidence >= threshold and compliance_res["compliant"]:
+                strategy_res["execution_route"] = "auto_execute"
+            else:
+                strategy_res["execution_route"] = "human_review"
 
         strategy_res["ai_summary"] = strategy_res.get("ai_summary") or f"Recommended price update generated for {product.name}"
         strategy_res["compliance"] = compliance_res

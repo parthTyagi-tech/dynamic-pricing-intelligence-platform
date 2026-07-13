@@ -1,0 +1,209 @@
+
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <style>
+            body { font-family: 'Segoe UI', Arial, sans-serif; background-color: #0b0f19; color: #f8fafc; margin: 0; padding: 20px; }
+            .container { max-width: 650px; margin: 0 auto; background-color: #0f172a; border: 1px solid #1e293b; border-radius: 16px; padding: 40px; box-shadow: 0 4px 30px rgba(0,0,0,0.4); }
+            .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #1e293b; padding-bottom: 20px; margin-bottom: 24px; }
+            .logo { font-size: 20px; font-weight: bold; color: #2dd4bf; text-transform: uppercase; letter-spacing: 1.5px; }
+            .badge { padding: 6px 12px; border-radius: 9999px; font-size: 11px; font-weight: bold; text-transform: uppercase; }
+            .badge-approve { background-color: rgba(16,185,129,0.1); color: #10b981; border: 1px solid rgba(16,185,129,0.2); }
+            .badge-reject { background-color: rgba(239,68,68,0.1); color: #ef4444; border: 1px solid rgba(239,68,68,0.2); }
+            .badge-rollback { background-color: rgba(99,102,241,0.1); color: #818cf8; border: 1px solid rgba(99,102,241,0.2); }
+            h2 { font-size: 18px; color: #ffffff; margin-top: 0; }
+            table { width: 100%; border-collapse: collapse; margin-top: 15px; margin-bottom: 25px; }
+            th { text-align: left; padding: 10px; background-color: #1e293b; color: #94a3b8; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+            .field-name { font-weight: bold; color: #94a3b8; width: 30%; padding: 8px 0; font-size: 13px; }
+            .field-value { color: #ffffff; padding: 8px 0; font-size: 13px; }
+            .block { background-color: #070a13; border: 1px solid #1e293b; border-radius: 8px; padding: 20px; margin-bottom: 25px; }
+            .rationale-text { font-size: 13px; color: #cbd5e1; line-height: 1.6; margin: 0; }
+            .footer { border-top: 1px solid #1e293b; padding-top: 20px; font-size: 12px; color: #64748b; margin-top: 30px; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <div class="logo">Klypup Action Alert</div>
+                <span class="badge badge-approve">Approved</span>
+            </div>
+            
+            <h2>Pricing Action Summary</h2>
+            <table>
+                <tr>
+                    <td class="field-name">Product Name</td>
+                    <td class="field-value">Premium Wireless Headphones</td>
+                </tr>
+                <tr>
+                    <td class="field-name">Product SKU</td>
+                    <td class="field-value" style="font-family:monospace;">SKU-ELE-000</td>
+                </tr>
+                <tr>
+                    <td class="field-name">Previous price</td>
+                    <td class="field-value" style="font-weight:bold;">₹15923.24</td>
+                </tr>
+                <tr>
+                    <td class="field-name">Action price</td>
+                    <td class="field-value" style="font-weight:bold;color:#2dd4bf;">
+                        ₹14923.24
+                    </td>
+                </tr>
+                <tr>
+                    <td class="field-name">Action time</td>
+                    <td class="field-value">2026-07-05 19:47:35 UTC</td>
+                </tr>
+            </table>
+
+            <h2>LLM Rationale & Strategy Statement</h2>
+            <div class="block">
+                <p class="rationale-text">
+                    Verification Test: Undercutting competitor to drive volume.
+                </p>
+                <p style="font-size:11px;color:#64748b;margin-top:10px;margin-bottom:0;">
+                    Optimization Confidence Score: <b>92%</b>
+                </p>
+            </div>
+
+            <h2>Competitor Storefront Price Comparison</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th style="padding:10px;">Storefront</th>
+                        <th style="padding:10px;">Availability</th>
+                        <th style="padding:10px;">Price</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    
+            <tr>
+                <td style="padding:10px;border-bottom:1px solid #1e293b;color:#f1f5f9;">Ebay</td>
+                <td style="padding:10px;border-bottom:1px solid #1e293b;color:#f1f5f9;"><span style="color:#10b981;font-weight:bold;">In Stock</span></td>
+                <td style="padding:10px;border-bottom:1px solid #1e293b;color:#2dd4bf;font-weight:bold;font-family:monospace;">₹17587.24</td>
+            </tr>
+            
+            <tr>
+                <td style="padding:10px;border-bottom:1px solid #1e293b;color:#f1f5f9;">Amazon</td>
+                <td style="padding:10px;border-bottom:1px solid #1e293b;color:#f1f5f9;"><span style="color:#10b981;font-weight:bold;">In Stock</span></td>
+                <td style="padding:10px;border-bottom:1px solid #1e293b;color:#2dd4bf;font-weight:bold;font-family:monospace;">₹15259.05</td>
+            </tr>
+            
+            <tr>
+                <td style="padding:10px;border-bottom:1px solid #1e293b;color:#f1f5f9;">Walmart</td>
+                <td style="padding:10px;border-bottom:1px solid #1e293b;color:#f1f5f9;"><span style="color:#10b981;font-weight:bold;">In Stock</span></td>
+                <td style="padding:10px;border-bottom:1px solid #1e293b;color:#2dd4bf;font-weight:bold;font-family:monospace;">₹15078.72</td>
+            </tr>
+            
+            <tr>
+                <td style="padding:10px;border-bottom:1px solid #1e293b;color:#f1f5f9;">BestBuy</td>
+                <td style="padding:10px;border-bottom:1px solid #1e293b;color:#f1f5f9;"><span style="color:#10b981;font-weight:bold;">In Stock</span></td>
+                <td style="padding:10px;border-bottom:1px solid #1e293b;color:#2dd4bf;font-weight:bold;font-family:monospace;">₹15442.59</td>
+            </tr>
+            
+            <tr>
+                <td style="padding:10px;border-bottom:1px solid #1e293b;color:#f1f5f9;">AI Market Agent</td>
+                <td style="padding:10px;border-bottom:1px solid #1e293b;color:#f1f5f9;"><span style="color:#10b981;font-weight:bold;">In Stock</span></td>
+                <td style="padding:10px;border-bottom:1px solid #1e293b;color:#2dd4bf;font-weight:bold;font-family:monospace;">₹15841.90</td>
+            </tr>
+            
+            <tr>
+                <td style="padding:10px;border-bottom:1px solid #1e293b;color:#f1f5f9;">AI Market Agent</td>
+                <td style="padding:10px;border-bottom:1px solid #1e293b;color:#f1f5f9;"><span style="color:#10b981;font-weight:bold;">In Stock</span></td>
+                <td style="padding:10px;border-bottom:1px solid #1e293b;color:#2dd4bf;font-weight:bold;font-family:monospace;">₹15941.92</td>
+            </tr>
+            
+            <tr>
+                <td style="padding:10px;border-bottom:1px solid #1e293b;color:#f1f5f9;">AI Market Agent</td>
+                <td style="padding:10px;border-bottom:1px solid #1e293b;color:#f1f5f9;"><span style="color:#10b981;font-weight:bold;">In Stock</span></td>
+                <td style="padding:10px;border-bottom:1px solid #1e293b;color:#2dd4bf;font-weight:bold;font-family:monospace;">₹16033.33</td>
+            </tr>
+            
+            <tr>
+                <td style="padding:10px;border-bottom:1px solid #1e293b;color:#f1f5f9;">AI Market Agent</td>
+                <td style="padding:10px;border-bottom:1px solid #1e293b;color:#f1f5f9;"><span style="color:#10b981;font-weight:bold;">In Stock</span></td>
+                <td style="padding:10px;border-bottom:1px solid #1e293b;color:#2dd4bf;font-weight:bold;font-family:monospace;">₹15841.90</td>
+            </tr>
+            
+            <tr>
+                <td style="padding:10px;border-bottom:1px solid #1e293b;color:#f1f5f9;">AI Market Agent</td>
+                <td style="padding:10px;border-bottom:1px solid #1e293b;color:#f1f5f9;"><span style="color:#10b981;font-weight:bold;">In Stock</span></td>
+                <td style="padding:10px;border-bottom:1px solid #1e293b;color:#2dd4bf;font-weight:bold;font-family:monospace;">₹15915.31</td>
+            </tr>
+            
+            <tr>
+                <td style="padding:10px;border-bottom:1px solid #1e293b;color:#f1f5f9;">Walmart</td>
+                <td style="padding:10px;border-bottom:1px solid #1e293b;color:#f1f5f9;"><span style="color:#10b981;font-weight:bold;">In Stock</span></td>
+                <td style="padding:10px;border-bottom:1px solid #1e293b;color:#2dd4bf;font-weight:bold;font-family:monospace;">₹15347.94</td>
+            </tr>
+            
+            <tr>
+                <td style="padding:10px;border-bottom:1px solid #1e293b;color:#f1f5f9;">Ebay</td>
+                <td style="padding:10px;border-bottom:1px solid #1e293b;color:#f1f5f9;"><span style="color:#10b981;font-weight:bold;">In Stock</span></td>
+                <td style="padding:10px;border-bottom:1px solid #1e293b;color:#2dd4bf;font-weight:bold;font-family:monospace;">₹16596.51</td>
+            </tr>
+            
+            <tr>
+                <td style="padding:10px;border-bottom:1px solid #1e293b;color:#f1f5f9;">BestBuy</td>
+                <td style="padding:10px;border-bottom:1px solid #1e293b;color:#f1f5f9;"><span style="color:#10b981;font-weight:bold;">In Stock</span></td>
+                <td style="padding:10px;border-bottom:1px solid #1e293b;color:#2dd4bf;font-weight:bold;font-family:monospace;">₹14774.00</td>
+            </tr>
+            
+            <tr>
+                <td style="padding:10px;border-bottom:1px solid #1e293b;color:#f1f5f9;">Walmart</td>
+                <td style="padding:10px;border-bottom:1px solid #1e293b;color:#f1f5f9;"><span style="color:#10b981;font-weight:bold;">In Stock</span></td>
+                <td style="padding:10px;border-bottom:1px solid #1e293b;color:#2dd4bf;font-weight:bold;font-family:monospace;">₹15940.47</td>
+            </tr>
+            
+            <tr>
+                <td style="padding:10px;border-bottom:1px solid #1e293b;color:#f1f5f9;">BestBuy</td>
+                <td style="padding:10px;border-bottom:1px solid #1e293b;color:#f1f5f9;"><span style="color:#10b981;font-weight:bold;">In Stock</span></td>
+                <td style="padding:10px;border-bottom:1px solid #1e293b;color:#2dd4bf;font-weight:bold;font-family:monospace;">₹15056.43</td>
+            </tr>
+            
+            <tr>
+                <td style="padding:10px;border-bottom:1px solid #1e293b;color:#f1f5f9;">Ebay</td>
+                <td style="padding:10px;border-bottom:1px solid #1e293b;color:#f1f5f9;"><span style="color:#10b981;font-weight:bold;">In Stock</span></td>
+                <td style="padding:10px;border-bottom:1px solid #1e293b;color:#2dd4bf;font-weight:bold;font-family:monospace;">₹15521.49</td>
+            </tr>
+            
+            <tr>
+                <td style="padding:10px;border-bottom:1px solid #1e293b;color:#f1f5f9;">Ebay</td>
+                <td style="padding:10px;border-bottom:1px solid #1e293b;color:#f1f5f9;"><span style="color:#10b981;font-weight:bold;">In Stock</span></td>
+                <td style="padding:10px;border-bottom:1px solid #1e293b;color:#2dd4bf;font-weight:bold;font-family:monospace;">₹16369.80</td>
+            </tr>
+            
+            <tr>
+                <td style="padding:10px;border-bottom:1px solid #1e293b;color:#f1f5f9;">Target</td>
+                <td style="padding:10px;border-bottom:1px solid #1e293b;color:#f1f5f9;"><span style="color:#10b981;font-weight:bold;">In Stock</span></td>
+                <td style="padding:10px;border-bottom:1px solid #1e293b;color:#2dd4bf;font-weight:bold;font-family:monospace;">₹16145.67</td>
+            </tr>
+            
+            <tr>
+                <td style="padding:10px;border-bottom:1px solid #1e293b;color:#f1f5f9;">AI Market Agent</td>
+                <td style="padding:10px;border-bottom:1px solid #1e293b;color:#f1f5f9;"><span style="color:#10b981;font-weight:bold;">In Stock</span></td>
+                <td style="padding:10px;border-bottom:1px solid #1e293b;color:#2dd4bf;font-weight:bold;font-family:monospace;">₹15755.31</td>
+            </tr>
+            
+            <tr>
+                <td style="padding:10px;border-bottom:1px solid #1e293b;color:#f1f5f9;">AI Market Agent</td>
+                <td style="padding:10px;border-bottom:1px solid #1e293b;color:#f1f5f9;"><span style="color:#10b981;font-weight:bold;">In Stock</span></td>
+                <td style="padding:10px;border-bottom:1px solid #1e293b;color:#2dd4bf;font-weight:bold;font-family:monospace;">₹15743.41</td>
+            </tr>
+            
+            <tr>
+                <td style="padding:10px;border-bottom:1px solid #1e293b;color:#f1f5f9;">AI Market Agent</td>
+                <td style="padding:10px;border-bottom:1px solid #1e293b;color:#f1f5f9;"><span style="color:#10b981;font-weight:bold;">In Stock</span></td>
+                <td style="padding:10px;border-bottom:1px solid #1e293b;color:#2dd4bf;font-weight:bold;font-family:monospace;">₹15841.31</td>
+            </tr>
+            
+                </tbody>
+            </table>
+
+            <div class="footer">
+                Governance tracking ID: 69217d91-9166-4fa8-bd71-3c426024ef7c<br>
+                This is an automated security audit email from Klypup. Please do not reply.
+            </div>
+        </div>
+    </body>
+    </html>
+    

@@ -57,10 +57,13 @@ app.config.from_object(
 
 
 # =====================================
-# INITIALIZE EXTENSIONS
+# INITIALIZE EXTENSIONS & TASK WORKER
 # =====================================
 
 init_extensions(app)
+from app.services.task_worker import init_worker
+init_worker(app)
+
 with app.app_context():
     db.create_all()
 

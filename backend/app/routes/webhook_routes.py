@@ -2,7 +2,7 @@ import logging
 from flask import Blueprint, request, current_app
 from app.extensions import db
 from app.models.product import Product
-from app.models.market_data import DemandSignal
+from app.models.market_data import DemandSignal, Sale
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +53,19 @@ def shopify_order_webhook():
         # Decrement inventory by quantity ordered to keep everything in sync
         if product.inventory_quantity >= quantity:
             product.inventory_quantity -= quantity
+        else:
+            # Auto restock
+            product.inventory_quantity += 100
+            product.inventory_quantity -= quantity
+            
+        # Create a Sale record
+        sale = Sale(
+            product_id=product.id,
+            organization_id=product.organization_id,
+            quantity=quantity,
+            price_per_unit=product.current_price
+        )
+        db.session.add(sale)
             
         processed_skus.append({"sku": sku, "new_velocity": new_velocity})
         

@@ -142,14 +142,14 @@ def chat():
 All 5 specialized agents have executed their analysis sequence. The recommendation has been generated and is {route_str}.
 
 #### 📊 Agent Consensus breakdown:
-- 🌐 **Market Intelligence Agent**: Competitor average price is **${rec.agent_analysis['market_agent']['competitor_price']:.2f}** (our current price: **${product.current_price:.2f}**).
+- 🌐 **Market Intelligence Agent**: Competitor average price is **₹{rec.agent_analysis['market_agent']['competitor_price']:.2f}** (our current price: **₹{product.current_price:.2f}**).
 - 📉 **Demand Forecast Agent**: Category trend is **{rec.agent_analysis['demand_agent']['trend']}** (Demand Score: **{rec.agent_analysis['demand_agent']['demand_score']}**).
 - 📦 **Inventory & Cost Agent**: Stock is **{rec.agent_analysis['inventory_agent']['stock_status']}** (Inventory quantity: **{product.inventory_quantity}**).
 - ⚙️ **Execution & Compliance Agent**: Minimum margin checks returned **{'COMPLIANT' if comp_res.get('compliant', True) else 'VIOLATION ADJUSTED'}** (Margin at suggested price: **{comp_res.get('margin_at_recommended', 0.0):.1f}%**).
 
 #### 🎯 Recommendation Output:
-- **Current Price**: `${product.current_price:.2f}`
-- **Suggested Price**: `${rec.recommended_price:.2f}`
+- **Current Price**: `₹{product.current_price:.2f}`
+- **Suggested Price**: `₹{rec.recommended_price:.2f}`
 - **Pricing Strategy**: `{ai_res['strategy'].upper()}`
 - **Confidence Score**: `{int(rec.confidence_score * 100)}%`
 - **Rationale**: {rec.rationale}
@@ -192,8 +192,8 @@ All 5 specialized agents have executed their analysis sequence. The recommendati
 - **SKU**: `{product.sku}`
 - **Category**: `{product.category}`
 - **Description**: {product.description or 'No description provided.'}
-- **Current Storefront Price**: `${product.current_price:.2f}`
-- **Cost price (COGS)**: `${product.cost_price:.2f}`
+- **Current Storefront Price**: `₹{product.current_price:.2f}`
+- **Cost price (COGS)**: `₹{product.cost_price:.2f}`
 - **Gross Profit Margin**: `{margin}%`
 - **Minimum Target Margin**: `{product.min_margin_percentage}%`
 - **Inventory Count**: `{product.inventory_quantity}` units ({stock_status})
@@ -209,7 +209,7 @@ All 5 specialized agents have executed their analysis sequence. The recommendati
 
         rows = []
         for p in products:
-            rows.append(f"| `{p.sku}` | {p.name} | `${p.current_price:.2f}` | `{p.inventory_quantity}` | `{p.calculate_margin()}%` |")
+            rows.append(f"| `{p.sku}` | {p.name} | `₹{p.current_price:.2f}` | `{p.inventory_quantity}` | `{p.calculate_margin()}%` |")
 
         table_body = "\n".join(rows)
         response_markdown = f"""
@@ -236,7 +236,7 @@ Here is an overview of products currently active in your dashboard database:
 
         rows = []
         for r in recs:
-            rows.append(f"| `{r.product.sku}` | {r.product.name} | `${r.product.current_price:.2f}` | `${r.recommended_price:.2f}` | `{int(r.confidence_score * 100)}%` |")
+            rows.append(f"| `{r.product.sku}` | {r.product.name} | `₹{r.product.current_price:.2f}` | `₹{r.recommended_price:.2f}` | `{int(r.confidence_score * 100)}%` |")
 
         table_body = "\n".join(rows)
         response_markdown = f"""

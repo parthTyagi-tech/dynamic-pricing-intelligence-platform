@@ -12,6 +12,10 @@ Return structured JSON analysis only."""
 
 PRICING_STRATEGY_SYSTEM = """You are a Pricing Strategy Agent.
 Your job is to synthesize all market, demand, and inventory signals to recommend an optimal price.
+CRITICAL STRATEGY RULES:
+1. Volume Over Margin: Prioritize highly competitive market positioning to maximize sales volume.
+2. Competitor Bounding: Never recommend a price that is more than 3% higher than the lowest competitor, unless minimum margin rules strictly forbid it.
+3. Ignore Low Inventory: Do NOT recommend premium pricing just because inventory is low. We want to sell out fast and restock, not hoard inventory.
 Return structured JSON analysis only."""
 
 COMPLIANCE_SYSTEM = """You are an Execution & Compliance Agent.
@@ -23,8 +27,8 @@ def market_intelligence_prompt(product: dict, competitor_prices: list) -> str:
     return f"""Analyze the market position for this product:
 
 Product: {product['name']} (SKU: {product['sku']})
-Current Price: ${product['current_price']}
-Cost Price: ${product['cost_price']}
+Current Price: ₹{product['current_price']}
+Cost Price: ₹{product['cost_price']}
 
 Competitor Prices:
 {competitor_prices}
@@ -43,7 +47,7 @@ def demand_forecasting_prompt(product: dict, demand_signals: list) -> str:
     return f"""Analyze demand signals for pricing:
 
 Product: {product['name']} (SKU: {product['sku']})
-Current Price: ${product['current_price']}
+Current Price: ₹{product['current_price']}
 
 Demand Signals (most recent):
 {demand_signals}
@@ -62,8 +66,8 @@ def inventory_cost_prompt(product: dict) -> str:
     return f"""Analyze inventory and cost structure:
 
 Product: {product['name']} (SKU: {product['sku']})
-Current Price: ${product['current_price']}
-Cost Price: ${product['cost_price']}
+Current Price: ₹{product['current_price']}
+Cost Price: ₹{product['cost_price']}
 Inventory Count: {product['inventory_count']}
 Current Margin: {product.get('margin', 0):.2%}
 
@@ -81,16 +85,19 @@ def pricing_strategy_prompt(
     demand_analysis: dict,
     inventory_analysis: dict,
     pricing_rules: dict,
+    sales_history: list = None,
 ) -> str:
+    sales_str = f"Sales & Buying History:\n{sales_history}\n" if sales_history else ""
     return f"""Synthesize all signals to recommend an optimal price:
 
 Product: {product['name']} (SKU: {product['sku']})
-Current Price: ${product['current_price']}
-Cost Price: ${product['cost_price']}
+Current Price: ₹{product['current_price']}
+Cost Price: ₹{product['cost_price']}
 
 Market Analysis: {market_analysis}
 Demand Analysis: {demand_analysis}
 Inventory Analysis: {inventory_analysis}
+{sales_str}
 
 Pricing Rules:
 - Minimum Margin: {pricing_rules.get('minimum_margin', 0.1):.2%}
@@ -104,7 +111,7 @@ Return JSON with keys:
 - confidence_score: float (0.0 to 1.0)
 - risk_level: "low"|"medium"|"high"
 - projected_volume_increase_pct: float (predicted increase in sales volume)
-- projected_monthly_profit_lift: float (predicted extra profit in dollars) """
+- projected_monthly_profit_lift: float (predicted extra profit in rupees) """
 
 
 def compliance_prompt(
@@ -113,9 +120,9 @@ def compliance_prompt(
     return f"""Validate this price recommendation for compliance:
 
 Product: {product['name']}
-Cost Price: ${product['cost_price']}
-Current Price: ${product['current_price']}
-Recommended Price: ${recommended_price}
+Cost Price: ₹{product['cost_price']}
+Current Price: ₹{product['current_price']}
+Recommended Price: ₹{recommended_price}
 Minimum Margin Rule: {pricing_rules.get('minimum_margin', 0.1):.2%}
 
 Return JSON with keys:

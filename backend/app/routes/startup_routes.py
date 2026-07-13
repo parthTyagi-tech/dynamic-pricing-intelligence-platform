@@ -6,7 +6,7 @@ from app.extensions import db
 from app.models.user import User
 from app.models.product import Product
 import asyncio
-from app.services.realtime_scraper import fetch_realtime_competitor_prices
+from app.services.realtime_scraper import fetch_multi_platform_prices
 
 startup_bp = Blueprint("startup", __name__)
 
@@ -36,41 +36,49 @@ def competitor_matcher():
         return {"success": False, "message": "User not found"}, 404
 
     data = request.get_json() or {}
-    search_query = data.get("search_query", "headphones")
-    target_url = data.get("url", "https://competitor.com/catalog")
+    product_id = data.get("product_id")
 
-    # Generate true AI-backed real-time prices for this search query
+    if not product_id:
+        return {"success": False, "message": "product_id is required"}, 400
+
+    # Fetch the user's product from database
+    product = Product.query.filter_by(
+        id=product_id,
+        organization_id=current_user.organization_id
+    ).first()
+
+    if not product:
+        return {"success": False, "message": "Product not found in your catalog"}, 404
+
+    # Run multi-platform price intelligence
     try:
         loop = asyncio.get_event_loop()
     except RuntimeError:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-        
-    # We use a baseline of 199.99 for the query to anchor the AI's generation
-    baseline_price = 199.99
-    live_prices = loop.run_until_complete(fetch_realtime_competitor_prices(search_query, baseline_price))
 
-    matched_results = []
-    base_similarity = 0.98
+    platform_prices = loop.run_until_complete(
+        fetch_multi_platform_prices(
+            product_name=product.name,
+            brand=product.brand or "",
+            category=product.category or "",
+            baseline_price_usd=product.current_price,
+            barcode=product.barcode or ""
+        )
+    )
 
-    idx = 0
-    for comp_name, comp_data in live_prices.items():
-        price = comp_data.get("price")
-        matched_results.append({
-            "id": f"comp-match-{idx}",
-            "competitor_name": comp_name,
-            "competitor_price": price,
-            "in_stock": comp_data.get("in_stock", True),
-            "match_score": 100, # Simulated
-            "product_url": f"https://{comp_name.lower()}.com/search?q={search_query.replace(' ', '+')}"
+    # Convert to ordered list for frontend
+    results = []
+    for idx, (pname, pdata) in enumerate(platform_prices.items()):
+        results.append({
+            "id": f"platform-{idx}",
+            **pdata
         })
-        idx += 1
 
     return {
         "success": True,
-        "query": search_query,
-        "scraped_url": target_url,
-        "matches": matched_results
+        "product": product.to_dict(),
+        "platforms": results
     }, 200
 
 
@@ -84,7 +92,7 @@ def get_billing_summary():
 
     # Calculate dynamic mock invoice values based on actual DB product counts
     product_count = Product.query.filter_by(organization_id=current_user.organization_id).count()
-    # Assume AI generates an average of $1,420 lift per managed product
+    # Assume AI generates an average of ₹1,18,286 (approx $1,420) lift per managed product
     revenue_lift = float(product_count * 1420.00) if product_count > 0 else 45210.00
     
     commission_rate = 0.005 # 0.5%

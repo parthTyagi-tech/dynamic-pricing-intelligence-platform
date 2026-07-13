@@ -5,8 +5,9 @@ import {
   Trash2,
   Plus,
   Boxes,
-  DollarSign,
+  IndianRupee,
   Tag,
+  Upload,
 } from "lucide-react";
 
 import { motion } from "framer-motion";
@@ -18,9 +19,12 @@ export default function Products() {
   const [products, setProducts] = useState([]);
 
   const [loading, setLoading] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   const [formData, setFormData] = useState({
     name: "",
+    brand: "",
+    barcode: "",
     sku: "",
     description: "",
     category: "",
@@ -30,11 +34,13 @@ export default function Products() {
     min_margin_percentage: "10",
   });
 
-  const fetchProducts = async () => {
+  const fetchProducts = async (isSilent = false) => {
 
     try {
 
-      setLoading(true);
+      if (!isSilent) {
+        setLoading(true);
+      }
 
       const response =
         await apiClient.get("/products");
@@ -49,13 +55,43 @@ export default function Products() {
 
     } finally {
 
-      setLoading(false);
+      if (!isSilent) {
+        setLoading(false);
+      }
+    }
+  };
+
+  const handleCsvImport = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append("file", file);
+    setImporting(true);
+
+    try {
+      const response = await apiClient.post("/products/import-csv", formData, {
+        headers: { "Content-Type": "multipart/form-data" }
+      });
+      alert(response.data.message || "Catalog imported successfully!");
+      fetchProducts();
+    } catch (error) {
+      console.error(error);
+      alert(error.response?.data?.message || "Failed to import CSV catalog.");
+    } finally {
+      setImporting(false);
     }
   };
 
   useEffect(() => {
 
     fetchProducts();
+
+    const interval = setInterval(() => {
+      fetchProducts(true);
+    }, 5000);
+
+    return () => clearInterval(interval);
 
   }, []);
 
@@ -93,6 +129,8 @@ export default function Products() {
 
       setFormData({
         name: "",
+        brand: "",
+        barcode: "",
         sku: "",
         description: "",
         category: "",
@@ -269,6 +307,20 @@ export default function Products() {
           />
 
           <InputField
+            name="brand"
+            placeholder="Brand Name"
+            value={formData.brand}
+            onChange={handleChange}
+          />
+
+          <InputField
+            name="barcode"
+            placeholder="Barcode / EAN / UPC (Optional)"
+            value={formData.barcode}
+            onChange={handleChange}
+          />
+
+          <InputField
             name="category"
             placeholder="Category"
             value={formData.category}
@@ -372,6 +424,20 @@ export default function Products() {
 
             </p>
 
+          </div>
+
+          <div>
+            <label className="cursor-pointer inline-flex items-center gap-2 bg-[#00A19B]/10 hover:bg-[#00A19B]/20 border border-[#00A19B]/30 text-[#7FF6EE] px-4 py-2.5 rounded-2xl text-xs font-semibold transition-all">
+              <Upload size={14} />
+              {importing ? "Importing..." : "Import CSV Catalog"}
+              <input
+                type="file"
+                accept=".csv"
+                className="hidden"
+                onChange={handleCsvImport}
+                disabled={importing}
+              />
+            </label>
           </div>
 
         </div>
@@ -525,7 +591,7 @@ export default function Products() {
                     />
 
                     <InfoRow
-                      icon={DollarSign}
+                      icon={IndianRupee}
                       label="Price"
                       value={`₹${product.current_price}`}
                     />

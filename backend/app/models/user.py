@@ -24,6 +24,7 @@ class User(db.Model):
     organization_id = db.Column(
         db.String(36), db.ForeignKey("organizations.id"), nullable=False, index=True
     )
+    phone_number = db.Column(db.String(20), nullable=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     # Relationships
@@ -51,8 +52,13 @@ class User(db.Model):
             "id": self.id,
             "name": self.name,
             "email": self.email,
+            "phone_number": self.phone_number,
             "role": self.role,
             "organization_id": self.organization_id,
+            "organization_name": self.organization.name if self.organization else None,
+            "onboarding_completed": self.organization.onboarding_completed if self.organization else True,
+            "store_platform": self.organization.store_platform if self.organization else None,
+            "store_domain": self.organization.store_domain if self.organization else None,
             "oauth_provider": self.oauth_provider,
             "created_at": self.created_at.isoformat(),
         }

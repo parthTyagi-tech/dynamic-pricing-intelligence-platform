@@ -41,6 +41,10 @@ class Product(db.Model):
 
     __tablename__ = "products"
 
+    __table_args__ = (
+        db.UniqueConstraint('sku', 'organization_id', name='uq_sku_org'),
+    )
+
     id = db.Column(
         db.String(36),
         primary_key=True,
@@ -49,7 +53,6 @@ class Product(db.Model):
 
     sku = db.Column(
         db.String(100),
-        unique=True,
         nullable=False,
         index=True
     )
@@ -57,6 +60,17 @@ class Product(db.Model):
     name = db.Column(
         db.String(255),
         nullable=False
+    )
+
+    brand = db.Column(
+        db.String(100),
+        nullable=True,
+        default=""
+    )
+
+    barcode = db.Column(
+        db.String(100),
+        nullable=True
     )
 
     category = db.Column(
@@ -177,6 +191,8 @@ class Product(db.Model):
             "id": self.id,
             "sku": self.sku,
             "name": self.name,
+            "brand": self.brand or "",
+            "barcode": self.barcode or "",
             "category": self.category,
             "description": self.description,
             "current_price": self.current_price,

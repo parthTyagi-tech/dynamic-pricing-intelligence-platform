@@ -102,7 +102,7 @@ export default function Billing() {
                 </div>
                 
                 <div>
-                  <span className="text-2xl font-extrabold text-white">${plan.price}</span>
+                  <span className="text-2xl font-extrabold text-white">₹{plan.price}</span>
                   <span className="text-xs text-slate-400"> / month</span>
                 </div>
 
@@ -128,15 +128,15 @@ export default function Billing() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 py-2">
               <div className="bg-white/5 border border-white/5 p-4 rounded-2xl">
                 <span className="text-[10px] text-slate-400 font-semibold">AI Net Profit Lift</span>
-                <h4 className="text-base font-bold text-white mt-1">${metrics.ai_assisted_revenue_lift.toLocaleString()}</h4>
+                <h4 className="text-base font-bold text-white mt-1">₹{metrics.ai_assisted_revenue_lift.toLocaleString()}</h4>
               </div>
               <div className="bg-white/5 border border-white/5 p-4 rounded-2xl">
                 <span className="text-[10px] text-slate-400 font-semibold">Commission ({metrics.commission_rate_pct}%)</span>
-                <h4 className="text-base font-bold text-teal-400 mt-1">${metrics.commission_due.toFixed(2)}</h4>
+                <h4 className="text-base font-bold text-teal-400 mt-1">₹{metrics.commission_due.toFixed(2)}</h4>
               </div>
               <div className="bg-white/5 border border-white/5 p-4 rounded-2xl">
                 <span className="text-[10px] text-slate-400 font-semibold">Base Subscription</span>
-                <h4 className="text-base font-bold text-white mt-1">${metrics.subscription_due.toFixed(2)}</h4>
+                <h4 className="text-base font-bold text-white mt-1">₹{metrics.subscription_due.toFixed(2)}</h4>
               </div>
             </div>
           </div>
@@ -144,7 +144,7 @@ export default function Billing() {
           <div className="flex justify-between items-center border-t border-white/5 pt-6 mt-6">
             <div>
               <span className="text-xs text-slate-400 font-medium">Current Amount Outstanding</span>
-              <h4 className="text-lg font-bold text-white mt-1 font-mono">${invoiceAmount.toFixed(2)}</h4>
+              <h4 className="text-lg font-bold text-white mt-1 font-mono">₹{invoiceAmount.toFixed(2)}</h4>
             </div>
 
             <AnimatePresence mode="wait">
@@ -193,7 +193,7 @@ export default function Billing() {
                   <p className="text-[10px] text-slate-500">{new Date(inv.date).toLocaleDateString()}</p>
                 </div>
                 <div className="text-right">
-                  <span className="font-bold text-white font-mono">${inv.amount.toFixed(2)}</span>
+                  <span className="font-bold text-white font-mono">₹{inv.amount.toFixed(2)}</span>
                   <span className="block text-[9px] text-emerald-400 font-extrabold uppercase mt-0.5">{inv.status}</span>
                 </div>
               </div>

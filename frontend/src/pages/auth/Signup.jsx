@@ -15,6 +15,7 @@ import {
   Mail,
   Lock,
   Building2,
+  Phone,
   Eye,
   EyeOff,
   AlertCircle,
@@ -254,6 +255,7 @@ export default function Signup() {
     email: "",
     password: "",
     organization_name: "",
+    phone_number: "",
   });
 
   const [errors, setErrors] =
@@ -331,6 +333,14 @@ export default function Signup() {
 
       e.organization_name =
         "Organization name is required";
+    }
+
+    if (
+      form.phone_number.trim() &&
+      !/^\+\d{10,15}$/.test(form.phone_number.trim())
+    ) {
+      e.phone_number =
+        "Enter valid phone with country code (e.g. +91XXXXXXXXXX)";
     }
 
     return e;
@@ -690,6 +700,17 @@ export default function Signup() {
               error={
                 errors.organization_name
               }
+            />
+
+            <Field
+              label="WhatsApp Number (Optional)"
+              id="phone_number"
+              type="tel"
+              value={form.phone_number}
+              onChange={set("phone_number")}
+              placeholder="+91XXXXXXXXXX"
+              Icon={Phone}
+              error={errors.phone_number}
             />
 
             {/* PASSWORD */}

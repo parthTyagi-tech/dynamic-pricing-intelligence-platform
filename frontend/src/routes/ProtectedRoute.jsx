@@ -8,13 +8,23 @@ import { useAuth } from "../context/AuthContext";
  *   fallback   {JSX}      – custom loading UI
  */
 export default function ProtectedRoute({ children, adminOnly = false, fallback }) {
-  const { isAuthenticated, isAdmin, loading } = useAuth();
+  const { isAuthenticated, isAdmin, loading, user } = useAuth();
   const location = useLocation();
 
   if (loading) return fallback ?? <AuthLoadingScreen />;
 
   if (!isAuthenticated)
     return <Navigate to="/login" state={{ from: location }} replace />;
+
+  const onboardingCompleted = user?.onboarding_completed ?? true;
+
+  if (!onboardingCompleted && location.pathname !== "/onboarding") {
+    return <Navigate to="/onboarding" replace />;
+  }
+
+  if (onboardingCompleted && location.pathname === "/onboarding") {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   if (adminOnly && !isAdmin)
     return <Navigate to="/dashboard" replace />;

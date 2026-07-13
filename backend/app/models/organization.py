@@ -31,6 +31,22 @@ class Organization(db.Model):
         default=lambda: datetime.now(timezone.utc)
     )
 
+    onboarding_completed = db.Column(
+        db.Boolean,
+        default=False,
+        nullable=False
+    )
+
+    store_platform = db.Column(
+        db.String(64),
+        nullable=True
+    )
+
+    store_domain = db.Column(
+        db.String(255),
+        nullable=True
+    )
+
     # =========================
     # Relationships
     # =========================
@@ -75,6 +91,9 @@ class Organization(db.Model):
             "id": self.id,
             "name": self.name,
             "invite_code": self.invite_code,
+            "onboarding_completed": self.onboarding_completed,
+            "store_platform": self.store_platform,
+            "store_domain": self.store_domain,
             "created_at": self.created_at.isoformat(),
         }
 

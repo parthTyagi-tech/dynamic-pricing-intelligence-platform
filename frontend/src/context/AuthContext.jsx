@@ -45,9 +45,9 @@ export function AuthProvider({ children }) {
     return data;
   }, []);
 
-  const signup = useCallback(async ({ name, email, password, organization_name }) => {
+  const signup = useCallback(async ({ name, email, password, organization_name, phone_number }) => {
     const { data } = await apiClient.post("/auth/register", {
-      name, email, password, organization_name,
+      name, email, password, organization_name, phone_number,
     });
     _persist(data.token ?? data.access_token, data.user ?? data);
     return data;
@@ -64,10 +64,11 @@ export function AuthProvider({ children }) {
 
   const isAuthenticated = Boolean(token && user);
   const isAdmin         = isAuthenticated && (user?.role === "admin" || user?.is_admin === true);
+  const updateUser      = (newData) => setUser(newData);
 
   return (
     <AuthContext.Provider
-      value={{ user, token, loading, isAuthenticated, isAdmin, login, signup, logout }}>
+      value={{ user, token, loading, isAuthenticated, isAdmin, login, signup, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

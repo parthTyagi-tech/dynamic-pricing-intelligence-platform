@@ -1,0 +1,56 @@
+To: whatsapp:+919368687948
+From: whatsapp:+14155238886
+Timestamp: 2026-07-06T11:10:37.892332+00:00
+==================================================
+✅ *Klypup Pricing Alert — Approved*
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📦 *Product:* iPhone 15 (128GB)
+🏷️ *SKU:* IP15-128-BLK
+
+💰 *Previous Price:* ₹79900.00
+💎 *Approved Price:* ₹78500.00
+
+🧠 *LLM Rationale:*
+_The recommended price is based on the competitive market positioning and the demand analysis, which indicates a high demand level with a rising trend. The current price is slightly higher than the average competitor price, and a slight price adjustment is necessary to maintain competitiveness. The minimum margin rule is also satisfied with the recommended price._
+
+📈 *Confidence Score:* 85%
+
+🏪 *Competitor Prices:*
+  • Ebay: ₹82512.38 (✅ In Stock)
+  • Walmart: ₹82570.90 (✅ In Stock)
+  • Amazon: ₹74132.94 (✅ In Stock)
+  • BestBuy: ₹75789.19 (✅ In Stock)
+  • Ebay: ₹80758.36 (✅ In Stock)
+  • Amazon: ₹82126.65 (✅ In Stock)
+  • Ebay: ₹73771.08 (✅ In Stock)
+  • BestBuy: ₹77282.04 (✅ In Stock)
+  • Amazon: ₹77847.92 (✅ In Stock)
+  • Target: ₹75127.79 (✅ In Stock)
+  • Amazon: ₹80427.45 (✅ In Stock)
+  • Walmart: ₹77962.31 (✅ In Stock)
+  • Amazon: ₹79968.15 (✅ In Stock)
+  • BestBuy: ₹76666.74 (✅ In Stock)
+  • Amazon: ₹82669.97 (✅ In Stock)
+  • Walmart: ₹77319.01 (✅ In Stock)
+  • Target: ₹79376.27 (✅ In Stock)
+  • Ebay: ₹76714.10 (✅ In Stock)
+  • BestBuy: ₹78675.23 (✅ In Stock)
+  • Amazon: ₹75200.82 (✅ In Stock)
+  • Ebay: ₹82697.52 (✅ In Stock)
+  • Amazon: ₹75962.09 (✅ In Stock)
+  • Ebay: ₹74707.38 (✅ In Stock)
+  • BestBuy: ₹80015.22 (✅ In Stock)
+  • Walmart: ₹74224.75 (✅ In Stock)
+  • Walmart: ₹75065.72 (✅ In Stock)
+  • BestBuy: ₹76643.42 (✅ In Stock)
+  • BestBuy: ₹79841.72 (✅ In Stock)
+  • BestBuy: ₹80219.42 (✅ In Stock)
+  • Amazon: ₹79850.15 (✅ In Stock)
+  • AI Market Agent: ₹78523.19 (✅ In Stock)
+  • AI Market Agent: ₹78523.19 (✅ In Stock)
+
+🕐 *Timestamp:* 2026-07-06 11:10:37 UTC
+🔖 *Tracking ID:* bb1c11e6-e3d3-482d-9df5-03b48d373e3e
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+_Automated alert from Klypup AI. Do not reply._

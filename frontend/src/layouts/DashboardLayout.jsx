@@ -360,6 +360,8 @@ export default function DashboardLayout() {
         recs.map((rec) => ({
           id: `rec-${rec.id}`,
 
+          recId: rec.id,
+
           text:
             `${rec.product?.name || "Product"} AI recommendation generated`,
 
@@ -922,7 +924,7 @@ export default function DashboardLayout() {
 
                             onClick={() => {
 
-                              navigate(n.route);
+                              navigate(n.route, { state: { autoOpenRecId: n.recId } });
 
                               setNotifOpen(false);
                             }}

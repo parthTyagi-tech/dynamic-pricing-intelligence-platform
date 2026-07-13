@@ -11,6 +11,7 @@ import {
   Activity,
   Sparkles,
   User,
+  Undo,
 } from "lucide-react";
 
 import { motion } from "framer-motion";
@@ -45,6 +46,16 @@ export default function AuditHistory() {
     }
   };
 
+  const handleRollback = async (actionId) => {
+    try {
+      await apiClient.post(`/approvals/rollback/${actionId}`);
+      fetchHistory();
+    } catch (error) {
+      console.error("Failed to rollback:", error);
+      alert(error.response?.data?.message || "Rollback failed");
+    }
+  };
+
   useEffect(() => {
 
     fetchHistory();
@@ -60,6 +71,17 @@ export default function AuditHistory() {
       return (
         <CheckCircle
           className="text-green-400"
+          size={20}
+        />
+      );
+    }
+    if (
+      action?.toLowerCase() === "rollback"
+    ) {
+
+      return (
+        <Undo
+          className="text-indigo-400"
           size={20}
         />
       );
@@ -84,6 +106,17 @@ export default function AuditHistory() {
         text-green-400
         border
         border-green-500/20
+      `;
+    }
+    if (
+      action?.toLowerCase() === "rollback"
+    ) {
+
+      return `
+        bg-indigo-500/10
+        text-indigo-400
+        border
+        border-indigo-500/20
       `;
     }
 
@@ -460,6 +493,25 @@ export default function AuditHistory() {
                   />
 
                 </div>
+
+                {item.action_type?.toLowerCase() === "approve" && (
+                  <div className="mt-6 pt-5 border-t border-white/5 flex justify-end">
+                    {item.rolled_back ? (
+                      <span className="text-slate-500 text-xs font-semibold flex items-center gap-1.5 bg-white/2 px-3 py-1.5 rounded-xl border border-white/5 cursor-not-allowed">
+                        <Undo size={12} />
+                        Rolled Back
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => handleRollback(item.id)}
+                        className="text-xs font-semibold flex items-center gap-1.5 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 hover:bg-indigo-500/20 hover:border-indigo-500/30 transition-all px-4 py-2 rounded-xl cursor-pointer"
+                      >
+                        <Undo size={12} />
+                        Rollback Price
+                      </button>
+                    )}
+                  </div>
+                )}
 
               </div>
 

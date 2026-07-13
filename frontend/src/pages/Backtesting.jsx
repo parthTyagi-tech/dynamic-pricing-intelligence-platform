@@ -123,7 +123,7 @@ export default function Backtesting() {
               >
                 {products.map(p => (
                   <option key={p.id} value={p.id} className="bg-slate-900 text-white">
-                    {p.name} ({p.sku}) - ${p.current_price}
+                    {p.name} ({p.sku}) - ₹{p.current_price}
                   </option>
                 ))}
               </select>
@@ -220,8 +220,8 @@ export default function Backtesting() {
                 {/* LIFT METRICS ROW */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   {[
-                    { label: "Baseline Revenue", val: `$${simResults.summary.total_actual_revenue.toLocaleString()}`, color: "text-slate-400" },
-                    { label: "AI-Optimized Revenue", val: `$${simResults.summary.total_ai_revenue.toLocaleString()}`, color: "text-teal-400" },
+                    { label: "Baseline Revenue", val: `₹${simResults.summary.total_actual_revenue.toLocaleString()}`, color: "text-slate-400" },
+                    { label: "AI-Optimized Revenue", val: `₹${simResults.summary.total_ai_revenue.toLocaleString()}`, color: "text-teal-400" },
                     { label: "Revenue Lift Margin", val: `+${simResults.summary.revenue_lift_pct}%`, color: "text-emerald-400", highlight: true },
                     { label: "Net Profit Growth", val: `+${simResults.summary.profit_lift_pct}%`, color: "text-teal-400", highlight: true }
                   ].map((card, idx) => (
@@ -237,7 +237,7 @@ export default function Backtesting() {
                 {/* GRAPH COMPARISON */}
                 <div className="space-y-2">
                   <div className="flex justify-between items-center text-xs">
-                    <h5 className="font-bold text-white">Daily Revenue Comparison ($ USD)</h5>
+                    <h5 className="font-bold text-white">Daily Revenue Comparison (₹ INR)</h5>
                     <div className="flex items-center gap-4">
                       <span className="flex items-center gap-1.5 text-slate-500"><span className="w-2.5 h-1 bg-slate-500 rounded" /> Baseline Price</span>
                       <span className="flex items-center gap-1.5 text-teal-400"><span className="w-2.5 h-1 bg-teal-400 rounded" /> Klypup Dynamic</span>
@@ -298,13 +298,13 @@ export default function Backtesting() {
                   return (
                     <tr key={idx} className="hover:bg-white/5 transition-colors">
                       <td className="px-4 py-2.5 text-slate-400">Day {point.day}</td>
-                      <td className="px-4 py-2.5 text-slate-300 font-mono">${point.actual_price} ({point.actual_quantity} sold)</td>
-                      <td className="px-4 py-2.5 text-slate-400 font-mono">${point.competitor_price}</td>
-                      <td className="px-4 py-2.5 text-teal-300 font-semibold font-mono">${point.ai_price} ({point.ai_quantity} sold)</td>
-                      <td className="px-4 py-2.5 text-slate-400 font-mono">${point.actual_revenue}</td>
-                      <td className="px-4 py-2.5 text-teal-400 font-mono">${point.ai_revenue}</td>
+                      <td className="px-4 py-2.5 text-slate-300 font-mono">₹{point.actual_price} ({point.actual_quantity} sold)</td>
+                      <td className="px-4 py-2.5 text-slate-400 font-mono">₹{point.competitor_price}</td>
+                      <td className="px-4 py-2.5 text-teal-300 font-semibold font-mono">₹{point.ai_price} ({point.ai_quantity} sold)</td>
+                      <td className="px-4 py-2.5 text-slate-400 font-mono">₹{point.actual_revenue}</td>
+                      <td className="px-4 py-2.5 text-teal-400 font-mono">₹{point.ai_revenue}</td>
                       <td className={`px-4 py-2.5 font-bold font-mono ${lift >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                        {lift >= 0 ? "+" : ""}${lift.toFixed(2)}
+                        {lift >= 0 ? "+" : ""}₹{lift.toFixed(2)}
                       </td>
                     </tr>
                   );

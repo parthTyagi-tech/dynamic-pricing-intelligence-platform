@@ -64,6 +64,8 @@ def create_product():
         sku=data["sku"],
         name=data["name"],
         category=data.get("category", "General"),
+        brand=data.get("brand"),
+        barcode=data.get("barcode"),
         description=data.get("description"),
         current_price=data["current_price"],
         cost_price=data["cost_price"],
@@ -250,3 +252,149 @@ def delete_product(product_id):
         "success": True,
         "message": "Product deleted successfully"
     }, 200
+
+# =====================================
+# IMPORT PRODUCTS VIA CSV
+# =====================================
+
+@product_bp.route(
+    "/import-csv",
+    methods=["POST"]
+)
+@jwt_required()
+def import_csv():
+    current_user_id = get_jwt_identity()
+    current_user = User.query.get(current_user_id)
+
+    if not current_user:
+        return {
+            "success": False,
+            "message": "User not found"
+        }, 404
+
+    # Check if a file was uploaded
+    if "file" not in request.files:
+        return {
+            "success": False,
+            "message": "No file uploaded"
+        }, 400
+
+    file = request.files["file"]
+    if file.filename == "":
+        return {
+            "success": False,
+            "message": "No file selected"
+        }, 400
+
+    if not file.filename.endswith(".csv"):
+        return {
+            "success": False,
+            "message": "File format must be CSV"
+        }, 400
+
+    try:
+        import io
+        import csv
+        import uuid
+        
+        # Read the file stream with utf-8-sig to strip byte order mark (BOM) if present
+        stream = io.StringIO(file.stream.read().decode("utf-8-sig"), newline=None)
+        reader = csv.DictReader(stream)
+
+        # Validate headers
+        required_headers = ["name", "current_price"]
+        headers = [h.strip().lower() for h in (reader.fieldnames or []) if h]
+        
+        for req in required_headers:
+            if req not in headers:
+                return {
+                    "success": False,
+                    "message": f"Missing required column: '{req}'. File must contain at least 'name' and 'current_price' columns."
+                }, 400
+
+        products_imported = 0
+        db_mappings = []
+        seen_skus_in_batch = {}
+
+        # Read row-by-row
+        for row in reader:
+            # Map headers case-insensitively
+            row_clean = {k.strip().lower(): v.strip() for k, v in row.items() if k}
+            
+            name = row_clean.get("name")
+            current_price_str = row_clean.get("current_price")
+            
+            if not name or not current_price_str:
+                continue
+
+            try:
+                current_price = float(current_price_str)
+                cost_price = float(row_clean.get("cost_price", 0.0) or 0.0)
+            except ValueError:
+                continue
+
+            sku = row_clean.get("sku") or f"SKU-{str(uuid.uuid4())[:8].upper()}"
+            category = row_clean.get("category", "General")
+            description = row_clean.get("description", "")
+            brand = row_clean.get("brand", "")
+            barcode = row_clean.get("barcode", "")
+            inventory_qty = int(row_clean.get("inventory_quantity", 0) or 0)
+
+            # Check if SKU already exists in this organization
+            existing = Product.query.filter_by(sku=sku, organization_id=current_user.organization_id).first()
+            if existing:
+                existing.name = name
+                existing.current_price = current_price
+                existing.cost_price = cost_price
+                existing.category = category
+                existing.brand = brand
+                existing.barcode = barcode
+                existing.description = description
+                existing.inventory_quantity = inventory_qty
+            elif sku in seen_skus_in_batch:
+                # Update the already mapped object in memory instead of inserting again
+                mapping = seen_skus_in_batch[sku]
+                mapping["name"] = name
+                mapping["current_price"] = current_price
+                mapping["cost_price"] = cost_price
+                mapping["category"] = category
+                mapping["brand"] = brand
+                mapping["barcode"] = barcode
+                mapping["description"] = description
+                mapping["inventory_quantity"] = inventory_qty
+            else:
+                new_mapping = {
+                    "sku": sku,
+                    "name": name,
+                    "category": category,
+                    "brand": brand,
+                    "barcode": barcode,
+                    "description": description,
+                    "current_price": current_price,
+                    "cost_price": cost_price,
+                    "inventory_quantity": inventory_qty,
+                    "organization_id": current_user.organization_id
+                }
+                db_mappings.append(new_mapping)
+                seen_skus_in_batch[sku] = new_mapping
+            
+            products_imported += 1
+
+        if db_mappings:
+            db.session.bulk_insert_mappings(Product, db_mappings)
+        
+        db.session.commit()
+
+        return {
+            "success": True,
+            "message": f"Successfully imported {products_imported} products",
+            "imported_count": products_imported
+        }, 200
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"[import_csv] Error: {e}")
+        return {
+            "success": False,
+            "message": f"Failed to process CSV file: {str(e)}"
+        }, 500

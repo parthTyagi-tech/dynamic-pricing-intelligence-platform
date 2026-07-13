@@ -166,6 +166,19 @@ class PricingRecommendation(db.Model):
     # =====================================
 
     def to_dict(self):
+        from app.models.market_data import CompetitorPrice, Sale
+        
+        competitors = []
+        sales_history = []
+        if self.product:
+            competitors = CompetitorPrice.query.filter_by(
+                product_id=self.product_id,
+                organization_id=self.organization_id
+            ).all()
+            sales_history = Sale.query.filter_by(
+                product_id=self.product_id,
+                organization_id=self.organization_id
+            ).order_by(Sale.timestamp.desc()).limit(10).all()
 
         return {
 
@@ -233,9 +246,26 @@ class PricingRecommendation(db.Model):
                 )
                 if self.product
                 and self.product.current_price
+                else 0,
+
+                "inventory_quantity":
+                self.product.inventory_quantity
+                if self.product
+                else 0,
+
+                "cost_price":
+                round(
+                    float(self.product.cost_price),
+                    2
+                )
+                if self.product
+                and self.product.cost_price
                 else 0
 
-            } if self.product else None
+            } if self.product else None,
+
+            "competitors": [c.to_dict() for c in competitors],
+            "sales_history": [s.to_dict() for s in sales_history]
         }
 
 
@@ -321,6 +351,12 @@ class ApprovalAction(db.Model):
 
             "action_type":
             self.action_type,
+
+            "rolled_back":
+            self.action_type == "approve" and ApprovalAction.query.filter_by(
+                recommendation_id=self.recommendation_id,
+                action_type="rollback"
+            ).first() is not None,
 
             "previous_price":
             round(

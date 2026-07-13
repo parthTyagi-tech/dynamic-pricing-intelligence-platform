@@ -74,6 +74,10 @@ const Billing = lazy(() =>
   import("./pages/Billing")
 );
 
+const Onboarding = lazy(() =>
+  import("./pages/Onboarding")
+);
+
 const NotFound = lazy(() =>
   import("./pages/NotFound")
 );
@@ -259,6 +263,15 @@ export default function App() {
                 <PublicRoute>
                   <Signup />
                 </PublicRoute>
+              }
+            />
+
+            <Route
+              path="/onboarding"
+              element={
+                <ProtectedRoute>
+                  <Onboarding />
+                </ProtectedRoute>
               }
             />
 

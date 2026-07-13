@@ -4,24 +4,23 @@ Analyzes competitor pricing and market position.
 """
 import random
 from typing import Dict, Any, List
-from app.services.ai.client import async_structured_json_completion
+from app.services.ai.client import async_guarded_json_completion
+from app.services.ai.schemas import MarketAnalysisSchema
 from app.services.ai.prompts import MARKET_INTELLIGENCE_SYSTEM, market_intelligence_prompt
 
 
 def _mock_market_analysis(product: dict, competitor_prices: list) -> dict:
-    """Fallback mock when AI is unavailable."""
-    prices = [c.get("competitor_price", product["current_price"]) for c in competitor_prices]
-    avg = sum(prices) / len(prices) if prices else product["current_price"]
-    gap = ((product["current_price"] - avg) / avg * 100) if avg > 0 else 0
-
+    """Fallback mock when AI is unavailable. Set neutral values to preserve current catalog price."""
+    current_price = product.get("current_price", 0.0)
     return {
-        "market_position": "competitive" if abs(gap) < 5 else ("leader" if gap < 0 else "lagging"),
-        "avg_competitor_price": round(avg, 2),
-        "min_competitor_price": round(min(prices), 2) if prices else product["current_price"],
-        "max_competitor_price": round(max(prices), 2) if prices else product["current_price"],
-        "price_gap_pct": round(gap, 2),
-        "insights": f"Our price is {'above' if gap > 0 else 'below'} market average by {abs(gap):.1f}%.",
-        "suggested_adjustment_pct": round(-gap * 0.5, 2),
+        "market_position": "stable",
+        "avg_competitor_price": current_price,
+        "min_competitor_price": current_price,
+        "max_competitor_price": current_price,
+        "price_gap_pct": 0.0,
+        "insights": "Market Intelligence Agent failed. Standardized to product catalog price.",
+        "suggested_adjustment_pct": 0.0,
+        "llm_failed": True
     }
 
 
@@ -49,9 +48,10 @@ async def run(product: dict, competitor_prices: List[dict]) -> Dict[str, Any]:
         }
 
     prompt = market_intelligence_prompt(product, competitor_prices)
-    result = await async_structured_json_completion(
+    result = await async_guarded_json_completion(
         system_prompt=MARKET_INTELLIGENCE_SYSTEM,
         user_prompt=prompt,
+        response_model=MarketAnalysisSchema,
         agent_name="MarketIntelligenceAgent"
     )
 
