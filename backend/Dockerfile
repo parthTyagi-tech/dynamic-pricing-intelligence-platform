@@ -13,6 +13,9 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 RUN pip install --no-cache-dir gunicorn psycopg2-binary
 
+# Install Playwright browsers for Crawl4AI
+RUN playwright install --with-deps chromium
+
 # Copy backend files
 COPY . .
 

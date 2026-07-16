@@ -61,7 +61,7 @@ function AuthLoadingScreen() {
             inset: 0,
             borderRadius: "50%",
             border: "2px solid transparent",
-            borderTopColor: "var(--accent-primary, #6366f1)",
+            borderTopColor: "var(--accent-primary, #059669)",
             animation: "spin 0.8s linear infinite",
           }}
         />

@@ -1,0 +1,39 @@
+# Coolify Deployment Configuration
+version: "3.8"
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      - FLASK_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_KEY=${SUPABASE_KEY}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - GROQ_API_KEY=${GROQ_API_KEY}
+    ports:
+      - "5000:5000"
+    restart: always
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    environment:
+      - VITE_API_URL=${VITE_API_URL:-http://backend:5000}
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: always
+
+  langflow:
+    image: logspace/langflow:latest
+    environment:
+      - LANGFLOW_PORT=7860
+      - LANGFLOW_HOST=0.0.0.0
+    ports:
+      - "7860:7860"
+    restart: always

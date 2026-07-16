@@ -10,6 +10,7 @@ class CompetitorPrice(db.Model):
     competitor_name = db.Column(db.String(255), nullable=False)
     competitor_price = db.Column(db.Float, nullable=False)
     in_stock = db.Column(db.Boolean, nullable=False, default=True)
+    product_url = db.Column(db.Text, nullable=True)  # Direct link to the matched product page
     product_id = db.Column(
         db.String(36), db.ForeignKey("products.id"), nullable=False, index=True
     )
@@ -27,6 +28,7 @@ class CompetitorPrice(db.Model):
             "competitor_name": self.competitor_name,
             "competitor_price": self.competitor_price,
             "in_stock": self.in_stock,
+            "product_url": self.product_url,
             "product_id": self.product_id,
             "organization_id": self.organization_id,
             "checked_at": self.checked_at.isoformat(),

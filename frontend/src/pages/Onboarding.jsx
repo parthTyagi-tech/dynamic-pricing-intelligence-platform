@@ -178,23 +178,17 @@ export default function Onboarding() {
 
   return (
     <div 
-      className="min-h-screen flex items-center justify-center relative overflow-hidden px-4 py-12"
-      style={{
-        background: "linear-gradient(135deg, #060814 0%, #0b1329 50%, #0d1e3d 100%)"
-      }}
+      className="min-h-screen flex items-center justify-center relative overflow-hidden px-4 py-12 bg-transparent"
     >
-      {/* Background ambient lighting */}
-      <div className="absolute w-[400px] h-[400px] rounded-full bg-teal-500/10 blur-[120px] -top-20 -right-20 pointer-events-none" />
-      <div className="absolute w-[350px] h-[350px] rounded-full bg-indigo-500/10 blur-[120px] -bottom-20 -left-20 pointer-events-none" />
-
-      <div 
+      <motion.div 
+        whileHover={{ scale: 1.02 }}
+        transition={{ duration: 0.4, ease: "easeInOut" }}
         className="w-full max-w-2xl relative z-10 p-8 md:p-10"
         style={{
-          borderRadius: 32,
-          background: "rgba(10, 15, 30, 0.8)",
-          backdropFilter: "blur(20px)",
-          border: "1px solid rgba(255, 255, 255, 0.08)",
-          boxShadow: "0 30px 70px rgba(0, 0, 0, 0.5)"
+          borderRadius: 25,
+          background: "#171717",
+          border: "1px solid rgba(255, 255, 255, 0.05)",
+          boxShadow: "0 30px 70px rgba(0, 0, 0, 0.75)"
         }}
       >
         {/* Header Progress indicator */}
@@ -252,7 +246,7 @@ export default function Onboarding() {
                     value={companyName}
                     onChange={(e) => setCompanyName(e.target.value)}
                     placeholder="Enter company name..."
-                    className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white placeholder-slate-500 focus:outline-none focus:border-teal-400 focus:ring-1 focus:ring-teal-400 transition-all font-medium"
+                    className="w-full bg-[#171717] border border-white/3 rounded-[24px] py-4 pl-12 pr-4 text-white placeholder-slate-600 focus:outline-none transition-all duration-300 font-medium shadow-[inset_2px_5px_10px_rgba(0,0,0,0.5),_inset_-1px_-1px_2px_rgba(255,255,255,0.05)]"
                   />
                 </div>
               </div>
@@ -261,9 +255,10 @@ export default function Onboarding() {
                 <button
                   disabled={!companyName.trim()}
                   onClick={handleNextStep}
-                  className="w-full py-4 rounded-2xl font-bold text-white flex items-center justify-center gap-2 transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full py-4 rounded-[12px] font-bold text-white flex items-center justify-center gap-2 transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{
-                    background: "linear-gradient(135deg, #00A19B, #6366F1)"
+                    background: "#212121",
+                    boxShadow: "3px 3px 6px rgba(0,0,0,0.5), -1px -1px 2px rgba(255,255,255,0.05)"
                   }}
                 >
                   Continue
@@ -402,7 +397,7 @@ export default function Onboarding() {
                       onClick={handleCsvUpload}
                       className="flex-1 py-4 rounded-xl font-semibold text-white flex items-center justify-center gap-2 hover:opacity-90 transition-all disabled:opacity-50 text-sm"
                       style={{
-                        background: "linear-gradient(135deg, #00A19B, #6366F1)"
+                        background: "linear-gradient(135deg, #047857, #10b981)"
                       }}
                     >
                       {uploading ? "Importing Data..." : "Upload & Sync"}
@@ -579,7 +574,7 @@ export default function Onboarding() {
                         onClick={handleNextStep}
                         className="flex-1 py-4 rounded-xl font-semibold text-white flex items-center justify-center gap-2 hover:opacity-90 transition-all text-sm"
                         style={{
-                          background: "linear-gradient(135deg, #00A19B, #6366F1)"
+                          background: "linear-gradient(135deg, #047857, #10b981)"
                         }}
                       >
                         Continue
@@ -618,7 +613,7 @@ export default function Onboarding() {
                     onClick={triggerActivation}
                     className="w-full py-4 rounded-2xl font-bold text-white flex items-center justify-center gap-2 shadow-xl shadow-teal-500/20 hover:scale-[1.02] active:scale-95 transition-all"
                     style={{
-                      background: "linear-gradient(135deg, #00A19B, #6366F1)"
+                      background: "linear-gradient(135deg, #047857, #10b981)"
                     }}
                   >
                     Activate Dashboard
@@ -669,7 +664,7 @@ export default function Onboarding() {
             </motion.div>
           )}
         </AnimatePresence>
-      </div>
+      </motion.div>
     </div>
   );
 }

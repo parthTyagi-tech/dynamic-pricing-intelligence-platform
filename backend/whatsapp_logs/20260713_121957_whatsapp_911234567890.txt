@@ -1,0 +1,14 @@
+To: whatsapp:+911234567890
+From: whatsapp:+14155238886
+Timestamp: 2026-07-13T12:19:57.726888+00:00
+==================================================
+🚀 *Welcome to Klypup, Admin!*
+
+Your AI-powered pricing optimization account has been successfully created.
+
+You can now:
+📦 Upload your product catalog
+📊 Track real-time competitor prices across 6 storefronts (Amazon, Flipkart, Walmart, eBay, BestBuy, Target)
+✅ Approve LLM-optimized pricing recommendations
+
+_This is an automated message from Klypup AI. Please do not reply._

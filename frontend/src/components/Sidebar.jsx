@@ -187,7 +187,7 @@ export default function Sidebar({
 
             style={{
               background:
-                "linear-gradient(135deg,#00A19B,#6366f1)",
+                "linear-gradient(135deg,#047857,#10b981)",
             }}
           >
 
@@ -282,8 +282,8 @@ export default function Sidebar({
 
                     ? `
                       bg-gradient-to-r
-                      from-[#00A19B]/20
-                      to-[#6366f1]/20
+                      from-[#059669]/20
+                      to-[#059669]/20
                       text-white
                       border
                       border-white/10

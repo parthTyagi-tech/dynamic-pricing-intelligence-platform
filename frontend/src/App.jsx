@@ -17,6 +17,8 @@ import {
 
 import ProtectedRoute from "./routes/ProtectedRoute";
 import DashboardLayout from "./layouts/DashboardLayout";
+import { GL } from "./components/gl";
+import { Leva } from "leva";
 
 /* =========================
    Lazy Loaded Pages
@@ -165,7 +167,7 @@ function Loader() {
         style={{
           borderRadius: 24,
           background:
-            "rgba(12,16,32,0.82)",
+            "rgba(8,8,8,0.82)",
           backdropFilter: "blur(14px)",
           border:
             "1px solid rgba(255,255,255,0.08)",
@@ -182,7 +184,7 @@ function Loader() {
             border:
               "4px solid rgba(255,255,255,0.08)",
             borderTop:
-              "4px solid #00A19B",
+              "4px solid #059669",
             animation:
               "spin 1s linear infinite",
           }}
@@ -240,8 +242,11 @@ function Loader() {
 export default function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <Suspense fallback={<Loader />}>
+      <div className="relative min-h-screen z-10">
+        <GL hovering={false} />
+        <Leva hidden />
+        <BrowserRouter>
+          <Suspense fallback={<Loader />}>
           <Routes>
 
             {/* =====================
@@ -374,6 +379,7 @@ export default function App() {
           </Routes>
         </Suspense>
       </BrowserRouter>
+      </div>
     </AuthProvider>
   );
 }

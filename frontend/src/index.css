@@ -1,23 +1,45 @@
 @import "tailwindcss";
 
-:root {
-  --bg-primary: #080b14;
-  --bg-secondary: #111827;
-  --bg-card: rgba(12, 16, 32, 0.92);
+@font-face {
+  font-family: 'Sentient';
+  src: url('/Sentient-Extralight.woff') format('woff');
+  font-weight: 200;
+  font-style: normal;
+  font-display: swap;
+}
 
-  --accent-primary: #00A19B;
-  --accent-secondary: #6366f1;
+@font-face {
+  font-family: 'Sentient';
+  src: url('/Sentient-LightItalic.woff') format('woff');
+  font-weight: 300;
+  font-style: italic;
+  font-display: swap;
+}
+
+:root {
+  --bg-primary: #000000;
+  --bg-secondary: #080808;
+  --bg-card: rgba(8, 8, 8, 0.65);
+
+  --accent-primary: #059669; /* Premium Green */
+  --accent-secondary: #10b981; /* Emerald Green */
 
   --text-primary: #ffffff;
-  --text-secondary: rgba(255, 255, 255, 0.72);
+  --text-secondary: rgba(255, 255, 255, 0.65);
 
-  --border-primary: rgba(255, 255, 255, 0.08);
+  --border-primary: rgba(255, 255, 255, 0.05);
 
   --error: #ef4444;
   --success: #10b981;
 
   --shadow-primary:
-    0 20px 60px rgba(0, 0, 0, 0.45);
+    0 20px 60px rgba(0, 0, 0, 0.85);
+}
+
+@theme {
+  --font-sentient: "Sentient", serif;
+  --font-mono: "Space Mono", "JetBrains Mono", monospace;
+  --color-border: var(--border-primary);
 }
 
 html,
@@ -46,16 +68,7 @@ body {
     "Segoe UI",
     sans-serif;
 
-  background:
-    linear-gradient(
-      135deg,
-      #080b14 0%,
-      #0f172a 45%,
-      #0f766e 100%
-    );
-
-  background-attachment: fixed;
-
+  background: #000000;
   color: var(--text-primary);
 
   overflow-x: hidden;
@@ -121,16 +134,16 @@ img {
 
 /* Utility glass card class */
 .glass-card {
-  background: rgba(12, 16, 32, 0.82);
+  background: rgba(8, 8, 8, 0.72);
 
-  backdrop-filter: blur(14px);
+  backdrop-filter: blur(16px);
 
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.05);
 
   box-shadow:
-    0 16px 40px rgba(0, 0, 0, 0.35);
+    0 16px 40px rgba(0, 0, 0, 0.75);
 
-  border-radius: 20px;
+  border-radius: 16px;
 }
 
 /* Premium gradient text */
@@ -138,57 +151,26 @@ img {
   background:
     linear-gradient(
       135deg,
-      #00A19B,
-      #6366f1
+      #059669,
+      #10b981
     );
 
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
-/* Soft animated background glow */
-body::before {
-  content: "";
-
+#webgl {
+  top: 0;
+  left: 0;
   position: fixed;
-
-  width: 500px;
-  height: 500px;
-
-  top: -150px;
-  right: -120px;
-
-  background:
-    radial-gradient(
-      circle,
-      rgba(0, 161, 155, 0.18),
-      transparent 70%
-    );
-
-  pointer-events: none;
-
-  z-index: -1;
+  height: 100vh;
+  width: 100%;
+  z-index: 0;
+  pointer-events: none; /* Let clicks pass through to UI */
 }
 
-body::after {
-  content: "";
-
-  position: fixed;
-
-  width: 400px;
-  height: 400px;
-
-  bottom: -140px;
-  left: -100px;
-
-  background:
-    radial-gradient(
-      circle,
-      rgba(99, 102, 241, 0.16),
-      transparent 70%
-    );
-
+#webgl canvas {
+  width: 100%;
+  height: 100%;
   pointer-events: none;
-
-  z-index: -1;
 }

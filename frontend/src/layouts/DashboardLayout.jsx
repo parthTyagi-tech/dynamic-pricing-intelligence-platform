@@ -84,7 +84,7 @@ function MessageFormatter({ content }) {
                   <a
                     key={`link-${lIdx}`}
                     href={url}
-                    className="text-[#00A19B] hover:text-[#2dd4bf] hover:underline font-semibold transition-all inline-flex items-center gap-1"
+                    className="text-[#059669] hover:text-[#10b981] hover:underline font-semibold transition-all inline-flex items-center gap-1"
                   >
                     {label}
                   </a>
@@ -538,7 +538,7 @@ export default function DashboardLayout() {
 
   const notifColors = {
     ai:
-      "from-[#00A19B] to-[#6366f1]",
+      "from-[#059669] to-[#059669]",
 
     alert:
       "from-amber-500 to-orange-600",
@@ -568,44 +568,9 @@ export default function DashboardLayout() {
         overflow-hidden
         font-sans
         relative
+        bg-transparent
       "
-      style={{
-        background:
-          "linear-gradient(135deg,#080b14 0%,#0f172a 45%,#0f766e 100%)",
-      }}
     >
-
-      {/* BACKGROUND GLOWS */}
-
-      <div
-        style={{
-          position: "absolute",
-          width: 420,
-          height: 420,
-          borderRadius: "50%",
-          background:
-            "rgba(0,161,155,0.12)",
-          filter: "blur(120px)",
-          top: -120,
-          right: -100,
-          pointerEvents: "none",
-        }}
-      />
-
-      <div
-        style={{
-          position: "absolute",
-          width: 340,
-          height: 340,
-          borderRadius: "50%",
-          background:
-            "rgba(99,102,241,0.14)",
-          filter: "blur(120px)",
-          bottom: -100,
-          left: -80,
-          pointerEvents: "none",
-        }}
-      />
 
       {/* DESKTOP SIDEBAR */}
 
@@ -787,7 +752,7 @@ export default function DashboardLayout() {
                   text-slate-200
                   placeholder-slate-500
                   focus:outline-none
-                  focus:border-[#00A19B]
+                  focus:border-[#059669]
                   focus:bg-white/10
                   transition-all
                 "
@@ -805,7 +770,7 @@ export default function DashboardLayout() {
 
             <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/5 border border-white/8">
 
-              <div className="w-4 h-4 rounded bg-gradient-to-br from-[#00A19B] to-[#6366f1] flex items-center justify-center">
+              <div className="w-4 h-4 rounded bg-gradient-to-br from-[#059669] to-[#059669] flex items-center justify-center">
 
                 <Zap
                   size={9}
@@ -853,7 +818,7 @@ export default function DashboardLayout() {
                       scale: 1,
                     }}
 
-                    className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-gradient-to-br from-[#00A19B] to-[#6366f1] text-[9px] font-bold text-white flex items-center justify-center"
+                    className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-gradient-to-br from-[#059669] to-[#059669] text-[9px] font-bold text-white flex items-center justify-center"
                   >
 
                     {unreadCount}
@@ -997,7 +962,7 @@ export default function DashboardLayout() {
                 className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-white/5 transition-all"
               >
 
-                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#00A19B] to-[#6366f1] flex items-center justify-center text-white text-xs font-bold">
+                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#059669] to-[#059669] flex items-center justify-center text-white text-xs font-bold">
 
                   {user?.name?.[0]
                     ?.toUpperCase() || "U"}
@@ -1169,7 +1134,7 @@ export default function DashboardLayout() {
               {/* Purple Header */}
               <div 
                 className="px-5 py-4 flex items-center justify-between border-b border-white/10 text-white relative overflow-hidden"
-                style={{ background: "linear-gradient(135deg, #6366f1, #3b82f6)" }}
+                style={{ background: "linear-gradient(135deg, #059669, #065f46)" }}
               >
                 {/* Header glow */}
                 <div className="absolute top-0 right-0 w-24 h-24 opacity-25 blur-xl bg-teal-400" />
@@ -1223,9 +1188,9 @@ export default function DashboardLayout() {
                         <Bot size={10} className="text-white" />
                       </div>
                       <div className="bg-white/5 border border-white/10 rounded-xl rounded-tl-none px-3 py-2.5 flex items-center gap-1">
-                        <div className="w-1.5 h-1.5 bg-[#00A19B] rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                        <div className="w-1.5 h-1.5 bg-[#00A19B] rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                        <div className="w-1.5 h-1.5 bg-[#00A19B] rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                        <div className="w-1.5 h-1.5 bg-[#059669] rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                        <div className="w-1.5 h-1.5 bg-[#059669] rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                        <div className="w-1.5 h-1.5 bg-[#059669] rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
                       </div>
                     </div>
                   </div>
@@ -1277,7 +1242,7 @@ export default function DashboardLayout() {
                   <button 
                     type="submit" 
                     disabled={!chatInput.trim() || chatLoading}
-                    className="w-7 h-7 rounded-full bg-[#6366f1] hover:bg-[#4f46e5] text-white flex items-center justify-center transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-7 h-7 rounded-full bg-[#059669] hover:bg-[#4f46e5] text-white flex items-center justify-center transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Send size={12} />
                   </button>
@@ -1295,7 +1260,7 @@ export default function DashboardLayout() {
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           onClick={() => setChatOpen(!chatOpen)}
-          className="w-14 h-14 rounded-full bg-gradient-to-br from-[#6366f1] to-[#3b82f6] hover:from-[#4f46e5] hover:to-[#2563eb] text-white flex items-center justify-center shadow-lg shadow-indigo-650/40 cursor-pointer border border-white/10 relative"
+          className="w-14 h-14 rounded-full bg-gradient-to-br from-[#059669] to-[#065f46] hover:from-[#4f46e5] hover:to-[#2563eb] text-white flex items-center justify-center shadow-lg shadow-indigo-650/40 cursor-pointer border border-white/10 relative"
         >
           {chatOpen ? <X size={22} /> : <MessageSquare size={22} />}
           {/* Notification Badge if closed */}

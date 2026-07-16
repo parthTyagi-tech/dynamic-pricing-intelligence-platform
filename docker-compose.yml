@@ -1,18 +1,16 @@
 version: '3.8'
 
 services:
-  db:
-    image: postgres:15-alpine
-    container_name: klypup_db
+
+  langflow:
+    image: logspace/langflow:latest
+    container_name: klypup_langflow
     restart: always
-    environment:
-      POSTGRES_USER: klypup
-      POSTGRES_PASSWORD: klypup_secure_password
-      POSTGRES_DB: klypup
     ports:
-      - "5432:5432"
-    volumes:
-      - pgdata:/var/lib/postgresql/data
+      - "7860:7860"
+    environment:
+      - LANGFLOW_PORT=7860
+      - LANGFLOW_HOST=0.0.0.0
 
   backend:
     build: ./backend
@@ -22,15 +20,15 @@ services:
       - "5000:5000"
     environment:
       - FLASK_ENV=production
-      - DATABASE_URL=postgresql://klypup:klypup_secure_password@db:5432/klypup
-      - JWT_SECRET_KEY=dec54f6cbdb8f541d4fd65a4c3ed54d9ae5cd1daf023c7cd2ab68061e1b74ab0
+      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres.wuuatsqfkuqntumnloaw:placeholder@aws-0-ap-southeast-2.pooler.supabase.com:5432/postgres}
+      - SUPABASE_URL=https://wuuatsqfkuqntumnloaw.supabase.co
+      - SUPABASE_KEY=<YOUR_SUPABASE_KEY>
+      - JWT_SECRET_KEY=<YOUR_JWT_SECRET_KEY>
       - SECRET_KEY=another_secret_key
       - CORS_ORIGINS=http://localhost,http://localhost:5173,http://127.0.0.1
-      - GROQ_API_KEY=your_groq_api_key_here
-      - GOOGLE_API_KEY=your_google_api_key_here
+      - GROQ_API_KEY=<YOUR_GROQ_API_KEY>
+      - GOOGLE_API_KEY=<YOUR_GOOGLE_API_KEY>
       - AI_PROVIDER=groq
-    depends_on:
-      - db
 
   frontend:
     build: ./frontend
@@ -41,5 +39,3 @@ services:
     depends_on:
       - backend
 
-volumes:
-  pgdata:

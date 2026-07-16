@@ -50,7 +50,7 @@ function MessageFormatter({ content }) {
                   <a
                     key={`link-${lIdx}`}
                     href={url}
-                    className="text-[#00A19B] hover:text-[#2dd4bf] hover:underline font-semibold transition-all inline-flex items-center gap-1"
+                    className="text-[#059669] hover:text-[#10b981] hover:underline font-semibold transition-all inline-flex items-center gap-1"
                   >
                     {label}
                   </a>
@@ -278,16 +278,16 @@ Try asking me:
     <div className="flex flex-col h-[calc(100vh-130px)]">
       {/* HEADER SECTION */}
       <div className="relative overflow-hidden rounded-[24px] border border-white/10 p-6 mb-6"
-           style={{ background: "linear-gradient(135deg,rgba(12,16,32,0.92),rgba(15,23,42,0.92))", boxShadow: "0 20px 50px rgba(0,0,0,0.3)" }}>
-        <div className="absolute top-0 right-0 w-24 h-24 opacity-15 blur-2xl bg-gradient-to-br from-[#00A19B] to-indigo-500" />
+           style={{ background: "linear-gradient(135deg,rgba(8,8,8,0.72),rgba(0,0,0,0.85))", boxShadow: "0 20px 50px rgba(0,0,0,0.3)" }}>
+        <div className="absolute top-0 right-0 w-24 h-24 opacity-15 blur-2xl bg-gradient-to-br from-[#059669] to-indigo-500" />
         <div className="relative z-10 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-gradient-to-br from-[#00A19B] to-indigo-500">
+          <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-gradient-to-br from-[#059669] to-indigo-500">
             <Bot className="text-white" size={24} />
           </div>
           <div>
             <h1 className="text-xl font-bold text-white flex items-center gap-2">
               Klypup AI Copilot
-              <span className="text-xs bg-[#00A19B]/20 text-[#7FF6EE] px-2 py-0.5 rounded-full border border-[#00A19B]/20 font-semibold tracking-wider">
+              <span className="text-xs bg-[#059669]/20 text-[#ffffff] px-2 py-0.5 rounded-full border border-[#059669]/20 font-semibold tracking-wider">
                 SUPERVISOR MODE
               </span>
             </h1>
@@ -329,9 +329,9 @@ Try asking me:
                   <Bot size={14} className="text-white" />
                 </div>
                 <div className="bg-white/5 border border-white/10 rounded-2xl rounded-tl-none p-4 flex items-center gap-1.5 h-11">
-                  <div className="w-2 h-2 bg-[#00A19B] rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                  <div className="w-2 h-2 bg-[#00A19B] rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                  <div className="w-2 h-2 bg-[#00A19B] rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                  <div className="w-2 h-2 bg-[#059669] rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                  <div className="w-2 h-2 bg-[#059669] rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                  <div className="w-2 h-2 bg-[#059669] rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
                 </div>
               </div>
             </div>
@@ -349,7 +349,7 @@ Try asking me:
             onClick={() => handleSendMessage(act.command)}
             className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-slate-300 bg-white/5 hover:bg-white/10 border border-white/8 hover:border-white/15 rounded-full transition-all cursor-pointer select-none"
           >
-            <act.icon size={12} className="text-[#00A19B]" />
+            <act.icon size={12} className="text-[#059669]" />
             {act.label}
           </button>
         ))}
@@ -364,12 +364,12 @@ Try asking me:
           onKeyDown={handleKeyPress}
           disabled={loading}
           placeholder="Ask a question or type 'analyse [product SKU]'..."
-          className="flex-1 bg-white/5 border border-white/10 text-white rounded-xl px-4 py-3.5 text-sm outline-none focus:border-[#00A19B]/50 transition-all placeholder:text-slate-500"
+          className="flex-1 bg-white/5 border border-white/10 text-white rounded-xl px-4 py-3.5 text-sm outline-none focus:border-[#059669]/50 transition-all placeholder:text-slate-500"
         />
         <button
           onClick={() => handleSendMessage()}
           disabled={loading || !input.trim()}
-          className="w-12 h-12 rounded-xl flex items-center justify-center bg-gradient-to-br from-[#00A19B] to-indigo-600 hover:from-[#2dd4bf] hover:to-indigo-500 transition-all shadow-lg shadow-indigo-650/20 text-white cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-12 h-12 rounded-xl flex items-center justify-center bg-gradient-to-br from-[#059669] to-indigo-600 hover:from-[#10b981] hover:to-indigo-500 transition-all shadow-lg shadow-indigo-650/20 text-white cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Send size={18} />
         </button>

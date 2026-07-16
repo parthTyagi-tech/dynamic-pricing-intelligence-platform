@@ -135,16 +135,19 @@ function Field({
             padding:
               "14px 44px 14px 46px",
 
-            borderRadius: 16,
+            borderRadius: 24,
 
             background:
-              "rgba(255,255,255,0.05)",
+              "#171717",
 
             border: `1px solid ${
               error
                 ? "#ef4444"
-                : "rgba(255,255,255,0.08)"
+                : "rgba(255,255,255,0.03)"
             }`,
+
+            boxShadow:
+              "inset 2px 5px 10px rgba(0,0,0,0.5), inset -1px -1px 2px rgba(255,255,255,0.05)",
 
             color: "#ffffff",
 
@@ -152,9 +155,7 @@ function Field({
 
             outline: "none",
 
-            transition: "0.2s ease",
-
-            backdropFilter: "blur(10px)",
+            transition: "0.4s ease-in-out",
           }}
         />
 
@@ -414,50 +415,10 @@ export default function Signup() {
 
         overflow: "hidden",
 
-        background:
-          "linear-gradient(135deg,#080b14 0%,#0f172a 45%,#0f766e 100%)",
+        background: "transparent",
       }}
     >
 
-      {/* GLOW */}
-
-      <div
-        style={{
-          position: "absolute",
-
-          width: 320,
-          height: 320,
-
-          borderRadius: "50%",
-
-          background:
-            "rgba(0,161,155,0.16)",
-
-          filter: "blur(120px)",
-
-          top: -100,
-          right: -100,
-        }}
-      />
-
-      <div
-        style={{
-          position: "absolute",
-
-          width: 260,
-          height: 260,
-
-          borderRadius: "50%",
-
-          background:
-            "rgba(99,102,241,0.14)",
-
-          filter: "blur(120px)",
-
-          bottom: -80,
-          left: -80,
-        }}
-      />
 
       <motion.div
         variants={containerV}
@@ -468,15 +429,17 @@ export default function Signup() {
 
         style={{
           width: "100%",
-          maxWidth: 460,
+          maxWidth: 720,
           position: "relative",
           zIndex: 10,
         }}
       >
 
-        <div
+        <motion.div
+          whileHover={{ scale: 1.05 }}
+          transition={{ duration: 0.4, ease: "easeInOut" }}
           style={{
-            borderRadius: 28,
+            borderRadius: 25,
 
             padding: 40,
 
@@ -487,13 +450,10 @@ export default function Signup() {
             gap: 30,
 
             background:
-              "rgba(12,16,32,0.82)",
-
-            backdropFilter:
-              "blur(18px)",
+              "#171717",
 
             border:
-              "1px solid rgba(255,255,255,0.08)",
+              "1px solid rgba(255,255,255,0.05)",
 
             boxShadow:
               "0 32px 80px rgba(0,0,0,0.55)",
@@ -522,7 +482,7 @@ export default function Signup() {
                 borderRadius: 18,
 
                 background:
-                  "linear-gradient(135deg,#00A19B,#6366f1)",
+                  "linear-gradient(135deg,#047857,#10b981)",
 
                 display: "flex",
 
@@ -601,7 +561,7 @@ export default function Signup() {
                 border:
                   "1px solid rgba(0,161,155,0.18)",
 
-                color: "#7FF6EE",
+                color: "#ffffff",
 
                 fontSize: "0.76rem",
 
@@ -667,51 +627,53 @@ export default function Signup() {
             }}
           >
 
-            <Field
-              label="Full Name"
-              id="name"
-              type="text"
-              value={form.name}
-              onChange={set("name")}
-              placeholder="John Doe"
-              Icon={User}
-              error={errors.name}
-            />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-2 text-left">
+              <Field
+                label="Full Name"
+                id="name"
+                type="text"
+                value={form.name}
+                onChange={set("name")}
+                placeholder="John Doe"
+                Icon={User}
+                error={errors.name}
+              />
 
-            <Field
-              label="Email"
-              id="email"
-              type="email"
-              value={form.email}
-              onChange={set("email")}
-              placeholder="you@company.com"
-              Icon={Mail}
-              error={errors.email}
-            />
+              <Field
+                label="Email"
+                id="email"
+                type="email"
+                value={form.email}
+                onChange={set("email")}
+                placeholder="you@company.com"
+                Icon={Mail}
+                error={errors.email}
+              />
 
-            <Field
-              label="Organization"
-              id="organization"
-              type="text"
-              value={form.organization_name}
-              onChange={set("organization_name")}
-              placeholder="Acme Corp"
-              Icon={Building2}
-              error={
-                errors.organization_name
-              }
-            />
+              <Field
+                label="Organization"
+                id="organization"
+                type="text"
+                value={form.organization_name}
+                onChange={set("organization_name")}
+                placeholder="Acme Corp"
+                Icon={Building2}
+                error={
+                  errors.organization_name
+                }
+              />
 
-            <Field
-              label="WhatsApp Number (Optional)"
-              id="phone_number"
-              type="tel"
-              value={form.phone_number}
-              onChange={set("phone_number")}
-              placeholder="+91XXXXXXXXXX"
-              Icon={Phone}
-              error={errors.phone_number}
-            />
+              <Field
+                label="WhatsApp Number (Optional)"
+                id="phone_number"
+                type="tel"
+                value={form.phone_number}
+                onChange={set("phone_number")}
+                placeholder="+91XXXXXXXXXX"
+                Icon={Phone}
+                error={errors.phone_number}
+              />
+            </div>
 
             {/* PASSWORD */}
 
@@ -960,126 +922,60 @@ export default function Signup() {
 
             </AnimatePresence>
 
-            {/* BUTTON */}
+            <div style={{ display: "flex", gap: 12, width: "100%", marginTop: 8 }}>
+              <motion.button
+                type="submit"
+                disabled={loading || success}
+                whileHover={{ scale: loading || success ? 1 : 1.05 }}
+                whileTap={{ scale: loading || success ? 1 : 0.95 }}
+                style={{
+                  flex: 1,
+                  padding: "12px 0",
+                  borderRadius: 12,
+                  border: "none",
+                  background: "#212121",
+                  color: "white",
+                  fontSize: "0.85rem",
+                  fontWeight: 600,
+                  cursor: loading || success ? "not-allowed" : "pointer",
+                  transition: "0.2s ease-in-out",
+                  boxShadow: "3px 3px 6px rgba(0,0,0,0.5), -1px -1px 2px rgba(255,255,255,0.05)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 6
+                }}
+              >
+                {loading ? "Creating..." : "Sign Up"}
+                {!loading && <ArrowRight size={14} />}
+              </motion.button>
 
-            <motion.button
-              type="submit"
-
-              disabled={
-                loading || success
-              }
-
-              whileHover={{
-                scale:
-                  loading || success
-                    ? 1
-                    : 1.02,
-              }}
-
-              whileTap={{
-                scale:
-                  loading || success
-                    ? 1
-                    : 0.98,
-              }}
-
-              style={{
-                width: "100%",
-
-                padding:
-                  "15px 0",
-
-                borderRadius: 16,
-
-                border: "none",
-
-                background:
-                  "linear-gradient(135deg,#00A19B,#6366f1)",
-
-                color: "white",
-
-                fontSize: "0.94rem",
-
-                fontWeight: 700,
-
-                cursor:
-                  loading || success
-                    ? "not-allowed"
-                    : "pointer",
-
-                opacity:
-                  loading || success
-                    ? 0.7
-                    : 1,
-
-                boxShadow:
-                  "0 14px 30px rgba(0,161,155,0.20)",
-
-                display: "flex",
-
-                alignItems: "center",
-
-                justifyContent: "center",
-
-                gap: 8,
-              }}
-            >
-
-              {loading ? (
-
-                "Creating account..."
-
-              ) : (
-
-                <>
-                  Create account
-
-                  <ArrowRight size={16} />
-                </>
-              )}
-
-            </motion.button>
+              <motion.button
+                type="button"
+                onClick={() => navigate("/login")}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                style={{
+                  flex: 1,
+                  padding: "12px 0",
+                  borderRadius: 12,
+                  border: "none",
+                  background: "#212121",
+                  color: "white",
+                  fontSize: "0.85rem",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  transition: "0.2s ease-in-out",
+                  boxShadow: "3px 3px 6px rgba(0,0,0,0.5), -1px -1px 2px rgba(255,255,255,0.05)"
+                }}
+              >
+                Sign In
+              </motion.button>
+            </div>
 
           </motion.form>
 
-          {/* FOOTER */}
-
-          <motion.p
-            variants={itemV}
-
-            style={{
-              margin: 0,
-
-              textAlign: "center",
-
-              fontSize: "0.88rem",
-
-              color:
-                "rgba(255,255,255,0.75)",
-            }}
-          >
-
-            Already have an account?{" "}
-
-            <Link
-              to="/login"
-
-              style={{
-                color: "#00A19B",
-
-                fontWeight: 700,
-
-                textDecoration: "none",
-              }}
-            >
-
-              Sign in
-
-            </Link>
-
-          </motion.p>
-
-        </div>
+        </motion.div>
 
       </motion.div>
 

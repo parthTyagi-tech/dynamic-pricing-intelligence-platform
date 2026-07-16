@@ -41,6 +41,62 @@ recommendation_bp = Blueprint(
 
 
 # =====================================
+# STREAM REAL-TIME MULTI-PLATFORM PRICES (SSE)
+# =====================================
+
+@recommendation_bp.route("/stream-scrape/<product_id>", methods=["GET"])
+@jwt_required()
+def stream_scrape(product_id):
+    from flask import Response, stream_with_context
+    import asyncio
+    from app.services.realtime_scraper import stream_multi_platform_prices
+
+    current_user_id = get_jwt_identity()
+    current_user = User.query.get(current_user_id)
+    if not current_user:
+        return {"success": False, "message": "User not found"}, 404
+
+    product = Product.query.filter_by(
+        id=product_id,
+        organization_id=current_user.organization_id
+    ).first()
+    if not product:
+        return {"success": False, "message": "Product not found"}, 404
+
+    def generate():
+        # Setup async loop inside the thread that Flask uses to stream
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        async_gen = stream_multi_platform_prices(
+            product.name, 
+            product.brand, 
+            product.category, 
+            product.current_price, 
+            product.barcode or ""
+        )
+        
+        # Manually iterate through the async generator synchronously using run_until_complete
+        # so Flask can yield it normally.
+        while True:
+            try:
+                # __anext__ gets the next chunk
+                chunk = loop.run_until_complete(async_gen.__anext__())
+                yield chunk
+            except StopAsyncIteration:
+                break
+            except Exception as e:
+                import json
+                print(f"[SSE Error] {e}")
+                yield f"data: {json.dumps({'status': 'error', 'message': str(e)})}\n\n"
+                break
+        
+        loop.close()
+
+    return Response(stream_with_context(generate()), mimetype='text/event-stream')
+
+
+# =====================================
 # GENERATE AI RECOMMENDATION
 # =====================================
 
@@ -71,32 +127,7 @@ def generate_recommendation(product_id):
         }, 404
 
     try:
-        # Check if this is a product with zero competitor prices (e.g. newly created)
-        has_competitors = CompetitorPrice.query.filter_by(product_id=product.id).first() is not None
-        if not has_competitors:
-            import asyncio
-            from app.services.realtime_scraper import fetch_multi_platform_prices
-            
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                
-            scraped_prices = loop.run_until_complete(
-                fetch_multi_platform_prices(product.name, product.brand, product.category, product.current_price, product.barcode or "")
-            )
-            
-            for comp_name, comp_data in scraped_prices.items():
-                cp = CompetitorPrice(
-                    competitor_name=comp_name,
-                    competitor_price=comp_data["price"] if isinstance(comp_data, dict) else comp_data,
-                    in_stock=comp_data.get("in_stock", True) if isinstance(comp_data, dict) else True,
-                    product_id=product.id,
-                    organization_id=current_user.organization_id
-                )
-                db.session.add(cp)
-            db.session.commit()
+        # (Scraping moved to background task worker to prevent frontend timeout)
 
         # Create a pending recommendation with status = 'processing'
         recommendation = PricingRecommendation(
@@ -312,6 +343,33 @@ def process_task():
         }, 200
 
     try:
+        # Check if this is a product with zero competitor prices (e.g. newly created)
+        has_competitors = CompetitorPrice.query.filter_by(product_id=product.id).first() is not None
+        if not has_competitors:
+            import asyncio
+            from app.services.realtime_scraper import fetch_multi_platform_prices
+            
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                
+            scraped_prices = loop.run_until_complete(
+                fetch_multi_platform_prices(product.name, product.brand, product.category, product.current_price, product.barcode or "", product.description or "")
+            )
+            
+            for comp_name, comp_data in scraped_prices.items():
+                cp = CompetitorPrice(
+                    competitor_name=comp_name,
+                    competitor_price=comp_data["price"] if isinstance(comp_data, dict) else comp_data,
+                    in_stock=comp_data.get("in_stock", True) if isinstance(comp_data, dict) else True,
+                    product_id=product.id,
+                    organization_id=product.organization_id
+                )
+                db.session.add(cp)
+            db.session.commit()
+
         # Run agent strategy logic
         ai_result = PricingStrategyAgent.generate(product)
 

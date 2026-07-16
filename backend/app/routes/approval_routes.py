@@ -20,6 +20,8 @@ from app.models.product import Product
 from app.models.market_data import CompetitorPrice
 from app.services.email_service import send_recommendation_action_email
 from app.services.whatsapp_service import send_whatsapp_recommendation_action
+import asyncio
+from app.services.agents.price_execution_agent import execute_price_change
 
 approval_bp = Blueprint(
     "approvals",
@@ -82,6 +84,26 @@ def approve_recommendation(recommendation_id):
     )
 
     previous_price = product.current_price
+
+    # =====================================
+    # PHYSICAL EXECUTION (BROWSER USE)
+    # =====================================
+    # Trigger the AI agent to log in and update the real platform
+    try:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        agent_result = loop.run_until_complete(
+            execute_price_change(
+                product_name=product.name,
+                new_price=recommendation.recommended_price,
+                platform_url="https://admin.shopify.com/store/klypup/products"
+            )
+        )
+        print(f"[Approval Route] Browser Agent Result: {agent_result}")
+    except Exception as e:
+        print(f"[Approval Route] Browser Agent Failed: {e}")
+        # In a real system, you might want to fail the request here.
+        # For this prototype, we'll log it and continue updating the local DB.
 
     # =====================================
     # UPDATE PRODUCT PRICE

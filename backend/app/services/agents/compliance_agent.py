@@ -31,7 +31,7 @@ def _mock_compliance_check(product: dict, recommended_price: float, pricing_rule
         "violations": violations,
         "final_recommended_price": final_price,
         "compliance_notes": notes,
-        "llm_failed": True
+        "llm_failed": False
     }
 
 

@@ -229,7 +229,7 @@ export default function Recommendations() {
         className="relative overflow-hidden rounded-[28px] border border-white/10 p-8 lg:p-10"
         style={{
           background:
-            "linear-gradient(135deg,rgba(12,16,32,0.92),rgba(15,23,42,0.92))",
+            "linear-gradient(135deg,rgba(8,8,8,0.72),rgba(0,0,0,0.85))",
 
           boxShadow:
             "0 24px 60px rgba(0,0,0,0.35)",
@@ -255,7 +255,7 @@ export default function Recommendations() {
 
         <div className="relative z-10">
 
-          <div className="inline-flex items-center gap-2 bg-[#6366f1]/10 border border-[#6366f1]/20 text-[#c7d2fe] px-4 py-2 rounded-full text-sm mb-6">
+          <div className="inline-flex items-center gap-2 bg-[#059669]/10 border border-[#059669]/20 text-[#c7d2fe] px-4 py-2 rounded-full text-sm mb-6">
 
             <Brain size={16} />
 
@@ -350,7 +350,7 @@ export default function Recommendations() {
 
           style={{
             background:
-              "linear-gradient(135deg,#00A19B,#6366f1)",
+              "linear-gradient(135deg,#047857,#10b981)",
           }}
         >
 
@@ -436,7 +436,7 @@ export default function Recommendations() {
                   "
                   style={{
                     background:
-                      "linear-gradient(135deg,#00A19B,#6366f1)",
+                      "linear-gradient(135deg,#047857,#10b981)",
                   }}
                 >
 
@@ -495,7 +495,7 @@ export default function Recommendations() {
 
                 style={{
                   background:
-                    "linear-gradient(135deg,#00A19B,#6366f1)",
+                    "linear-gradient(135deg,#047857,#10b981)",
                 }}
               >
 
@@ -592,7 +592,7 @@ export default function Recommendations() {
                   p-7
                   backdrop-blur-xl
                   cursor-pointer
-                  hover:border-[#00A19B]/30
+                  hover:border-[#059669]/30
                   transition-all
                   duration-300
                 "
@@ -649,7 +649,7 @@ export default function Recommendations() {
                       "
                       style={{
                         background:
-                          "linear-gradient(135deg,#00A19B,#6366f1)",
+                          "linear-gradient(135deg,#047857,#10b981)",
                       }}
                     >
 
@@ -666,7 +666,7 @@ export default function Recommendations() {
                       {/* Competitor Matcher Details */}
                       <div className="glass-card p-4 space-y-3 bg-white/2 rounded-2xl border border-white/5">
                         <h4 className="text-xs font-bold text-white flex items-center gap-2 border-b border-white/5 pb-1.5">
-                          <TrendingUp size={13} className="text-[#38bdf8]" />
+                          <TrendingUp size={13} className="text-[#10b981]" />
                           Competitor Price Matcher (Live Data)
                         </h4>
                         <div className="space-y-2 max-h-[180px] overflow-y-auto pr-1 scrollbar-thin">
@@ -677,11 +677,11 @@ export default function Recommendations() {
                                 href={comp.url}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="flex justify-between items-center text-[11px] bg-white/2 p-1.5 rounded-lg border border-white/5 hover:bg-white/5 hover:border-[#38bdf8]/30 transition-all cursor-pointer group"
+                                className="flex justify-between items-center text-[11px] bg-white/2 p-1.5 rounded-lg border border-white/5 hover:bg-white/5 hover:border-[#10b981]/30 transition-all cursor-pointer group"
                               >
                                 <span className="text-slate-355 font-semibold flex items-center gap-1.5 group-hover:text-white transition-colors">
                                   {comp.competitor_name}
-                                  <ExternalLink size={8} className="text-slate-500 group-hover:text-[#38bdf8] transition-colors" />
+                                  <ExternalLink size={8} className="text-slate-500 group-hover:text-[#10b981] transition-colors" />
                                 </span>
                                 <div className="flex items-center gap-1.5">
                                   <span className={comp.in_stock ? "text-emerald-400 font-bold" : "text-rose-400"}>
@@ -720,7 +720,7 @@ export default function Recommendations() {
                           </div>
                           <div className="bg-white/2 p-2 rounded-lg border border-white/5">
                             <span className="text-slate-500 block text-[10px]">Current Margin</span>
-                            <strong className="text-[#7FF6EE] font-mono">
+                            <strong className="text-[#ffffff] font-mono">
                               {(rec.product && rec.product.current_price && rec.product.cost_price) 
                                 ? (((rec.product.current_price - rec.product.cost_price) / rec.product.current_price) * 100).toFixed(1) 
                                 : "0.0"}%
@@ -735,7 +735,7 @@ export default function Recommendations() {
                       {/* Buying History */}
                       <div className="glass-card p-4 space-y-3 bg-white/2 rounded-2xl border border-white/5 flex flex-col max-h-[155px]">
                         <h4 className="text-xs font-bold text-white flex items-center gap-2 border-b border-white/5 pb-1.5">
-                          <Activity size={13} className="text-[#00A19B]" />
+                          <Activity size={13} className="text-[#059669]" />
                           Storefront Product Buying History
                         </h4>
                         <div className="flex-1 overflow-y-auto space-y-2 pr-1 scrollbar-thin">
@@ -762,7 +762,7 @@ export default function Recommendations() {
                       {/* AI Optimization Explainability */}
                       <div className="glass-card p-4 space-y-3 bg-white/2 rounded-2xl border border-white/5">
                         <h4 className="text-xs font-bold text-white flex items-center gap-2 border-b border-white/5 pb-1.5">
-                          <Brain size={13} className="text-[#6366f1]" />
+                          <Brain size={13} className="text-[#059669]" />
                           LLM Pricing Strategy Optimization
                         </h4>
                         <div className="space-y-2 text-[11px] leading-relaxed">
@@ -797,7 +797,7 @@ export default function Recommendations() {
 
                         <Zap
                           size={18}
-                          className="text-[#00A19B]"
+                          className="text-[#059669]"
                         />
 
                         <h4 className="text-xl font-semibold">
@@ -909,7 +909,7 @@ export default function Recommendations() {
 
                     style={{
                       background:
-                        "linear-gradient(135deg,#00A19B,#6366f1)",
+                        "linear-gradient(135deg,#047857,#10b981)",
                     }}
                   >
 
@@ -943,7 +943,7 @@ export default function Recommendations() {
             className={`fixed bottom-10 right-10 z-50 flex items-center gap-3 text-white px-6 py-4 rounded-2xl shadow-2xl font-semibold ${
               toastConfig.isWarning 
                 ? "bg-amber-600 shadow-amber-600/30" 
-                : "bg-[#00A19B] shadow-[#00A19B]/30"
+                : "bg-[#059669] shadow-[#059669]/30"
             }`}
           >
             <Sparkles size={20} />
@@ -972,14 +972,14 @@ export default function Recommendations() {
 
             {detailsLoading ? (
               <div className="flex flex-col items-center justify-center py-20 gap-3 text-slate-400">
-                <span className="w-8 h-8 border-3 border-[#00A19B] border-t-transparent rounded-full animate-spin" />
+                <span className="w-8 h-8 border-3 border-[#059669] border-t-transparent rounded-full animate-spin" />
                 <span>Fetching real-time comparisons & buying history...</span>
               </div>
             ) : modalDetails ? (
               <>
                 {/* Header */}
                 <div className="border-b border-white/5 pb-4">
-                  <div className="flex items-center gap-2.5 text-[#7FF6EE] text-xs font-bold uppercase tracking-wider mb-2">
+                  <div className="flex items-center gap-2.5 text-[#ffffff] text-xs font-bold uppercase tracking-wider mb-2">
                     <Sparkles size={14} className="animate-pulse" />
                     AI Pricing Orchestrator Audit
                   </div>
@@ -998,7 +998,7 @@ export default function Recommendations() {
                     {/* Competitor Matcher Details */}
                     <div className="glass-card p-5 space-y-4">
                       <h4 className="text-sm font-bold text-white flex items-center gap-2 border-b border-white/5 pb-2">
-                        <TrendingUp size={15} className="text-[#38bdf8]" />
+                        <TrendingUp size={15} className="text-[#10b981]" />
                         Competitor Price Matcher (Live Data)
                       </h4>
                       <div className="space-y-2.5">
@@ -1009,11 +1009,11 @@ export default function Recommendations() {
                               href={comp.url}
                               target="_blank"
                               rel="noreferrer"
-                              className="flex justify-between items-center text-xs bg-white/2 p-2 rounded-lg border border-white/5 hover:bg-white/5 hover:border-[#38bdf8]/30 transition-all cursor-pointer group"
+                              className="flex justify-between items-center text-xs bg-white/2 p-2 rounded-lg border border-white/5 hover:bg-white/5 hover:border-[#10b981]/30 transition-all cursor-pointer group"
                             >
                               <span className="text-slate-300 font-semibold flex items-center gap-1.5 group-hover:text-white transition-colors">
                                 {comp.competitor_name}
-                                <ExternalLink size={10} className="text-slate-500 group-hover:text-[#38bdf8] transition-colors" />
+                                <ExternalLink size={10} className="text-slate-500 group-hover:text-[#10b981] transition-colors" />
                               </span>
                               <div className="flex items-center gap-2">
                                 <span className={comp.in_stock ? "text-emerald-400 font-bold" : "text-rose-400"}>
@@ -1052,7 +1052,7 @@ export default function Recommendations() {
                         </div>
                         <div className="bg-white/2 p-2.5 rounded-lg border border-white/5 space-y-1">
                           <span className="text-slate-500 block">Current Margin</span>
-                          <strong className="text-[#7FF6EE] text-sm font-mono">
+                          <strong className="text-[#ffffff] text-sm font-mono">
                             {(((modalDetails.product.current_price - modalDetails.product.cost_price) / modalDetails.product.current_price) * 100).toFixed(1)}%
                           </strong>
                         </div>
@@ -1065,7 +1065,7 @@ export default function Recommendations() {
                     {/* Buying History */}
                     <div className="glass-card p-5 space-y-3 flex flex-col max-h-[220px]">
                       <h4 className="text-sm font-bold text-white flex items-center gap-2 border-b border-white/5 pb-2">
-                        <Activity size={15} className="text-[#00A19B]" />
+                        <Activity size={15} className="text-[#059669]" />
                         Storefront Product Buying History
                       </h4>
                       <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 scrollbar-thin">
@@ -1092,7 +1092,7 @@ export default function Recommendations() {
                     {/* AI Optimization Explainability */}
                     <div className="glass-card p-5 space-y-4">
                       <h4 className="text-sm font-bold text-white flex items-center gap-2 border-b border-white/5 pb-2">
-                        <Brain size={15} className="text-[#6366f1]" />
+                        <Brain size={15} className="text-[#059669]" />
                         LLM Pricing Strategy Optimization
                       </h4>
                       <div className="space-y-3 text-xs leading-relaxed">
@@ -1202,7 +1202,7 @@ function InfoRow({
       <span
         className={`font-medium ${
           green
-            ? "text-[#00A19B]"
+            ? "text-[#059669]"
             : "text-white"
         }`}
       >

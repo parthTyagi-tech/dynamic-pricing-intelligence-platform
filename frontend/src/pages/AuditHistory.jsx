@@ -146,7 +146,7 @@ export default function AuditHistory() {
         "
         style={{
           background:
-            "linear-gradient(135deg,rgba(12,16,32,0.92),rgba(15,23,42,0.92))",
+            "linear-gradient(135deg,rgba(8,8,8,0.72),rgba(0,0,0,0.85))",
 
           boxShadow:
             "0 24px 60px rgba(0,0,0,0.35)",
@@ -177,9 +177,9 @@ export default function AuditHistory() {
               inline-flex
               items-center
               gap-2
-              bg-[#6366f1]/10
+              bg-[#059669]/10
               border
-              border-[#6366f1]/20
+              border-[#059669]/20
               text-[#c7d2fe]
               px-4
               py-2
@@ -282,7 +282,7 @@ export default function AuditHistory() {
 
           style={{
             background:
-              "linear-gradient(135deg,#00A19B,#6366f1)",
+              "linear-gradient(135deg,#047857,#10b981)",
           }}
         >
 
@@ -389,7 +389,7 @@ export default function AuditHistory() {
                       "
                       style={{
                         background:
-                          "linear-gradient(135deg,#00A19B,#6366f1)",
+                          "linear-gradient(135deg,#047857,#10b981)",
                       }}
                     >
 
@@ -599,7 +599,7 @@ function InfoCard({
           leading-relaxed
           ${
             green
-              ? "text-[#00A19B]"
+              ? "text-[#059669]"
               : "text-white"
           }
         `}

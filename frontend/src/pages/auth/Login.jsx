@@ -135,16 +135,19 @@ function Field({
             padding:
               "14px 44px 14px 46px",
 
-            borderRadius: 16,
+            borderRadius: 24,
 
             background:
-              "rgba(255,255,255,0.05)",
+              "#171717",
 
             border: `1px solid ${
               error
                 ? "#ef4444"
-                : "rgba(255,255,255,0.08)"
+                : "rgba(255,255,255,0.03)"
             }`,
+
+            boxShadow:
+              "inset 2px 5px 10px rgba(0,0,0,0.5), inset -1px -1px 2px rgba(255,255,255,0.05)",
 
             color: "#ffffff",
 
@@ -152,9 +155,7 @@ function Field({
 
             outline: "none",
 
-            transition: "0.2s ease",
-
-            backdropFilter: "blur(10px)",
+            transition: "0.4s ease-in-out",
           }}
         />
 
@@ -346,50 +347,9 @@ export default function Login() {
 
         overflow: "hidden",
 
-        background:
-          "linear-gradient(135deg,#080b14 0%,#0f172a 45%,#0f766e 100%)",
+        background: "transparent",
       }}
     >
-
-      {/* GLOW */}
-
-      <div
-        style={{
-          position: "absolute",
-
-          width: 320,
-          height: 320,
-
-          borderRadius: "50%",
-
-          background:
-            "rgba(0,161,155,0.16)",
-
-          filter: "blur(120px)",
-
-          top: -100,
-          right: -100,
-        }}
-      />
-
-      <div
-        style={{
-          position: "absolute",
-
-          width: 260,
-          height: 260,
-
-          borderRadius: "50%",
-
-          background:
-            "rgba(99,102,241,0.14)",
-
-          filter: "blur(120px)",
-
-          bottom: -80,
-          left: -80,
-        }}
-      />
 
       <motion.div
         variants={containerV}
@@ -406,9 +366,11 @@ export default function Login() {
         }}
       >
 
-        <div
+        <motion.div
+          whileHover={{ scale: 1.05 }}
+          transition={{ duration: 0.4, ease: "easeInOut" }}
           style={{
-            borderRadius: 28,
+            borderRadius: 25,
 
             padding: 40,
 
@@ -419,13 +381,10 @@ export default function Login() {
             gap: 30,
 
             background:
-              "rgba(12,16,32,0.82)",
-
-            backdropFilter:
-              "blur(18px)",
+              "#171717",
 
             border:
-              "1px solid rgba(255,255,255,0.08)",
+              "1px solid rgba(255,255,255,0.05)",
 
             boxShadow:
               "0 32px 80px rgba(0,0,0,0.55)",
@@ -454,7 +413,7 @@ export default function Login() {
                 borderRadius: 18,
 
                 background:
-                  "linear-gradient(135deg,#00A19B,#6366f1)",
+                  "linear-gradient(135deg,#047857,#10b981)",
 
                 display: "flex",
 
@@ -533,7 +492,7 @@ export default function Login() {
                 border:
                   "1px solid rgba(0,161,155,0.18)",
 
-                color: "#7FF6EE",
+                color: "#ffffff",
 
                 fontSize: "0.76rem",
 
@@ -718,99 +677,75 @@ export default function Login() {
 
             </AnimatePresence>
 
-            <motion.button
-              type="submit"
+            <div style={{ display: "flex", gap: 12, width: "100%", marginTop: 8 }}>
+              <motion.button
+                type="submit"
+                disabled={loading}
+                whileHover={{ scale: loading ? 1 : 1.05 }}
+                whileTap={{ scale: loading ? 1 : 0.95 }}
+                style={{
+                  flex: 1,
+                  padding: "12px 0",
+                  borderRadius: 12,
+                  border: "none",
+                  background: "#212121",
+                  color: "white",
+                  fontSize: "0.85rem",
+                  fontWeight: 600,
+                  cursor: loading ? "not-allowed" : "pointer",
+                  transition: "0.2s ease-in-out",
+                  boxShadow: "3px 3px 6px rgba(0,0,0,0.5), -1px -1px 2px rgba(255,255,255,0.05)"
+                }}
+              >
+                {loading ? "Signing in..." : "Login"}
+              </motion.button>
 
-              disabled={loading}
+              <motion.button
+                type="button"
+                onClick={() => navigate("/signup")}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                style={{
+                  flex: 1,
+                  padding: "12px 0",
+                  borderRadius: 12,
+                  border: "none",
+                  background: "#212121",
+                  color: "white",
+                  fontSize: "0.85rem",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  transition: "0.2s ease-in-out",
+                  boxShadow: "3px 3px 6px rgba(0,0,0,0.5), -1px -1px 2px rgba(255,255,255,0.05)"
+                }}
+              >
+                Sign Up
+              </motion.button>
+            </div>
 
-              whileHover={{
-                scale:
-                  loading ? 1 : 1.02,
-              }}
-
-              whileTap={{
-                scale:
-                  loading ? 1 : 0.98,
-              }}
-
-              style={{
-                width: "100%",
-
-                padding:
-                  "15px 0",
-
-                borderRadius: 16,
-
-                border: "none",
-
-                background:
-                  "linear-gradient(135deg,#00A19B,#6366f1)",
-
-                color: "white",
-
-                fontSize: "0.94rem",
-
-                fontWeight: 700,
-
-                cursor:
-                  loading
-                    ? "not-allowed"
-                    : "pointer",
-
-                opacity:
-                  loading ? 0.7 : 1,
-
-                boxShadow:
-                  "0 14px 30px rgba(0,161,155,0.20)",
-              }}
-            >
-
-              {loading
-                ? "Signing in..."
-                : "Sign in"}
-
-            </motion.button>
+            <div style={{ textAlign: "center", marginTop: 4 }}>
+              <motion.button
+                type="button"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                style={{
+                  padding: "10px 24px",
+                  borderRadius: 12,
+                  border: "none",
+                  background: "#212121",
+                  color: "rgba(255,255,255,0.8)",
+                  fontSize: "0.80rem",
+                  cursor: "pointer",
+                  boxShadow: "3px 3px 6px rgba(0,0,0,0.5), -1px -1px 2px rgba(255,255,255,0.05)"
+                }}
+              >
+                Forgot Password
+              </motion.button>
+            </div>
 
           </motion.form>
 
-          {/* FOOTER */}
-
-          <motion.p
-            variants={itemV}
-
-            style={{
-              margin: 0,
-
-              textAlign: "center",
-
-              fontSize: "0.88rem",
-
-              color:
-                "rgba(255,255,255,0.75)",
-            }}
-          >
-
-            Don't have an account?{" "}
-
-            <Link
-              to="/signup"
-
-              style={{
-                color: "#00A19B",
-
-                fontWeight: 700,
-
-                textDecoration: "none",
-              }}
-            >
-
-              Create one
-
-            </Link>
-
-          </motion.p>
-
-        </div>
+        </motion.div>
 
       </motion.div>
 

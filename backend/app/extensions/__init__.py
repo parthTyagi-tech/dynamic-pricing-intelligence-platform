@@ -1,9 +1,19 @@
+import os
 from flask_sqlalchemy import SQLAlchemy
 from flask_jwt_extended import JWTManager
 from flask_migrate import Migrate
 from flask_cors import CORS
+from supabase import create_client, Client
 
 db = SQLAlchemy()
+
+supabase_url = os.environ.get("SUPABASE_URL")
+supabase_key = os.environ.get("SUPABASE_KEY")
+supabase: Client = None
+
+if supabase_url and supabase_key:
+    supabase = create_client(supabase_url, supabase_key)
+
 
 jwt = JWTManager()
 

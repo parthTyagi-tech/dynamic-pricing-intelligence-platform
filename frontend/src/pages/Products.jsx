@@ -176,7 +176,7 @@ export default function Products() {
         className="relative overflow-hidden rounded-[28px] border border-white/10 p-8 lg:p-10"
         style={{
           background:
-            "linear-gradient(135deg,rgba(12,16,32,0.92),rgba(15,23,42,0.92))",
+            "linear-gradient(135deg,rgba(8,8,8,0.72),rgba(0,0,0,0.85))",
 
           boxShadow:
             "0 24px 60px rgba(0,0,0,0.35)",
@@ -201,7 +201,7 @@ export default function Products() {
 
         <div className="relative z-10">
 
-          <div className="inline-flex items-center gap-2 bg-[#00A19B]/10 border border-[#00A19B]/20 text-[#7FF6EE] px-4 py-2 rounded-full text-sm mb-6">
+          <div className="inline-flex items-center gap-2 bg-[#059669]/10 border border-[#059669]/20 text-[#ffffff] px-4 py-2 rounded-full text-sm mb-6">
 
             <Boxes size={16} />
 
@@ -277,7 +277,7 @@ export default function Products() {
 
         <div className="flex items-center gap-3 mb-8">
 
-          <Plus className="text-[#00A19B]" />
+          <Plus className="text-[#059669]" />
 
           <h2 className="text-3xl font-bold text-white">
 
@@ -371,7 +371,7 @@ export default function Products() {
               text-white
               placeholder-slate-500
               outline-none
-              focus:border-[#00A19B]
+              focus:border-[#059669]
               transition-all
               resize-none
             "
@@ -392,7 +392,7 @@ export default function Products() {
 
             style={{
               background:
-                "linear-gradient(135deg,#00A19B,#6366f1)",
+                "linear-gradient(135deg,#047857,#10b981)",
             }}
           >
 
@@ -427,7 +427,7 @@ export default function Products() {
           </div>
 
           <div>
-            <label className="cursor-pointer inline-flex items-center gap-2 bg-[#00A19B]/10 hover:bg-[#00A19B]/20 border border-[#00A19B]/30 text-[#7FF6EE] px-4 py-2.5 rounded-2xl text-xs font-semibold transition-all">
+            <label className="cursor-pointer inline-flex items-center gap-2 bg-[#059669]/10 hover:bg-[#059669]/20 border border-[#059669]/30 text-[#ffffff] px-4 py-2.5 rounded-2xl text-xs font-semibold transition-all">
               <Upload size={14} />
               {importing ? "Importing..." : "Import CSV Catalog"}
               <input
@@ -531,7 +531,7 @@ export default function Products() {
                       "
                       style={{
                         background:
-                          "linear-gradient(135deg,#00A19B,#6366f1)",
+                          "linear-gradient(135deg,#047857,#10b981)",
                       }}
                     >
 
@@ -659,7 +659,7 @@ function InputField({
         text-white
         placeholder-slate-500
         outline-none
-        focus:border-[#00A19B]
+        focus:border-[#059669]
         transition-all
       "
     />

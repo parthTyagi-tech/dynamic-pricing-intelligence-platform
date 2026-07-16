@@ -53,17 +53,17 @@ import { useAuth } from "../context/AuthContext";
 
 /* ── Static data for pipeline workflow cards ── */
 const workflowSteps = [
-  { icon: Database, label: "Market Data", desc: "Real-time ingestion from 500+ sources", color: "#2dd4bf" },
-  { icon: Brain, label: "AI Processing", desc: "ML models analyze patterns & signals", color: "#38bdf8" },
+  { icon: Database, label: "Market Data", desc: "Real-time ingestion from 500+ sources", color: "#10b981" },
+  { icon: Brain, label: "AI Processing", desc: "ML models analyze patterns & signals", color: "#10b981" },
   { icon: Activity, label: "Prediction Engine", desc: "Demand forecasting & price elasticity", color: "#818cf8" },
   { icon: Zap, label: "Pricing Output", desc: "Optimal price delivered in <50ms", color: "#34d399" },
 ];
 
 const aiCards = [
-  { icon: Brain, title: "Machine Learning", desc: "Gradient Boosting + Neural Networks trained on 10M+ pricing events", tag: "Core AI", accent: "from-[#00A19B] to-[#14b8a6]", color: "#2dd4bf" },
+  { icon: Brain, title: "Machine Learning", desc: "Gradient Boosting + Neural Networks trained on 10M+ pricing events", tag: "Core AI", accent: "from-[#059669] to-[#14b8a6]", color: "#10b981" },
   { icon: TrendingUp, title: "Predictive Analytics", desc: "Time-series forecasting with 94.2% demand accuracy", tag: "Forecasting", accent: "from-emerald-500 to-teal-500", color: "#34d399" },
-  { icon: Globe, title: "Market Intelligence", desc: "Real-time crawl of 2,400+ competitor storefronts", tag: "Intelligence", accent: "from-sky-500 to-cyan-500", color: "#38bdf8" },
-  { icon: Activity, title: "Real-time Engine", desc: "Sub-50ms pricing decisions at 1M+ RPM capacity", tag: "Performance", accent: "from-[#6366f1] to-[#8b5cf6]", color: "#818cf8" },
+  { icon: Globe, title: "Market Intelligence", desc: "Real-time crawl of 2,400+ competitor storefronts", tag: "Intelligence", accent: "from-sky-500 to-cyan-500", color: "#10b981" },
+  { icon: Activity, title: "Real-time Engine", desc: "Sub-50ms pricing decisions at 1M+ RPM capacity", tag: "Performance", accent: "from-[#059669] to-[#8b5cf6]", color: "#818cf8" },
   { icon: RefreshCw, title: "Demand Forecasting", desc: "LSTM + seasonal decomposition for 30-day outlook", tag: "Forecasting", accent: "from-rose-500 to-pink-500", color: "#f472b6" },
   { icon: Layers, title: "Competitive AI", desc: "Automated gap analysis and undercutting alerts", tag: "Competition", accent: "from-amber-500 to-orange-500", color: "#fb923c" },
 ];
@@ -80,7 +80,7 @@ const agentsWorkflow = [
   {
     name: "Market Intelligence Agent",
     icon: Globe,
-    color: "#2dd4bf",
+    color: "#10b981",
     whatIsFor: "Competitor Price Tracking & Gap Estimation",
     desc: "Crawl sites like Amazon, Walmart, and Flipkart in real time. Analyzes competitive pricing spreads, tracks category pricing trends, and flags competitor markdowns or stockouts."
   },
@@ -94,7 +94,7 @@ const agentsWorkflow = [
   {
     name: "Inventory Cost Agent",
     icon: ShoppingBag,
-    color: "#38bdf8",
+    color: "#10b981",
     whatIsFor: "Stock Optimization & Clearance Triggering",
     desc: "Tracks warehouse stock quantities and days-of-supply metrics. Triggers strategic price decreases to clear slow-moving inventory, or tags premiums to optimize yield on scarce stock."
   },
@@ -448,7 +448,7 @@ export default function KlypupDashboard() {
               height: 54,
               borderRadius: "50%",
               border: "4px solid rgba(255,255,255,0.08)",
-              borderTop: "4px solid #00A19B",
+              borderTop: "4px solid #059669",
               animation: "spin 1s linear infinite",
             }}
           />
@@ -467,7 +467,7 @@ export default function KlypupDashboard() {
       <div
         className="relative overflow-hidden rounded-[28px] border border-white/10 p-8 lg:p-10"
         style={{
-          background: "linear-gradient(135deg,rgba(12,16,32,0.92),rgba(15,23,42,0.92))",
+          background: "linear-gradient(135deg,rgba(8,8,8,0.72),rgba(0,0,0,0.85))",
           boxShadow: "0 24px 60px rgba(0,0,0,0.35)",
         }}
       >
@@ -486,7 +486,7 @@ export default function KlypupDashboard() {
 
         <div className="relative z-10">
           <div className="flex items-center justify-between flex-wrap gap-4 mb-6">
-            <div className="inline-flex items-center gap-2 bg-[#00A19B]/10 border border-[#00A19B]/20 text-[#7FF6EE] px-4 py-2 rounded-full text-sm">
+            <div className="inline-flex items-center gap-2 bg-[#059669]/10 border border-[#059669]/20 text-[#ffffff] px-4 py-2 rounded-full text-sm">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
               Active Real-time Intelligence Connected
             </div>
@@ -554,14 +554,14 @@ export default function KlypupDashboard() {
           title="Dynamic Revenue"
           value={`₹${(metrics?.totalRevenue || 0).toLocaleString()}`}
           sub="Live catalog valuation"
-          accent="from-[#00A19B] to-[#14b8a6]"
+          accent="from-[#059669] to-[#14b8a6]"
         />
         <MetricCard
           icon={Crosshair}
           title="Pricing Accuracy"
           value={`${metrics?.pricingAccuracy || 0}%`}
           sub="Predictive pricing fidelity"
-          accent="from-[#6366f1] to-[#8b5cf6]"
+          accent="from-[#059669] to-[#8b5cf6]"
         />
         <MetricCard
           icon={Activity}
@@ -599,7 +599,7 @@ export default function KlypupDashboard() {
         <div className="glass-card p-6 relative overflow-hidden">
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-lg font-bold text-white flex items-center gap-2">
-              <DollarSign size={18} className="text-[#00A19B]" />
+              <DollarSign size={18} className="text-[#059669]" />
               Revenue Optimization Impact
             </h3>
             <span className="text-xs text-slate-400 bg-slate-800 px-2.5 py-1 rounded-full font-mono">
@@ -611,12 +611,12 @@ export default function KlypupDashboard() {
               <AreaChart data={revenue} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorActual" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#00A19B" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="#00A19B" stopOpacity={0} />
+                    <stop offset="5%" stopColor="#059669" stopOpacity={0.4} />
+                    <stop offset="95%" stopColor="#059669" stopOpacity={0} />
                   </linearGradient>
                   <linearGradient id="colorPredicted" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                    <stop offset="5%" stopColor="#059669" stopOpacity={0.4} />
+                    <stop offset="95%" stopColor="#059669" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
@@ -626,8 +626,8 @@ export default function KlypupDashboard() {
                   contentStyle={{ background: "rgba(15,23,42,0.95)", borderColor: "rgba(255,255,255,0.08)", borderRadius: 16 }}
                   labelStyle={{ color: "#fff", fontWeight: "bold" }}
                 />
-                <Area type="monotone" dataKey="actual" stroke="#00A19B" strokeWidth={3} fillOpacity={1} fill="url(#colorActual)" name="Actual Revenue (₹)" />
-                <Area type="monotone" dataKey="predicted" stroke="#6366f1" strokeWidth={3} fillOpacity={1} fill="url(#colorPredicted)" name="AI Target Revenue (₹)" />
+                <Area type="monotone" dataKey="actual" stroke="#059669" strokeWidth={3} fillOpacity={1} fill="url(#colorActual)" name="Actual Revenue (₹)" />
+                <Area type="monotone" dataKey="predicted" stroke="#059669" strokeWidth={3} fillOpacity={1} fill="url(#colorPredicted)" name="AI Target Revenue (₹)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -637,7 +637,7 @@ export default function KlypupDashboard() {
         <div className="glass-card p-6 relative overflow-hidden">
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-lg font-bold text-white flex items-center gap-2">
-              <TrendingUp size={18} className="text-[#38bdf8]" />
+              <TrendingUp size={18} className="text-[#10b981]" />
               Live Pricing Signal Trends
             </h3>
             <span className="text-xs text-slate-400 bg-slate-800 px-2.5 py-1 rounded-full font-mono">
@@ -655,7 +655,7 @@ export default function KlypupDashboard() {
                 />
                 <Line type="monotone" dataKey="aiPrice" stroke="#14b8a6" strokeWidth={3} dot={{ r: 4 }} name="AI Suggested (₹)" />
                 <Line type="monotone" dataKey="competitorPrice" stroke="#fb923c" strokeWidth={2} dot={{ r: 3 }} strokeDasharray="3 3" name="Competitor Avg (₹)" />
-                <Line type="monotone" dataKey="marketAverage" stroke="#38bdf8" strokeWidth={2} dot={{ r: 3 }} name="Market Avg (₹)" />
+                <Line type="monotone" dataKey="marketAverage" stroke="#10b981" strokeWidth={2} dot={{ r: 3 }} name="Market Avg (₹)" />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -681,7 +681,7 @@ export default function KlypupDashboard() {
                 <Tooltip
                   contentStyle={{ background: "rgba(15,23,42,0.95)", borderColor: "rgba(255,255,255,0.08)", borderRadius: 16 }}
                 />
-                <Bar dataKey="demand" fill="#00A19B" radius={[6, 6, 0, 0]} name="Demand Strength" />
+                <Bar dataKey="demand" fill="#059669" radius={[6, 6, 0, 0]} name="Demand Strength" />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -720,7 +720,7 @@ export default function KlypupDashboard() {
         <div className="glass-card p-6 flex flex-col h-[400px]">
           <div className="flex items-center justify-between mb-6 flex-shrink-0">
             <div className="flex items-center gap-2">
-              <Brain size={18} className="text-[#00A19B]" />
+              <Brain size={18} className="text-[#059669]" />
               <h3 className="text-lg font-bold text-white">Live AI Pricing Queue</h3>
             </div>
             <span className="text-xs text-slate-400 bg-slate-800 px-3 py-1 rounded-full font-mono">
@@ -734,11 +734,11 @@ export default function KlypupDashboard() {
                 <div
                   key={rec.id}
                   onClick={() => openDetailsModal(rec.id)}
-                  className="flex flex-col gap-2 p-3.5 rounded-xl border border-white/5 bg-white/2 hover:border-[#00A19B]/30 transition-all duration-300 text-xs cursor-pointer"
+                  className="flex flex-col gap-2 p-3.5 rounded-xl border border-white/5 bg-white/2 hover:border-[#059669]/30 transition-all duration-300 text-xs cursor-pointer"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-white font-semibold line-clamp-1">{rec.productName}</span>
-                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#00A19B]/10 text-[#7FF6EE] shrink-0">
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#059669]/10 text-[#ffffff] shrink-0">
                       {rec.confidence}%
                     </span>
                   </div>
@@ -751,7 +751,7 @@ export default function KlypupDashboard() {
                     </div>
                     <div className="flex flex-col">
                       <span className="text-[10px] text-slate-500">AI Recommended</span>
-                      <strong className="text-[#7FF6EE] font-mono">₹{Number(rec.suggestedPrice).toFixed(2)}</strong>
+                      <strong className="text-[#ffffff] font-mono">₹{Number(rec.suggestedPrice).toFixed(2)}</strong>
                     </div>
                     <span
                       className={`font-bold font-mono self-end ${
@@ -809,7 +809,7 @@ export default function KlypupDashboard() {
         <div className="glass-card p-6 flex flex-col h-[400px]">
           <div className="flex items-center justify-between mb-6 flex-shrink-0">
             <div className="flex items-center gap-2">
-              <ShoppingCart size={18} className="text-[#00A19B]" />
+              <ShoppingCart size={18} className="text-[#059669]" />
               <h3 className="text-lg font-bold text-white">Live Purchases Feed</h3>
             </div>
             <span className="text-xs text-slate-400 bg-slate-800 px-3 py-1 rounded-full font-mono">
@@ -822,7 +822,7 @@ export default function KlypupDashboard() {
               liveSales.map((sale) => (
                 <div
                   key={sale.id}
-                  className="flex items-center justify-between gap-3 p-3 rounded-xl border border-white/5 bg-white/2 hover:border-[#00A19B]/20 transition-all duration-300"
+                  className="flex items-center justify-between gap-3 p-3 rounded-xl border border-white/5 bg-white/2 hover:border-[#059669]/20 transition-all duration-300"
                 >
                   <div className="space-y-0.5">
                     <div className="text-white font-semibold text-xs leading-snug line-clamp-1">
@@ -836,7 +836,7 @@ export default function KlypupDashboard() {
                   </div>
                   
                   <div className="text-right flex-shrink-0 space-y-0.5">
-                    <div className="text-[#7FF6EE] font-bold font-mono text-xs">
+                    <div className="text-[#ffffff] font-bold font-mono text-xs">
                       ₹{sale.total_price.toFixed(2)}
                     </div>
                     <div className="text-[9px] text-slate-500 font-mono">
@@ -858,7 +858,7 @@ export default function KlypupDashboard() {
         <div className="glass-card p-6 flex flex-col h-[400px]">
           <div className="flex items-center justify-between mb-4 flex-shrink-0">
             <div className="flex items-center gap-2">
-              <Terminal size={18} className="text-[#00A19B]" />
+              <Terminal size={18} className="text-[#059669]" />
               <h3 className="text-lg font-bold text-white">Live Ingestion Stream</h3>
             </div>
             <span className="inline-flex items-center gap-1.5 text-xs text-slate-400 bg-slate-800 px-2.5 py-1 rounded-full">
@@ -874,8 +874,8 @@ export default function KlypupDashboard() {
                   <span className="text-slate-600 flex-shrink-0">
                     {new Date(item.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
                   </span>
-                  <span className={item.type === "price_action" ? "text-[#38bdf8]" : (item.type === "purchase" ? "text-emerald-400" : "text-slate-300")}>
-                    <span className={item.type === "price_action" ? "text-[#00A19B] font-bold" : (item.type === "purchase" ? "text-emerald-500 font-bold" : "text-amber-500/80 font-bold")}>
+                  <span className={item.type === "price_action" ? "text-[#10b981]" : (item.type === "purchase" ? "text-emerald-400" : "text-slate-300")}>
+                    <span className={item.type === "price_action" ? "text-[#059669] font-bold" : (item.type === "purchase" ? "text-emerald-500 font-bold" : "text-amber-500/80 font-bold")}>
                       {item.type === "price_action" ? "[ACTION] " : (item.type === "purchase" ? "[PURCHASE] " : "[SCRAPE] ")}
                     </span>
                     {item.message}
@@ -921,7 +921,7 @@ export default function KlypupDashboard() {
               </div>
               <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between text-[10px] text-slate-500">
                 <span>Domain: {agent.name.split(" ")[0]}</span>
-                <span className="font-mono text-[#00A19B]">Status: Active</span>
+                <span className="font-mono text-[#059669]">Status: Active</span>
               </div>
             </motion.div>
           ))}
@@ -1022,7 +1022,7 @@ export default function KlypupDashboard() {
                     className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
                     style={{ background: "rgba(0,161,155,0.12)" }}
                   >
-                    <s.icon size={15} style={{ color: "#2dd4bf" }} />
+                    <s.icon size={15} style={{ color: "#10b981" }} />
                   </div>
                   <div className="text-sm font-semibold text-white">{s.title}</div>
                 </div>
@@ -1053,14 +1053,14 @@ export default function KlypupDashboard() {
 
             {detailsLoading ? (
               <div className="flex flex-col items-center justify-center py-20 gap-3 text-slate-400">
-                <span className="w-8 h-8 border-3 border-[#00A19B] border-t-transparent rounded-full animate-spin" />
+                <span className="w-8 h-8 border-3 border-[#059669] border-t-transparent rounded-full animate-spin" />
                 <span>Fetching real-time comparisons & buying history...</span>
               </div>
             ) : modalDetails ? (
               <>
                 {/* Header */}
                 <div className="border-b border-white/5 pb-4">
-                  <div className="flex items-center gap-2.5 text-[#7FF6EE] text-xs font-bold uppercase tracking-wider mb-2">
+                  <div className="flex items-center gap-2.5 text-[#ffffff] text-xs font-bold uppercase tracking-wider mb-2">
                     <Sparkles size={14} className="animate-pulse" />
                     AI Pricing Orchestrator Audit
                   </div>
@@ -1079,7 +1079,7 @@ export default function KlypupDashboard() {
                     {/* Competitor Matcher Details */}
                     <div className="glass-card p-5 space-y-4">
                       <h4 className="text-sm font-bold text-white flex items-center gap-2 border-b border-white/5 pb-2">
-                        <TrendingUp size={15} className="text-[#38bdf8]" />
+                        <TrendingUp size={15} className="text-[#10b981]" />
                         Competitor Price Matcher (Live Data)
                       </h4>
                       <div className="space-y-2.5">
@@ -1090,11 +1090,11 @@ export default function KlypupDashboard() {
                               href={comp.url}
                               target="_blank"
                               rel="noreferrer"
-                              className="flex justify-between items-center text-xs bg-white/2 p-2 rounded-lg border border-white/5 hover:bg-white/5 hover:border-[#38bdf8]/30 transition-all cursor-pointer group"
+                              className="flex justify-between items-center text-xs bg-white/2 p-2 rounded-lg border border-white/5 hover:bg-white/5 hover:border-[#10b981]/30 transition-all cursor-pointer group"
                             >
                               <span className="text-slate-300 font-semibold flex items-center gap-1.5 group-hover:text-white transition-colors">
                                 {comp.competitor_name}
-                                <ExternalLink size={10} className="text-slate-500 group-hover:text-[#38bdf8] transition-colors" />
+                                <ExternalLink size={10} className="text-slate-500 group-hover:text-[#10b981] transition-colors" />
                               </span>
                               <div className="flex items-center gap-2">
                                 <span className={comp.in_stock ? "text-emerald-400 font-bold" : "text-rose-400"}>
@@ -1133,7 +1133,7 @@ export default function KlypupDashboard() {
                         </div>
                         <div className="bg-white/2 p-2.5 rounded-lg border border-white/5 space-y-1">
                           <span className="text-slate-500 block">Current Margin</span>
-                          <strong className="text-[#7FF6EE] text-sm font-mono">
+                          <strong className="text-[#ffffff] text-sm font-mono">
                             {(((modalDetails.product.current_price - modalDetails.product.cost_price) / modalDetails.product.current_price) * 100).toFixed(1)}%
                           </strong>
                         </div>
@@ -1146,7 +1146,7 @@ export default function KlypupDashboard() {
                     {/* Buying History */}
                     <div className="glass-card p-5 space-y-3 flex flex-col max-h-[220px]">
                       <h4 className="text-sm font-bold text-white flex items-center gap-2 border-b border-white/5 pb-2">
-                        <Activity size={15} className="text-[#00A19B]" />
+                        <Activity size={15} className="text-[#059669]" />
                         Storefront Product Buying History
                       </h4>
                       <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 scrollbar-thin">
@@ -1173,7 +1173,7 @@ export default function KlypupDashboard() {
                     {/* AI Optimization Explainability */}
                     <div className="glass-card p-5 space-y-4">
                       <h4 className="text-sm font-bold text-white flex items-center gap-2 border-b border-white/5 pb-2">
-                        <Brain size={15} className="text-[#6366f1]" />
+                        <Brain size={15} className="text-[#059669]" />
                         LLM Pricing Strategy Optimization
                       </h4>
                       <div className="space-y-3 text-xs leading-relaxed">
@@ -1242,11 +1242,11 @@ export default function KlypupDashboard() {
 function SectionHeading({ label, title, desc }) {
   return (
     <div>
-      <div className="inline-flex items-center gap-2 bg-[#00A19B]/10 border border-[#00A19B]/20 text-[#7FF6EE] px-3 py-1.5 rounded-full text-xs font-semibold mb-3 tracking-wide">
+      <div className="inline-flex items-center gap-2 bg-[#059669]/10 border border-[#059669]/20 text-[#ffffff] px-3 py-1.5 rounded-full text-xs font-semibold mb-3 tracking-wide">
         <Sparkles size={11} />
         {label}
       </div>
-      <h2 className="text-2xl font-bold text-white mb-1">{title}</h2>
+      <h2 className="text-2xl font-sentient font-normal text-white mb-1">{title}</h2>
       {desc && <p className="text-slate-400 text-sm">{desc}</p>}
     </div>
   );

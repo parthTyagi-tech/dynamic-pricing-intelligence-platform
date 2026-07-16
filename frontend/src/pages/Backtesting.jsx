@@ -256,7 +256,7 @@ export default function Backtesting() {
                       {/* AI Revenue Line */}
                       <polyline
                         fill="none"
-                        stroke="#2dd4bf"
+                        stroke="#10b981"
                         strokeWidth="2.5"
                         points={getSvgPathPoints(simResults.timeline, "ai_revenue")}
                       />
