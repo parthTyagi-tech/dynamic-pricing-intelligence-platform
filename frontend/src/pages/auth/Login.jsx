@@ -360,7 +360,7 @@ export default function Login() {
 
         style={{
           width: "100%",
-          maxWidth: 600,
+          maxWidth: 500,
           position: "relative",
           zIndex: 10,
         }}
@@ -372,13 +372,13 @@ export default function Login() {
           style={{
             borderRadius: 25,
 
-            padding: 40,
+            padding: 24,
 
             display: "flex",
 
             flexDirection: "column",
 
-            gap: 30,
+            gap: 16,
 
             background:
               "#171717",
@@ -555,7 +555,7 @@ export default function Login() {
             style={{
               display: "flex",
               flexDirection: "column",
-              gap: 18,
+              gap: 12,
             }}
           >
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-2 text-left">

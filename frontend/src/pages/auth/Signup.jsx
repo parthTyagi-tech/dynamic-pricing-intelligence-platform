@@ -429,7 +429,7 @@ export default function Signup() {
 
         style={{
           width: "100%",
-          maxWidth: 600,
+          maxWidth: 540,
           position: "relative",
           zIndex: 10,
         }}
@@ -441,13 +441,13 @@ export default function Signup() {
           style={{
             borderRadius: 25,
 
-            padding: 40,
+            padding: 24,
 
             display: "flex",
 
             flexDirection: "column",
 
-            gap: 30,
+            gap: 16,
 
             background:
               "#171717",
@@ -623,7 +623,7 @@ export default function Signup() {
             style={{
               display: "flex",
               flexDirection: "column",
-              gap: 18,
+              gap: 12,
             }}
           >
 
