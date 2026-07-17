@@ -13,6 +13,9 @@ from app.models.recommendation import (
     ApprovalAction,
     ApprovalActionType
 )
+from app.services.email_service import send_recommendation_action_email
+from app.services.whatsapp_service import send_whatsapp_recommendation_action
+from app.models.user import User
 from app.services.ai_pricing_service import PricingStrategyAgent
 import random
 
@@ -155,7 +158,42 @@ def _process_pricing_job(recommendation_id: str, product_id: str):
                 timestamp=recommendation.created_at
             )
             db.session.add(approval_action)
+            db.session.flush() # flush to get approval_action.id
             recommendation.ai_summary += " (AUTOPILOT: Automatically executed due to high confidence)"
+            
+            # Send Notification for auto-execute
+            try:
+                # Find the owner/admin user to notify
+                admin_user = User.query.filter_by(organization_id=product.organization_id, role="admin").first()
+                if admin_user:
+                    product_details = {"name": product.name, "sku": product.sku}
+                    rec_details = {
+                        "id": recommendation.id,
+                        "previous_price": previous_price,
+                        "executed_price": recommendation.recommended_price,
+                        "rationale": recommendation.rationale,
+                        "confidence_score": recommendation.confidence_score
+                    }
+                    comp_prices = [{"competitor_name": cp.competitor_name, "competitor_price": cp.competitor_price, "in_stock": cp.in_stock} for cp in product.competitor_prices.all()]
+                    
+                    send_recommendation_action_email(
+                        user_email=admin_user.email,
+                        action_type="auto_execute",
+                        product_details=product_details,
+                        recommendation_details=rec_details,
+                        competitor_prices=comp_prices,
+                        action_id=approval_action.id
+                    )
+                    if admin_user.phone_number:
+                        send_whatsapp_recommendation_action(
+                            phone_number=admin_user.phone_number,
+                            action_type="auto_execute",
+                            product_details=product_details,
+                            recommendation_details=rec_details,
+                            competitor_prices=comp_prices
+                        )
+            except Exception as e:
+                logger.error(f"[task_worker] Failed to send auto-execute notification: {e}")
         
         db.session.commit()
         logger.info(f"[task_worker] Successfully completed pricing generation for recommendation {recommendation_id}")

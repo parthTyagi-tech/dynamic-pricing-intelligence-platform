@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Shield, CreditCard, DollarSign, Award, CheckCircle, BarChart2, Activity, RefreshCw } from "lucide-react";
 import apiClient from "../services/api";
@@ -9,6 +10,20 @@ export default function Billing() {
   const [paying, setPaying] = useState(false);
   const [paySuccess, setPaySuccess] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState("Pro Growth Plan");
+  const location = useLocation();
+
+  useEffect(() => {
+    // Check if coming back from Stripe success
+    const queryParams = new URLSearchParams(location.search);
+    if (queryParams.get("success") === "true") {
+      setPaySuccess(true);
+      setTimeout(() => {
+        setPaySuccess(false);
+        // Clean URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }, 5000);
+    }
+  }, [location]);
 
   const fetchBilling = async () => {
     try {
@@ -25,18 +40,21 @@ export default function Billing() {
     fetchBilling();
   }, []);
 
-  const handlePayInvoice = () => {
+  const handlePayInvoice = async () => {
     setPaying(true);
-    // Simulate Stripe popup overlay and processing delay
-    setTimeout(() => {
+    try {
+      const response = await apiClient.post("/startup/billing/create-checkout-session");
+      if (response.data.success && response.data.url) {
+        window.location.href = response.data.url;
+      } else {
+        alert(response.data.message || "Failed to create checkout session");
+        setPaying(false);
+      }
+    } catch (error) {
+      console.error("Payment error:", error);
+      alert(error.response?.data?.message || "Payment integration error (Missing STRIPE_SECRET_KEY?)");
       setPaying(false);
-      setPaySuccess(true);
-      
-      // Keep PAID status visual for 4 seconds then return to normal
-      setTimeout(() => {
-        setPaySuccess(false);
-      }, 4000);
-    }, 2000);
+    }
   };
 
   if (loading || !billing) {

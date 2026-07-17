@@ -80,11 +80,29 @@ def send_recommendation_action_email(
     action_type: str,
     product_details: dict,
     recommendation_details: dict,
-    competitor_prices: list
+    competitor_prices: list,
+    action_id: str = None
 ):
     """Sends a structured transaction report for any pricing action (approve/reject/rollback)."""
-    action_verb = "Approved" if action_type == "approve" else ("Rejected" if action_type == "reject" else "Rolled Back")
+    action_verb = "Approved" if action_type == "approve" else ("Rejected" if action_type == "reject" else ("Rolled Back" if action_type == "rollback" else "Auto-Executed"))
     subject = f"[Klypup Alert] Pricing Recommendation {action_verb} for {product_details.get('name')}"
+
+    rollback_html = ""
+    if action_type in ("approve", "auto_execute") and action_id:
+        from itsdangerous import URLSafeSerializer
+        s = URLSafeSerializer(os.environ.get("SECRET_KEY", "dev-secret-key"))
+        token = s.dumps(action_id)
+        # Using a generic localhost or environment variable for the domain
+        domain = os.environ.get("BASE_URL", "http://localhost:5000")
+        rollback_link = f"{domain}/api/approvals/email-rollback/{token}"
+        rollback_html = f"""
+        <div style="text-align:center; margin-top: 20px; margin-bottom: 20px;">
+            <p style="color: #94a3b8; font-size: 12px; margin-bottom: 10px;">If this AI recommendation is incorrect, you can immediately revert the live store price.</p>
+            <a href="{rollback_link}" style="display:inline-block; background-color: #ef4444; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 6px rgba(239, 68, 68, 0.3);">
+                UNDO & ROLLBACK PRICE
+            </a>
+        </div>
+        """
 
     # Competitor Pricing rows builder
     competitor_rows = ""
@@ -181,6 +199,8 @@ def send_recommendation_action_email(
                     {competitor_rows}
                 </tbody>
             </table>
+
+            {rollback_html}
 
             <div class="footer">
                 Governance tracking ID: {recommendation_details.get('id', 'N/A')}<br>

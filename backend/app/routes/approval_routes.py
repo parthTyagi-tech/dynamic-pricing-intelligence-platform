@@ -20,6 +20,9 @@ from app.models.product import Product
 from app.models.market_data import CompetitorPrice
 from app.services.email_service import send_recommendation_action_email
 from app.services.whatsapp_service import send_whatsapp_recommendation_action
+import os
+from itsdangerous import URLSafeSerializer, BadSignature
+
 import asyncio
 from app.services.agents.price_execution_agent import execute_price_change
 
@@ -160,7 +163,8 @@ def approve_recommendation(recommendation_id):
             action_type="approve",
             product_details=product_details,
             recommendation_details=rec_details,
-            competitor_prices=comp_prices
+            competitor_prices=comp_prices,
+            action_id=approval_action.id
         )
     except Exception as e:
         print(f"[Approval Route] Failed to send approval email: {e}")
@@ -428,6 +432,23 @@ def rollback_approval(action_id):
     db.session.add(rollback_action)
     db.session.commit()
 
+    # =====================================
+    # PHYSICAL EXECUTION (BROWSER USE)
+    # =====================================
+    try:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        agent_result = loop.run_until_complete(
+            execute_price_change(
+                product_name=product.name,
+                new_price=restored_price,
+                platform_url="https://admin.shopify.com/store/klypup/products"
+            )
+        )
+        print(f"[Approval Route] Rollback Browser Agent Result: {agent_result}")
+    except Exception as e:
+        print(f"[Approval Route] Rollback Browser Agent Failed: {e}")
+
     try:
         competitor_records = CompetitorPrice.query.filter_by(
             product_id=product.id,
@@ -475,3 +496,79 @@ def rollback_approval(action_id):
         "product": product.to_dict(),
         "action": rollback_action.to_dict()
     }, 200
+
+# =====================================
+# EMAIL ROLLBACK (ONE-CLICK)
+# =====================================
+@approval_bp.route("/email-rollback/<token>", methods=["GET"])
+def email_rollback(token):
+    s = URLSafeSerializer(os.environ.get("SECRET_KEY", "dev-secret-key"))
+    try:
+        action_id = s.loads(token)
+    except BadSignature:
+        return "<h1>Invalid or expired rollback token.</h1>", 400
+
+    target_action = ApprovalAction.query.get(action_id)
+    if not target_action:
+        return "<h1>Audit log action not found.</h1>", 404
+
+    recommendation = target_action.recommendation
+    if target_action.action_type not in (ApprovalActionType.APPROVE, ApprovalActionType.AUTO_EXECUTE):
+        return "<h1>Only approved actions can be rolled back.</h1>", 400
+
+    already_rolled_back = ApprovalAction.query.filter_by(
+        recommendation_id=recommendation.id,
+        action_type="rollback"
+    ).first()
+    
+    if already_rolled_back:
+        return "<h1>This price change has already been rolled back.</h1>", 400
+
+    product = Product.query.get(recommendation.product_id)
+    if not product:
+        return "<h1>Associated product not found.</h1>", 404
+
+    original_price = product.current_price
+    restored_price = target_action.previous_price
+    product.current_price = restored_price
+
+    rollback_action = ApprovalAction(
+        recommendation_id=recommendation.id,
+        action_type="rollback",
+        previous_price=original_price,
+        executed_price=restored_price,
+        approved_by=None,
+        rejection_reason="Rolled back via Email one-click"
+    )
+    db.session.add(rollback_action)
+    db.session.commit()
+
+    # Physical Execution
+    try:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        agent_result = loop.run_until_complete(
+            execute_price_change(
+                product_name=product.name,
+                new_price=restored_price,
+                platform_url="https://admin.shopify.com/store/klypup/products"
+            )
+        )
+        print(f"[Approval Route] Email Rollback Browser Agent Result: {agent_result}")
+    except Exception as e:
+        print(f"[Approval Route] Email Rollback Browser Agent Failed: {e}")
+
+    # Optionally send a confirmation email here (omitted for brevity as they just clicked the email)
+    return f"""
+    <html>
+        <body style="background-color: #0b0f19; color: #f8fafc; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh;">
+            <div style="background-color: #0f172a; padding: 40px; border-radius: 16px; border: 1px solid #1e293b; text-align: center;">
+                <h1 style="color: #2dd4bf; margin-bottom: 20px;">Price Rolled Back Successfully!</h1>
+                <p>The price for <b>{product.name}</b> has been reverted to ₹{restored_price:.2f}.</p>
+                <p>The Klypup AI agent is currently updating your live Shopify store.</p>
+                <br/>
+                <a href="http://localhost:3000/dashboard/observability" style="color: #818cf8;">View Audit Logs</a>
+            </div>
+        </body>
+    </html>
+    """, 200

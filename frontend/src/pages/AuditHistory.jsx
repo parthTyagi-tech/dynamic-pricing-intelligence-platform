@@ -76,6 +76,17 @@ export default function AuditHistory() {
       );
     }
     if (
+      action?.toLowerCase() === "auto_execute"
+    ) {
+
+      return (
+        <Sparkles
+          className="text-emerald-400"
+          size={20}
+        />
+      );
+    }
+    if (
       action?.toLowerCase() === "rollback"
     ) {
 
@@ -106,6 +117,17 @@ export default function AuditHistory() {
         text-green-400
         border
         border-green-500/20
+      `;
+    }
+    if (
+      action?.toLowerCase() === "auto_execute"
+    ) {
+
+      return `
+        bg-emerald-500/10
+        text-emerald-400
+        border
+        border-emerald-500/20
       `;
     }
     if (
@@ -444,7 +466,7 @@ export default function AuditHistory() {
                       item.action_type
                     )}
 
-                    {item.action_type}
+                    {item.action_type === "auto_execute" ? "Auto-Pilot" : item.action_type}
 
                   </div>
 

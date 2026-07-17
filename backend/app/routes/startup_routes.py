@@ -123,6 +123,50 @@ def get_billing_summary():
     }, 200
 
 
+@startup_bp.route("/billing/create-checkout-session", methods=["POST"])
+@jwt_required()
+def create_checkout_session():
+    import stripe
+    stripe.api_key = os.environ.get("STRIPE_SECRET_KEY")
+
+    if not stripe.api_key:
+        return {"success": False, "message": "STRIPE_SECRET_KEY not configured in backend."}, 500
+
+    current_user_id = get_jwt_identity()
+    current_user = User.query.get(current_user_id)
+    if not current_user:
+        return {"success": False, "message": "User not found"}, 404
+
+    # Calculate same amount as get_billing_summary
+    product_count = Product.query.filter_by(organization_id=current_user.organization_id).count()
+    revenue_lift = float(product_count * 1420.00) if product_count > 0 else 45210.00
+    commission_rate = 0.005
+    commission_charge = round(revenue_lift * commission_rate, 2)
+    plan_fee = 149.00
+    total_due = round(plan_fee + commission_charge, 2)
+
+    try:
+        session = stripe.checkout.Session.create(
+            line_items=[{
+                'price_data': {
+                    'currency': 'inr',
+                    'product_data': {
+                        'name': 'Klypup Pro Growth Plan + AI Commission',
+                        'description': f'Usage based dynamic commission on \u20b9{revenue_lift} AI revenue lift',
+                    },
+                    'unit_amount': int(total_due * 100), # amount in paise
+                },
+                'quantity': 1,
+            }],
+            mode='payment',
+            success_url="http://localhost:3000/billing?success=true",
+            cancel_url="http://localhost:3000/billing?canceled=true",
+        )
+        return {"success": True, "url": session.url}, 200
+    except Exception as e:
+        return {"success": False, "message": str(e)}, 500
+
+
 @startup_bp.route("/integrations", methods=["GET", "POST"])
 @jwt_required()
 def handle_integrations():

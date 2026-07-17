@@ -1,0 +1,47 @@
+To: whatsapp:+919368687948
+From: whatsapp:+14155238886
+Timestamp: 2026-07-16T08:08:48.450637+00:00
+==================================================
+✅ *Klypup Pricing Alert — Approved*
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📦 *Product:* iPhone 15 (128GB)
+🏷️ *SKU:* IP15-128-BLK
+
+💰 *Previous Price:* ₹79900.00
+💎 *Approved Price:* ₹76470.59
+
+🧠 *LLM Rationale:*
+_The current price is slightly below the average competitor price, and the demand is high with a rising trend. To maintain a competitive edge and stimulate sales, a price decrease is recommended. The low inventory level also suggests a need to clear existing stock. Price adjusted from ₹76000.00 to ₹76470.59 to enforce minimum margin constraints._
+
+📈 *Confidence Score:* 85%
+
+🏪 *Competitor Prices:*
+  • Walmart: ₹83130.09 (✅ In Stock)
+  • Walmart: ₹73726.89 (✅ In Stock)
+  • BestBuy: ₹81572.09 (✅ In Stock)
+  • Walmart: ₹77825.71 (✅ In Stock)
+  • Ebay: ₹82247.40 (✅ In Stock)
+  • BestBuy: ₹81485.37 (✅ In Stock)
+  • BestBuy: ₹77269.40 (✅ In Stock)
+  • Walmart: ₹82762.61 (✅ In Stock)
+  • BestBuy: ₹83508.44 (✅ In Stock)
+  • Walmart: ₹77002.74 (✅ In Stock)
+  • Amazon: ₹82620.23 (✅ In Stock)
+  • Target: ₹74979.74 (✅ In Stock)
+  • Walmart: ₹75349.93 (✅ In Stock)
+  • Target: ₹83274.31 (✅ In Stock)
+  • Amazon: ₹83709.36 (✅ In Stock)
+  • BestBuy: ₹80115.07 (✅ In Stock)
+  • Target: ₹77938.36 (✅ In Stock)
+  • Amazon: ₹82079.78 (✅ In Stock)
+  • Amazon: ₹79891.44 (✅ In Stock)
+  • Ebay: ₹80022.86 (✅ In Stock)
+  • Walmart: ₹83356.19 (✅ In Stock)
+  • BestBuy: ₹83823.91 (✅ In Stock)
+  • AI Market Agent: ₹80523.19 (✅ In Stock)
+
+🕐 *Timestamp:* 2026-07-16 08:08:48 UTC
+🔖 *Tracking ID:* 3c40047a-a845-41c2-94a5-4a6073a5e82c
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+_Automated alert from Klypup AI. Do not reply._

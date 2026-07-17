@@ -517,7 +517,7 @@ Barcode: {barcode}
         if llm_res and "search_query" in llm_res:
             search_query = llm_res["search_query"]
             match_keywords = [k.lower() for k in llm_res.get("match_keywords", [])]
-                print(f"[SearchOptimizer] Optimized query to: '{search_query}' and keywords: {match_keywords}")
+            print(f"[SearchOptimizer] Optimized query to: '{search_query}' and keywords: {match_keywords}")
     except Exception as e:
         print(f"[SearchOptimizer] Error optimizing search query: {e}")
 

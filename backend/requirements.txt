@@ -57,3 +57,4 @@ playwright
 browser-use
 supabase
 langchain-openai
+stripe
