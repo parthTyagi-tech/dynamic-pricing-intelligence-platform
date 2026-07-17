@@ -360,7 +360,7 @@ export default function Login() {
 
         style={{
           width: "100%",
-          maxWidth: 460,
+          maxWidth: 380,
           position: "relative",
           zIndex: 10,
         }}

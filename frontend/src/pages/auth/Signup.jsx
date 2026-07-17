@@ -429,7 +429,7 @@ export default function Signup() {
 
         style={{
           width: "100%",
-          maxWidth: 460,
+          maxWidth: 380,
           position: "relative",
           zIndex: 10,
         }}
