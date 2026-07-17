@@ -360,7 +360,7 @@ export default function Login() {
 
         style={{
           width: "100%",
-          maxWidth: 380,
+          maxWidth: 600,
           position: "relative",
           zIndex: 10,
         }}
@@ -558,7 +558,7 @@ export default function Login() {
               gap: 18,
             }}
           >
-
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-2 text-left">
             <Field
               label="Email"
               id="email"
@@ -623,6 +623,7 @@ export default function Login() {
                 </button>
               }
             />
+            </div>
 
             <AnimatePresence>
 
