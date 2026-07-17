@@ -429,7 +429,7 @@ export default function Signup() {
 
         style={{
           width: "100%",
-          maxWidth: 720,
+          maxWidth: 460,
           position: "relative",
           zIndex: 10,
         }}
@@ -627,7 +627,7 @@ export default function Signup() {
             }}
           >
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-2 text-left">
+            <div style={{ display: "flex", flexDirection: "column", gap: 18, marginBottom: 8, textAlign: "left" }}>
               <Field
                 label="Full Name"
                 id="name"
