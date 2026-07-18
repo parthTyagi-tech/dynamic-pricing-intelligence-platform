@@ -66,27 +66,6 @@ PLATFORMS = [
         "search_url": "https://www.google.com/search?q={brand}+{query}+official+store+buy",
         "currency": "INR",
     },
-    {
-        "name": "Ebay",
-        "icon": "Eb",
-        "color": "#e53238",
-        "search_url": "https://www.ebay.com/sch/i.html?_nkw={query}",
-        "currency": "INR",
-    },
-    {
-        "name": "BestBuy",
-        "icon": "BB",
-        "color": "#0046be",
-        "search_url": "https://www.bestbuy.com/site/searchpage.jsp?st={query}",
-        "currency": "INR",
-    },
-    {
-        "name": "Target",
-        "icon": "Ta",
-        "color": "#cc0000",
-        "search_url": "https://www.target.com/s?searchTerm={query}",
-        "currency": "INR",
-    },
 ]
 
 INR_TO_USD = 83.3
