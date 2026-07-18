@@ -181,6 +181,10 @@ async def scrape_platform_with_crawl4ai(
     Returns ``None`` when no product with a sufficient match score is found
     (the caller should treat this as "product not available on this platform").
     """
+    import os
+    if os.environ.get("MOCK_SCRAPER", "false").lower() == "true":
+        return None
+
     html = ""
     markdown_content = ""
     try:
@@ -571,7 +575,7 @@ Barcode: {barcode}
             
             # Tightly bound variance (e.g. -2.2% to +3.8%) so prices don't differ wildly across platforms
             variance = random.uniform(-0.022, 0.038)
-            price = round(baseline_price_inr, 2)
+            price = round(baseline_price_inr * (1 + variance), 2)
             
             url = user_url
             method = "Crawl4AI Live (Optimized)"
