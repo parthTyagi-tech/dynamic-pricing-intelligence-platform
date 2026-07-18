@@ -41,12 +41,10 @@ def init_extensions(app):
     cors.init_app(
         app,
         resources={
-    r"/api/*": {
-        "origins": [
-            "http://localhost:5173"
-        ]
-    }
-},
+            r"/*": {
+                "origins": app.config.get("CORS_ORIGINS", ["*"])
+            }
+        },
         supports_credentials=True,
     )
 

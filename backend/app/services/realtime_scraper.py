@@ -606,9 +606,16 @@ Barcode: {barcode}
         }
         return result
 
-    # Create tasks for all 8 platforms
+    # Use a semaphore to run only 1 browser scrape at a time to prevent Out-Of-Memory crashes on low-resource environments
+    sem = asyncio.Semaphore(1)
+
+    async def scrape_and_format_sem(platform_name, search_url):
+        async with sem:
+            return await scrape_and_format(platform_name, search_url)
+
+    # Create tasks for all platforms with concurrency limit
     tasks = [
-        scrape_and_format(pname, purl)
+        scrape_and_format_sem(pname, purl)
         for pname, purl in urls.items()
     ]
 
