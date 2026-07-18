@@ -92,18 +92,28 @@ def register():
 
     db.session.commit()
 
-    # Send welcoming onboarding email
+    # Send welcoming onboarding email in background
     try:
-        send_registration_email(user.email, user.name)
+        import threading
+        threading.Thread(
+            target=send_registration_email,
+            args=(user.email, user.name),
+            daemon=True
+        ).start()
     except Exception as e:
-        print(f"[Auth Route] Failed to send registration email: {e}")
+        print(f"[Auth Route] Failed to trigger background registration email: {e}")
 
-    # Send WhatsApp welcome message if phone number provided
+    # Send WhatsApp welcome message if phone number provided in background
     if user.phone_number:
         try:
-            send_whatsapp_welcome(user.phone_number, user.name)
+            import threading
+            threading.Thread(
+                target=send_whatsapp_welcome,
+                args=(user.phone_number, user.name),
+                daemon=True
+            ).start()
         except Exception as e:
-            print(f"[Auth Route] Failed to send WhatsApp welcome: {e}")
+            print(f"[Auth Route] Failed to trigger background WhatsApp welcome: {e}")
 
     # Generate JWT token
     token = create_access_token(
@@ -201,18 +211,28 @@ def login():
 
     try:
         from app.services.email_service import send_registration_email
+        import threading
         # Repurpose the registration email as a welcome/login email for now, 
         # since the user explicitly requested an email upon login.
-        send_registration_email(user.email, user.name)
+        threading.Thread(
+            target=send_registration_email,
+            args=(user.email, user.name),
+            daemon=True
+        ).start()
     except Exception as e:
-        print(f"[Auth Route] Failed to send login email: {e}")
+        print(f"[Auth Route] Failed to trigger background login email: {e}")
 
     if user.phone_number:
         try:
             from app.services.whatsapp_service import send_whatsapp_welcome
-            send_whatsapp_welcome(user.phone_number, user.name)
+            import threading
+            threading.Thread(
+                target=send_whatsapp_welcome,
+                args=(user.phone_number, user.name),
+                daemon=True
+            ).start()
         except Exception as e:
-            print(f"[Auth Route] Failed to send login WhatsApp: {e}")
+            print(f"[Auth Route] Failed to trigger background login WhatsApp: {e}")
 
     return {
         "success": True,

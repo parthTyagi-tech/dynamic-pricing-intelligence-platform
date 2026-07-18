@@ -33,7 +33,7 @@ def _send_or_save_email(to_email: str, subject: str, html_content: str):
             msg["To"] = to_email
             msg.attach(MIMEText(html_content, "html"))
 
-            with smtplib.SMTP(smtp_host, int(smtp_port)) as server:
+            with smtplib.SMTP(smtp_host, int(smtp_port), timeout=10) as server:
                 server.starttls()
                 server.login(smtp_user, smtp_pass)
                 server.sendmail(sender_email, to_email, msg.as_string())
