@@ -51,15 +51,31 @@ class BaseConfig:
 
 class DevelopmentConfig(BaseConfig):
     DEBUG = True
-    SQLALCHEMY_DATABASE_URI = os.environ.get(
+    
+    _dev_db_url = os.environ.get(
         "DATABASE_URL", "postgresql://postgres:password@localhost:5432/pricing_dashboard"
     )
+    if _dev_db_url:
+        if _dev_db_url.startswith("postgres://"):
+            _dev_db_url = _dev_db_url.replace("postgres://", "postgresql://", 1)
+        _dev_db_url = _dev_db_url.replace("?pgbouncer=true", "")
+        _dev_db_url = _dev_db_url.replace("&pgbouncer=true", "")
+        
+    SQLALCHEMY_DATABASE_URI = _dev_db_url
     SQLALCHEMY_ECHO = False
 
 
 class ProductionConfig(BaseConfig):
     DEBUG = False
-    SQLALCHEMY_DATABASE_URI = os.environ.get("DATABASE_URL")
+    
+    _db_url = os.environ.get("DATABASE_URL")
+    if _db_url:
+        if _db_url.startswith("postgres://"):
+            _db_url = _db_url.replace("postgres://", "postgresql://", 1)
+        _db_url = _db_url.replace("?pgbouncer=true", "")
+        _db_url = _db_url.replace("&pgbouncer=true", "")
+        
+    SQLALCHEMY_DATABASE_URI = _db_url
     SQLALCHEMY_ECHO = False
 
 
