@@ -654,7 +654,11 @@ async def stream_multi_platform_prices(
                 site_filters.append(f"site:{dom}")
                 
         platforms_query = " OR ".join(site_filters)
-        full_query = f"{brand} {product_name} price ({platforms_query})"
+        query_clean = product_name.strip()
+        brand_clean = brand.strip() if brand else ""
+        if brand_clean and not query_clean.lower().startswith(brand_clean.lower()):
+            query_clean = f"{brand_clean} {query_clean}"
+        full_query = f"{query_clean} price ({platforms_query})"
         
         url = "https://lite.duckduckgo.com/lite/"
         data = {"q": full_query}
@@ -727,11 +731,10 @@ Search Listings:
                     agent_name="ScraperExtractionAgent"
                 )
                 if res:
-                    # Update extracted with results from LLM
                     for pname, pdata in res.items():
                         price = float(pdata.get("price", 0))
-                        url = pdata.get("url", "")
-                        if price > 0 and url:
+                        url = pdata.get("url", "").strip()
+                        if url:
                             # Try to verify the LLM's extracted URL live (Metadata Verification)
                             direct_match = verify_direct_page_price(url, pname)
                             if direct_match:
@@ -746,7 +749,7 @@ Search Listings:
                                     "verified": True
                                 }
                                 print(f"[Hybrid Scraper] Verified extracted URL for {pname} live. Price: {final_price}")
-                            else:
+                            elif price > 0:
                                 # Keep LLM extracted values as fallback
                                 extracted[pname] = {
                                     "price": price,
@@ -755,6 +758,16 @@ Search Listings:
                                     "available": True,
                                     "verified": False
                                 }
+                                print(f"[Hybrid Scraper] Live page verification failed for {pname}, falling back to snippet price: {price}")
+                        elif price > 0:
+                            # Keep LLM price if no URL was extracted but price was
+                            extracted[pname] = {
+                                "price": price,
+                                "url": "",
+                                "in_stock": pdata.get("in_stock", True),
+                                "available": True,
+                                "verified": False
+                            }
             except Exception as e:
                 print(f"[LLM Extraction] Error: {e}")
                 
