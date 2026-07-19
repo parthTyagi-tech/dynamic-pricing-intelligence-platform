@@ -78,40 +78,45 @@ def _process_pricing_job(recommendation_id: str, product_id: str):
         return
         
     try:
-        # Run real-time scraper if no competitor price records exist yet
-        has_competitors = CompetitorPrice.query.filter_by(product_id=product.id).first() is not None
-        if not has_competitors:
-            import asyncio
-            from app.services.realtime_scraper import fetch_multi_platform_prices
+        # Always run real-time scraper to fetch fresh competitor prices
+        import asyncio
+        from app.services.realtime_scraper import fetch_multi_platform_prices
+        
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
             
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                
-            scraped_prices = loop.run_until_complete(
-                fetch_multi_platform_prices(
-                    search_query=product.name,
-                    brand=product.brand,
-                    category=product.category,
-                    baseline_price_inr=product.current_price,
-                    barcode=product.barcode or "",
-                    description=product.description or "",
-                    product_id=product.id
-                )
+        scraped_prices = loop.run_until_complete(
+            fetch_multi_platform_prices(
+                search_query=product.name,
+                brand=product.brand,
+                category=product.category,
+                baseline_price_inr=product.current_price,
+                barcode=product.barcode or "",
+                description=product.description or "",
+                product_id=product.id
             )
-            
-            for comp_name, comp_data in scraped_prices.items():
-                cp = CompetitorPrice(
-                    competitor_name=comp_name,
-                    competitor_price=comp_data["price"] if isinstance(comp_data, dict) else comp_data,
-                    in_stock=comp_data.get("in_stock", True) if isinstance(comp_data, dict) else True,
-                    product_id=product.id,
-                    organization_id=product.organization_id
-                )
-                db.session.add(cp)
-            db.session.commit()
+        )
+        
+        # Clear existing competitor prices to avoid duplicates/outdated data
+        CompetitorPrice.query.filter_by(product_id=product.id).delete()
+        
+        for comp_name, comp_data in scraped_prices.items():
+            price_val = comp_data["price"] if isinstance(comp_data, dict) else comp_data
+            if not price_val or price_val <= 0:
+                continue
+            cp = CompetitorPrice(
+                competitor_name=comp_name,
+                competitor_price=price_val,
+                in_stock=comp_data.get("in_stock", True) if isinstance(comp_data, dict) else True,
+                product_url=comp_data.get("url", "") if isinstance(comp_data, dict) else "",
+                product_id=product.id,
+                organization_id=product.organization_id
+            )
+            db.session.add(cp)
+        db.session.commit()
 
         # Run AI Pricing strategy orchestrator
         ai_result = PricingStrategyAgent.generate(product)
