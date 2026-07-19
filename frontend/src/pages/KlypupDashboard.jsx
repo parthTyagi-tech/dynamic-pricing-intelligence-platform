@@ -317,11 +317,12 @@ export const getProcessedCompetitors = (competitorList, productInput) => {
     }
   };
 
-  return Object.values(uniqueMatches).map(c => ({
-    ...c,
-    competitor_price: c.competitor_price || 15840.0,
-    url: getSearchUrl(c.competitor_name, product)
-  })).slice(0, 6);
+  return Object.values(uniqueMatches)
+    .filter(c => c.competitor_price > 0)
+    .map(c => ({
+      ...c,
+      url: getSearchUrl(c.competitor_name, product)
+    }));
 };
 
 export default function KlypupDashboard() {

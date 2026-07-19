@@ -590,22 +590,11 @@ Search Listings:
         price = float(pdata.get("price", 0))
         url = pdata.get("url", "")
         
-        # If no price extracted, do realistic fallback variance calculation
-        if price == 0:
-            random.seed(f"{pname}-{product_name}")
-            variance = random.uniform(-0.022, 0.038)
-            price = round(baseline_price_inr * (1 + variance), 2)
-            # Default fallback search url
-            if pname == "Amazon": url = f"https://www.amazon.in/s?k={urllib.parse.quote_plus(product_name)}"
-            elif pname == "Flipkart": url = f"https://www.flipkart.com/search?q={urllib.parse.quote_plus(product_name)}"
-            elif pname == "Walmart": url = f"https://www.walmart.com/search?q={urllib.parse.quote_plus(product_name)}"
-            elif pname == "Ebay": url = f"https://www.ebay.com/sch/i.html?_nkw={urllib.parse.quote_plus(product_name)}"
-            elif pname == "BestBuy": url = f"https://www.bestbuy.com/site/searchpage.jsp?st={urllib.parse.quote_plus(product_name)}"
-            elif pname == "Target": url = f"https://www.target.com/s?searchTerm={urllib.parse.quote_plus(product_name)}"
-            method = "Crawl4AI Live (Optimized)"
-        else:
-            method = "Live Crawl4AI"
+        # Skip yielding if the price wasn't found (no dummy/fake fallback calculation)
+        if price <= 0:
+            continue
             
+        method = "Live Crawl4AI"
         price_gap_pct = round(((price - baseline_price_inr) / baseline_price_inr) * 100, 1) if baseline_price_inr > 0 else 0.0
         
         result = {
@@ -616,8 +605,8 @@ Search Listings:
             "currency": "INR",
             "price_usd": round(price / 83.3, 2),
             "price_gap_pct": price_gap_pct,
-            "in_stock": pdata.get("in_stock", True) if price > 0 else False,
-            "available": True if price > 0 else False,
+            "in_stock": pdata.get("in_stock", True),
+            "available": True,
             "url": url,
             "fetch_method": method
         }
