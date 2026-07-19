@@ -63,7 +63,8 @@ def competitor_matcher():
             brand=product.brand or "",
             category=product.category or "",
             baseline_price_usd=product.current_price,
-            barcode=product.barcode or ""
+            barcode=product.barcode or "",
+            product_id=product.id
         )
     )
 

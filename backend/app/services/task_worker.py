@@ -91,7 +91,15 @@ def _process_pricing_job(recommendation_id: str, product_id: str):
                 asyncio.set_event_loop(loop)
                 
             scraped_prices = loop.run_until_complete(
-                fetch_multi_platform_prices(product.name, product.brand, product.category, product.current_price)
+                fetch_multi_platform_prices(
+                    search_query=product.name,
+                    brand=product.brand,
+                    category=product.category,
+                    baseline_price_inr=product.current_price,
+                    barcode=product.barcode or "",
+                    description=product.description or "",
+                    product_id=product.id
+                )
             )
             
             for comp_name, comp_data in scraped_prices.items():

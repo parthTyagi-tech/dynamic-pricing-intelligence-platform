@@ -30,7 +30,8 @@ async def _run_pipeline_async(product):
             category=product.category,
             baseline_price_inr=product.current_price,
             barcode=product.barcode or "",
-            description=product.description or ""
+            description=product.description or "",
+            product_id=product.id
         )
         
         # Clear existing competitor prices to avoid duplicates

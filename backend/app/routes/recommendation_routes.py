@@ -69,11 +69,13 @@ def stream_scrape(product_id):
         asyncio.set_event_loop(loop)
         
         async_gen = stream_multi_platform_prices(
-            product.name, 
-            product.brand, 
-            product.category, 
-            product.current_price, 
-            product.barcode or ""
+            search_query=product.name, 
+            brand=product.brand or "", 
+            category=product.category or "", 
+            baseline_price_inr=product.current_price or 0.0, 
+            barcode=product.barcode or "",
+            description=product.description or "",
+            product_id=product.id
         )
         
         # Manually iterate through the async generator synchronously using run_until_complete
@@ -356,7 +358,15 @@ def process_task():
                 asyncio.set_event_loop(loop)
                 
             scraped_prices = loop.run_until_complete(
-                fetch_multi_platform_prices(product.name, product.brand, product.category, product.current_price, product.barcode or "", product.description or "")
+                fetch_multi_platform_prices(
+                    search_query=product.name,
+                    brand=product.brand,
+                    category=product.category,
+                    baseline_price_inr=product.current_price,
+                    barcode=product.barcode or "",
+                    description=product.description or "",
+                    product_id=product.id
+                )
             )
             
             for comp_name, comp_data in scraped_prices.items():
