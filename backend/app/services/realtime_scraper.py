@@ -32,39 +32,25 @@ PLATFORMS = [
         "currency": "INR",
     },
     {
-        "name": "Myntra",
-        "icon": "My",
-        "color": "#FF3F6C",
-        "search_url": "https://www.myntra.com/{query}",
-        "currency": "INR",
+        "name": "Ebay",
+        "icon": "Eb",
+        "color": "#0064D2",
+        "search_url": "https://www.ebay.com/sch/i.html?_nkw={query}",
+        "currency": "USD",
     },
     {
-        "name": "Ajio",
-        "icon": "Aj",
-        "color": "#3E3E6B",
-        "search_url": "https://www.ajio.com/search/?text={query}",
-        "currency": "INR",
+        "name": "BestBuy",
+        "icon": "BB",
+        "color": "#0046BE",
+        "search_url": "https://www.bestbuy.com/site/searchpage.jsp?st={query}",
+        "currency": "USD",
     },
     {
-        "name": "Meesho",
-        "icon": "Me",
-        "color": "#570A57",
-        "search_url": "https://www.meesho.com/search?q={query}",
-        "currency": "INR",
-    },
-    {
-        "name": "Shopify Stores",
-        "icon": "Sh",
-        "color": "#96BF48",
-        "search_url": "https://www.google.com/search?q={query}+site:myshopify.com",
-        "currency": "INR",
-    },
-    {
-        "name": "Brand Website",
-        "icon": "Bw",
-        "color": "#1A1A2E",
-        "search_url": "https://www.google.com/search?q={brand}+{query}+official+store+buy",
-        "currency": "INR",
+        "name": "Target",
+        "icon": "Tg",
+        "color": "#CC0000",
+        "search_url": "https://www.target.com/s?searchTerm={query}",
+        "currency": "USD",
     },
 ]
 
@@ -405,20 +391,9 @@ def build_platform_urls(search_query: str, brand: str = "") -> dict:
         url = platform["search_url"]
         url = url.replace("{query}", query_encoded if "{query}" in url else query_hyphen)
         url = url.replace("{brand}", brand_encoded)
-        # For Myntra, use hyphenated query
-        if platform["name"] == "Myntra":
-            url = f"https://www.myntra.com/{query_hyphen}"
         # For Amazon, add brand filter to narrow results to exact brand
         if platform["name"] == "Amazon" and brand:
             url += f"&rh=p_89%3A{quote_plus(brand)}"
-        
-        # Route blocked platforms via DuckDuckGo HTML Search
-        if platform["name"] == "Walmart":
-            url = f"https://html.duckduckgo.com/html/?q=site:walmart.com+{query_encoded}+price"
-        elif platform["name"] == "Shopify Stores":
-            url = f"https://html.duckduckgo.com/html/?q={query_encoded}+price+site:myshopify.com"
-        elif platform["name"] == "Brand Website":
-            url = f"https://html.duckduckgo.com/html/?q={query_encoded}+official+store+price"
             
         urls[platform["name"]] = url
 
@@ -641,135 +616,74 @@ async def stream_multi_platform_prices(
                 platforms_to_search.append(pname)
         else:
             platforms_to_search.append(pname)
-            
-    # 2. DuckDuckGo Aggregator Fallback (only for platforms not verified from cache)
-    listings = []
     if platforms_to_search:
-        yield f"data: {json.dumps({'status': 'started', 'message': f'Searching aggregator for {len(platforms_to_search)} platforms...'})}\n\n"
+        import asyncio
+        yield f"data: {json.dumps({'status': 'started', 'message': f'Launching parallel direct Crawl4AI scraping for {len(platforms_to_search)} platforms...'})}\n\n"
         
-        # Build optimized query targeting only the required platforms
-        site_filters = []
+        # Build search URLs for the platforms to search
+        search_urls = build_platform_urls(product_name, brand)
+        
+        # Prepare async scraping tasks
+        tasks = []
+        match_keywords = [w for w in product_name.split() if len(w) > 2]
+        
         for pname in platforms_to_search:
-            for dom in pconfigs[pname]["domains"]:
-                site_filters.append(f"site:{dom}")
-                
-        platforms_query = " OR ".join(site_filters)
-        query_clean = product_name.strip()
-        brand_clean = brand.strip() if brand else ""
-        if brand_clean and not query_clean.lower().startswith(brand_clean.lower()):
-            query_clean = f"{brand_clean} {query_clean}"
-        full_query = f"{query_clean} price ({platforms_query})"
-        
-        url = "https://lite.duckduckgo.com/lite/"
-        data = {"q": full_query}
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Content-Type": "application/x-www-form-urlencoded"
-        }
-        
-        try:
-            r = requests.post(url, data=data, headers=headers, timeout=12)
-            if r.status_code == 200:
-                soup = BeautifulSoup(r.text, 'html.parser')
-                for a in soup.find_all('a', class_='result-link'):
-                    title = a.text.strip()
-                    href = a['href']
-                    if "duckduckgo.com/y.js" in href:
-                        continue
-                    
-                    parent_tr = a.find_parent('tr')
-                    snippet = ""
-                    if parent_tr:
-                        next_tr = parent_tr.find_next_sibling('tr')
-                        if next_tr:
-                            snippet_td = next_tr.find('td', class_='result-snippet')
-                            if snippet_td:
-                                snippet = snippet_td.text.strip()
-                    listings.append({
-                        "title": title,
-                        "url": href,
-                        "snippet": snippet
-                    })
-        except Exception as e:
-            print(f"[DDG Aggregator] Fetch error: {e}")
+            surl = search_urls.get(pname)
+            if not surl:
+                continue
             
-        yield f"data: {json.dumps({'status': 'started', 'message': f'Analyzing {len(listings)} matching listings with AI...'})}\n\n"
-        
-        # 3. Extract and verify metrics using the LLM (Groq)
-        if listings:
-            try:
-                system_prompt = f"""You are an expert e-commerce pricing intelligence analyzer.
-Your task is to analyze a list of search engine results (titles, urls, snippets) for a target product, and extract the matching product prices in INR (₹) and the direct product URL for each of the requested platforms.
-
-Platforms to extract:
-{", ".join(platforms_to_search)}
-
-CRITICAL CONVERSION & SELECTION RULES:
-1. Prices MUST be in INR (₹).
-2. If the price in the snippet is in USD ($), you MUST multiply it by 83.3 to get the price in INR. (e.g., $999.00 -> 83216.70).
-3. If no price is mentioned for a platform, or the product is not found, set "price" to 0 and "in_stock" to false.
-4. Extract the exact product URL (not the general category/search page) if available in the listings.
-5. Only select listings that match the target product model, storage size, RAM, and exact details. DO NOT match variants, base models if looking for Pro, refurbished/used unless specified, or carrier-locked versions.
-
-Return ONLY a JSON object with this exact structure:
-{{
-""" + "\n".join([f'  "{p}": {{"price": <float>, "url": "<url>", "in_stock": <bool>, "available": <bool>}},' for p in platforms_to_search])[:-1] + """
-}
-"""
-                user_prompt = f"""Target Product:
-Name: {product_name}
-Brand: {brand}
-Baseline Price: {baseline_price_inr} INR
-Description: {description}
-
-Search Listings:
-{json.dumps(listings, indent=2)}
-"""
-                res = await async_structured_json_completion(
-                    system_prompt=system_prompt,
-                    user_prompt=user_prompt,
-                    agent_name="ScraperExtractionAgent"
-                )
-                if res:
-                    for pname, pdata in res.items():
-                        price = float(pdata.get("price", 0))
-                        url = pdata.get("url", "").strip()
-                        if url:
-                            # Try to verify the LLM's extracted URL live (Metadata Verification)
-                            direct_match = verify_direct_page_price(url, pname)
-                            if direct_match:
-                                final_price = direct_match["price"]
-                                if direct_match["currency"] == "USD":
-                                    final_price = round(final_price * 83.3, 2)
-                                extracted[pname] = {
-                                    "price": final_price,
-                                    "url": url,
-                                    "in_stock": direct_match["in_stock"],
-                                    "available": True,
-                                    "verified": True
-                                }
-                                print(f"[Hybrid Scraper] Verified extracted URL for {pname} live. Price: {final_price}")
-                            elif price > 0:
-                                # Keep LLM extracted values as fallback
-                                extracted[pname] = {
-                                    "price": price,
-                                    "url": url,
-                                    "in_stock": pdata.get("in_stock", True),
-                                    "available": True,
-                                    "verified": False
-                                }
-                                print(f"[Hybrid Scraper] Live page verification failed for {pname}, falling back to snippet price: {price}")
-                        elif price > 0:
-                            # Keep LLM price if no URL was extracted but price was
+            task = scrape_platform_with_crawl4ai(
+                platform_name=pname,
+                search_url=surl,
+                brand=brand,
+                match_keywords=match_keywords,
+                baseline_price=baseline_price_inr,
+                description=description
+            )
+            tasks.append((pname, task))
+            
+        if tasks:
+            pnames = [t[0] for t in tasks]
+            coroutines = [t[1] for t in tasks]
+            
+            yield f"data: {json.dumps({'status': 'started', 'message': f'Crawling {pnames} directly in parallel with Playwright stealth browser...'})}\n\n"
+            
+            results = await asyncio.gather(*coroutines, return_exceptions=True)
+            
+            for pname, res in zip(pnames, results):
+                if isinstance(res, Exception):
+                    print(f"[Direct Scraper] Error crawling {pname}: {res}")
+                    continue
+                if res and isinstance(res, dict):
+                    price = float(res.get("price_inr", 0))
+                    url = res.get("url", "")
+                    if price > 0 and url:
+                        # Direct metadata verification (double checking)
+                        direct_match = verify_direct_page_price(url, pname)
+                        if direct_match:
+                            final_price = direct_match["price"]
+                            if direct_match["currency"] == "USD":
+                                final_price = round(final_price * 83.3, 2)
                             extracted[pname] = {
-                                "price": price,
-                                "url": "",
-                                "in_stock": pdata.get("in_stock", True),
+                                "price": final_price,
+                                "url": url,
+                                "in_stock": direct_match["in_stock"],
+                                "available": True,
+                                "verified": True
+                            }
+                            print(f"[Direct Scraper] Verified crawled page for {pname} live. Price: {final_price}")
+                        else:
+                            # Convert currency to INR if USD in case of direct fallback
+                            is_usd = pname in ("Walmart", "Ebay", "BestBuy", "Target")
+                            final_price = round(price * 83.3, 2) if is_usd else price
+                            extracted[pname] = {
+                                "price": final_price,
+                                "url": url,
+                                "in_stock": True,
                                 "available": True,
                                 "verified": False
                             }
-            except Exception as e:
-                print(f"[LLM Extraction] Error: {e}")
+                            print(f"[Direct Scraper] Match Crawl4AI fallback for {pname}. Price: {final_price}")
                 
     # 4. Format and yield results
     for pname, pconfig in pconfigs.items():
