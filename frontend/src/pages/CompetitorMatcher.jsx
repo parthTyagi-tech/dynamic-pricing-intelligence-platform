@@ -319,7 +319,7 @@ export default function CompetitorMatcher() {
 
                 {/* Platform Cards */}
                 <div className="space-y-2">
-                  {platforms.map((p, idx) => {
+                  {platforms.filter(p => p.available !== false && p.price > 0).map((p, idx) => {
                     const iconData = PLATFORM_ICONS[p.platform_name] || { icon: "??", gradient: "from-slate-600 to-slate-800" };
                     const isAvailable = p.available !== false;
                     const gap = p.price_gap_pct || 0;
