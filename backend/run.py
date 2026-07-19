@@ -33,7 +33,6 @@ from app.routes.webhook_routes import webhook_bp
 from app.routes.ab_test_routes import ab_test_bp
 
 from flask_cors import CORS
-from flask_cors import CORS
 # =====================================
 # CREATE FLASK APP
 # =====================================
@@ -44,7 +43,6 @@ CORS(
     resources={r"/api/*": {"origins": "*"}},
     supports_credentials=True
 )
-CORS(app)
 
 
 # =====================================
