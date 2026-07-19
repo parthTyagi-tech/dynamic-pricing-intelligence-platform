@@ -132,8 +132,7 @@ function Field({
 
             boxSizing: "border-box",
 
-            padding:
-              "14px 44px 14px 46px",
+            padding: `14px ${right ? 44 : 16}px 14px 40px`,
 
             borderRadius: 24,
 
@@ -379,18 +378,16 @@ export default function Signup() {
       }, 1000);
 
     } catch (err) {
-
-      console.log(err);
-
-      setApiError(
-
-        err.response?.data?.message ||
-
-        err.response?.data?.error ||
-
-        "Registration failed. Please try again."
-      );
-
+      console.error(err);
+      if (err.code === "ERR_NETWORK" || !err.response) {
+        setApiError("Could not connect to the server. Please check if the backend is running.");
+      } else {
+        setApiError(
+          err.response.data?.message ||
+          err.response.data?.error ||
+          "Registration failed. Please try again."
+        );
+      }
     } finally {
 
       setLoading(false);
