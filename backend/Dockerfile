@@ -23,4 +23,4 @@ COPY . .
 EXPOSE 5000
 
 # Start Flask using gunicorn dynamically listening to PORT env var (defaults to 5000)
-CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT:-5000} run:app"]
+CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT:-5000} --timeout 120 --workers 1 run:app"]
