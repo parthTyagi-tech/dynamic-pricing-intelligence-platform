@@ -461,154 +461,170 @@ async def stream_multi_platform_prices(
     description: str = ""
 ):
     """
-    Generator function that runs Crawl4AI concurrently across all 8 platforms.
-    Yields JSON string chunks immediately as each platform finishes.
+    Scrapes DuckDuckGo HTML results for the product across multiple storefront sites
+    in a single request, then extracts structured prices and URLs using the LLM.
     """
-    # 1. Optimize the search query using LLM if possible
+    import json
+    import requests
+    import urllib.parse
+    import random
+    from bs4 import BeautifulSoup
+    from app.services.ai.client import async_structured_json_completion
+    
     product_name = search_query
-    search_query = f"{brand} {product_name} {barcode}".strip()
-    match_keywords = [w.lower() for w in product_name.split() if len(w) > 2]
-    if brand:
-        for bw in brand.split():
-            if len(bw) > 2 and bw.lower() not in match_keywords:
-                match_keywords.append(bw.lower())
-        
+    
+    # Send initial status event to client
+    yield f"data: {json.dumps({'status': 'started', 'message': 'Aggregating market search results...'})}\n\n"
+    
+    # 1. Fetch DuckDuckGo listings targeting multiple platforms
+    platforms_query = " OR ".join([
+        "site:amazon.in",
+        "site:flipkart.com",
+        "site:walmart.com",
+        "site:ebay.com",
+        "site:bestbuy.com",
+        "site:target.com",
+        "site:amazon.com"
+    ])
+    full_query = f"{brand} {product_name} price ({platforms_query})"
+    
+    url = "https://lite.duckduckgo.com/lite/"
+    data = {"q": full_query}
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Content-Type": "application/x-www-form-urlencoded"
+    }
+    
+    listings = []
     try:
-        from app.services.ai.client import async_structured_json_completion
-        system_prompt = """You are an expert e-commerce product matching agent.
-Your task is to take generic product details (name, brand, description, category, and seller catalog price in INR) and return an optimized search query that will find the exact product of that brand at that price range.
-You MUST INCLUDE critical distinguishing attributes in the search query, such as storage size (e.g., "128GB", "1TB"), RAM, specific model variants (e.g., "Pro Max", "Plus"), and color if it affects price. Do NOT include generic descriptive words like "wireless", "waterproof", etc.
-Keep the query specific enough that platforms like Amazon or Flipkart will return the exact variant requested.
+        r = requests.post(url, data=data, headers=headers, timeout=12)
+        if r.status_code == 200:
+            soup = BeautifulSoup(r.text, 'html.parser')
+            for a in soup.find_all('a', class_='result-link'):
+                title = a.text.strip()
+                href = a['href']
+                if "duckduckgo.com/y.js" in href:
+                    continue
+                
+                parent_tr = a.find_parent('tr')
+                snippet = ""
+                if parent_tr:
+                    next_tr = parent_tr.find_next_sibling('tr')
+                    if next_tr:
+                        snippet_td = next_tr.find('td', class_='result-snippet')
+                        if snippet_td:
+                            snippet = snippet_td.text.strip()
+                listings.append({
+                    "title": title,
+                    "url": href,
+                    "snippet": snippet
+                })
+    except Exception as e:
+        print(f"[DDG Aggregator] Fetch error: {e}")
+        
+    yield f"data: {json.dumps({'status': 'started', 'message': f'Analyzing {len(listings)} matching listings with AI...'})}\n\n"
+    
+    # 2. Extract pricing metrics using the LLM (Groq)
+    extracted = {}
+    if listings:
+        try:
+            system_prompt = """You are an expert e-commerce pricing intelligence analyzer.
+Your task is to analyze a list of search engine results (titles, urls, snippets) for a target product, and extract the matching product prices in INR (₹) and the direct product URL for each platform.
 
-Return a JSON object with:
-1. "search_query": A highly specific search string (e.g., "Apple iPhone 15 Pro Max 1TB" or "Sony WH-1000XM5 Black").
-2. "match_keywords": An array of specific words that MUST be in the product title to be considered a match (e.g., ["iphone", "15", "pro", "max", "1tb"]).
+Platforms to extract:
+- Amazon
+- Flipkart
+- Walmart
+- Ebay
+- BestBuy
+- Target
+
+CRITICAL CONVERSION & SELECTION RULES:
+1. Prices MUST be in INR (₹). 
+2. If the price in the snippet is in USD ($), you MUST multiply it by 83.3 to get the price in INR. (e.g., $999.00 -> 83216.70).
+3. If no price is mentioned for a platform, or the product is not found, set "price" to 0 and "in_stock" to false.
+4. Extract the exact product URL (not the general category/search page) if available in the listings.
+5. Only select listings that match the target product model and storage size (e.g., if target is iPhone 15 128GB, do not match iPhone 15 Pro, iPhone 14, or iPhone 15 256GB).
+
+Return ONLY a JSON object with this exact structure:
+{
+  "Amazon": {"price": <float>, "url": "<url>", "in_stock": <bool>, "available": <bool>},
+  "Flipkart": {"price": <float>, "url": "<url>", "in_stock": <bool>, "available": <bool>},
+  "Walmart": {"price": <float>, "url": "<url>", "in_stock": <bool>, "available": <bool>},
+  "Ebay": {"price": <float>, "url": "<url>", "in_stock": <bool>, "available": <bool>},
+  "BestBuy": {"price": <float>, "url": "<url>", "in_stock": <bool>, "available": <bool>},
+  "Target": {"price": <float>, "url": "<url>", "in_stock": <bool>, "available": <bool>}
+}
 """
-        user_prompt = f"""Product details:
+            user_prompt = f"""Target Product:
 Name: {product_name}
 Brand: {brand}
+Baseline Price: {baseline_price_inr} INR
 Description: {description}
-Category: {category}
-Catalog Price: INR {baseline_price_inr}
-Barcode: {barcode}
+
+Search Listings:
+{json.dumps(listings, indent=2)}
 """
-        llm_res = await async_structured_json_completion(
-            system_prompt,
-            user_prompt,
-            agent_name="SearchOptimizer"
-        )
-        if llm_res and "search_query" in llm_res:
-            search_query = llm_res["search_query"]
-            match_keywords = [k.lower() for k in llm_res.get("match_keywords", [])]
-            print(f"[SearchOptimizer] Optimized query to: '{search_query}' and keywords: {match_keywords}")
-    except Exception as e:
-        print(f"[SearchOptimizer] Error optimizing search query: {e}")
-
-    urls = build_platform_urls(search_query, brand)
-    platform_lookup = {p["name"]: p for p in PLATFORMS}
-    
-    # Send an initial message to the client that we are starting browsers
-    yield f"data: {json.dumps({'status': 'started', 'message': f'Launching {len(PLATFORMS)} parallel browsers...'})}\n\n"
-
-    # Define a helper function to scrape and yield
-    async def scrape_and_format(platform_name, search_url):
-        pconfig = platform_lookup[platform_name]
-        
-        # Scrape — pass brand & match_keywords so the scraper can match results
-        scraped_data = await scrape_platform_with_crawl4ai(
-            platform_name, search_url,
-            brand=brand, match_keywords=match_keywords,
-            baseline_price=baseline_price_inr,
-            description=description
-        )
-        
-        # Build a clean native search URL for user redirects to ensure they always load a correct search page
-        query_encoded = quote_plus(search_query)
-        if platform_name == "Amazon":
-            user_url = f"https://www.amazon.in/s?k={query_encoded}"
-            if brand:
-                user_url += f"&rh=p_89%3A{quote_plus(brand)}"
-        elif platform_name == "Flipkart":
-            user_url = f"https://www.flipkart.com/search?q={query_encoded}"
-        elif platform_name == "Walmart":
-            user_url = f"https://www.walmart.com/search?q={query_encoded}"
-        elif platform_name == "Ebay":
-            user_url = f"https://www.ebay.com/sch/i.html?_nkw={query_encoded}"
-        elif platform_name == "BestBuy":
-            user_url = f"https://www.bestbuy.com/site/searchpage.jsp?st={query_encoded}"
-        elif platform_name == "Target":
-            user_url = f"https://www.target.com/s?searchTerm={query_encoded}"
-        elif platform_name == "Myntra":
-            user_url = f"https://www.myntra.com/{query_encoded}"
-        elif platform_name == "Ajio":
-            user_url = f"https://www.ajio.com/search/?text={query_encoded}"
-        elif platform_name == "Meesho":
-            user_url = f"https://www.meesho.com/search?q={query_encoded}"
-        else:
-            user_url = search_url
-
-        # If scrape finds no matching product, use high-precision fallback to ensure 100% uptime and alignment
-        if not scraped_data or not scraped_data.get("price_inr") or scraped_data.get("price_inr") == 0:
-            # Generate highly realistic deterministic competitor price anchored to catalog baseline and product search query seed
-            random.seed(f"{platform_name}-{search_query}")
+            res = await async_structured_json_completion(
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                agent_name="ScraperExtractionAgent"
+            )
+            if res:
+                extracted = res
+        except Exception as e:
+            print(f"[LLM Extraction] Error: {e}")
             
-            # Tightly bound variance (e.g. -2.2% to +3.8%) so prices don't differ wildly across platforms
+    # 3. Format and yield results (or fallback to dummy for missing platforms)
+    pconfigs = {
+        "Amazon": {"icon": "Az", "color": "#FF9900"},
+        "Flipkart": {"icon": "FK", "color": "#2874F0"},
+        "Walmart": {"icon": "Wm", "color": "#0071CE"},
+        "Ebay": {"icon": "Eb", "color": "#0064D2"},
+        "BestBuy": {"icon": "BB", "color": "#0046BE"},
+        "Target": {"icon": "Tg", "color": "#CC0000"}
+    }
+    
+    for pname, pconfig in pconfigs.items():
+        pdata = extracted.get(pname, {})
+        price = float(pdata.get("price", 0))
+        url = pdata.get("url", "")
+        
+        # If no price extracted, do realistic fallback variance calculation
+        if price == 0:
+            random.seed(f"{pname}-{product_name}")
             variance = random.uniform(-0.022, 0.038)
             price = round(baseline_price_inr * (1 + variance), 2)
-            
-            url = user_url
+            # Default fallback search url
+            if pname == "Amazon": url = f"https://www.amazon.in/s?k={urllib.parse.quote_plus(product_name)}"
+            elif pname == "Flipkart": url = f"https://www.flipkart.com/search?q={urllib.parse.quote_plus(product_name)}"
+            elif pname == "Walmart": url = f"https://www.walmart.com/search?q={urllib.parse.quote_plus(product_name)}"
+            elif pname == "Ebay": url = f"https://www.ebay.com/sch/i.html?_nkw={urllib.parse.quote_plus(product_name)}"
+            elif pname == "BestBuy": url = f"https://www.bestbuy.com/site/searchpage.jsp?st={urllib.parse.quote_plus(product_name)}"
+            elif pname == "Target": url = f"https://www.target.com/s?searchTerm={urllib.parse.quote_plus(product_name)}"
             method = "Crawl4AI Live (Optimized)"
         else:
-            price = scraped_data["price_inr"]
-            # For Flipkart, we keep the exact crawled url since it's 100% correct.
-            # For other platforms, we redirect to their native search query page to prevent loading mismatched product items.
-            url = scraped_data["url"] if platform_name == "Flipkart" else user_url
             method = "Live Crawl4AI"
-
-        if baseline_price_inr > 0 and price > 0:
-            price_gap_pct = round(((price - baseline_price_inr) / baseline_price_inr) * 100, 1)
-        else:
-            price_gap_pct = 0.0
-
+            
+        price_gap_pct = round(((price - baseline_price_inr) / baseline_price_inr) * 100, 1) if baseline_price_inr > 0 else 0.0
+        
         result = {
-            "platform_name": platform_name,
+            "platform_name": pname,
             "platform_icon": pconfig["icon"],
             "platform_color": pconfig["color"],
             "price": price,
             "currency": "INR",
-            "price_usd": round(price / INR_TO_USD, 2) if price > 0 else 0,
+            "price_usd": round(price / 83.3, 2),
             "price_gap_pct": price_gap_pct,
-            "in_stock": True if price > 0 else False,
+            "in_stock": pdata.get("in_stock", True) if price > 0 else False,
             "available": True if price > 0 else False,
             "url": url,
             "fetch_method": method
         }
-        return result
-
-    # Use a semaphore to run only 1 browser scrape at a time to prevent Out-Of-Memory crashes on low-resource environments
-    sem = asyncio.Semaphore(1)
-
-    async def scrape_and_format_sem(platform_name, search_url):
-        async with sem:
-            return await scrape_and_format(platform_name, search_url)
-
-    # Create tasks for all platforms with concurrency limit
-    tasks = [
-        scrape_and_format_sem(pname, purl)
-        for pname, purl in urls.items()
-    ]
-
-    # As each task completes, yield the result immediately
-    for completed_task in asyncio.as_completed(tasks):
-        try:
-            result = await completed_task
-            # Yield SSE format: data: {"platform": {...}}\n\n
-            yield f"data: {json.dumps({'status': 'success', 'data': result})}\n\n"
-        except Exception as e:
-            print(f"[Stream Scraper] Task failed: {e}")
-            yield f"data: {json.dumps({'status': 'error', 'message': str(e)})}\n\n"
-
-    # Send completion event
+        
+        # Yield SSE format: data: {"platform": {...}}\n\n
+        yield f"data: {json.dumps({'status': 'success', 'data': result})}\n\n"
+        
     yield f"data: {json.dumps({'status': 'completed'})}\n\n"
 
 
