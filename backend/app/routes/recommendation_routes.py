@@ -32,6 +32,7 @@ from app.services.ai_pricing_service import (
     InventoryAgent,
     PricingStrategyAgent
 )
+from app.services.marketplace_normalizer import normalize_marketplace_result, normalize_product_record
 
 
 recommendation_bp = Blueprint(
@@ -131,6 +132,11 @@ def generate_recommendation(product_id):
     try:
         # (Scraping moved to background task worker to prevent frontend timeout)
 
+        product.normalized_query = product.normalized_query or normalize_product_record(product.to_dict())["normalized_query"]
+        product.category_hint = product.category_hint or product.category
+        if not product.attributes:
+            product.attributes = {"brand": product.brand or "", "category": product.category}
+
         # Create a pending recommendation with status = 'processing'
         recommendation = PricingRecommendation(
             product_id=product.id,
@@ -157,7 +163,8 @@ def generate_recommendation(product_id):
         return {
             "success": True,
             "message": "Pricing task queued successfully via GCP Tasks" if task_name else "Pricing task queued locally in background worker",
-            "recommendation": recommendation.to_dict()
+            "recommendation": recommendation.to_dict(),
+            "normalized_product": normalize_product_record(product.to_dict())
         }, 202
 
     except Exception as e:
@@ -172,6 +179,36 @@ def generate_recommendation(product_id):
 # =====================================
 # GET ALL RECOMMENDATIONS
 # =====================================
+
+@recommendation_bp.route("/live-match", methods=["POST"])
+@jwt_required()
+def live_market_match():
+    current_user_id = get_jwt_identity()
+    current_user = User.query.get(current_user_id)
+    if not current_user:
+        return {"success": False, "message": "User not found"}, 404
+
+    data = request.get_json() or {}
+    product_payload = data.get("product") or {}
+    raw_results = data.get("market_results") or []
+
+    normalized_product = normalize_product_record(product_payload)
+    normalized_results = [normalize_marketplace_result(item) for item in raw_results]
+
+    return {
+        "success": True,
+        "product": normalized_product,
+        "market_results": normalized_results,
+        "recommendation": {
+            "recommended_price": product_payload.get("current_price") or 0,
+            "acceptable_range": {
+                "min": 0,
+                "max": 0,
+            },
+            "source_count": len(normalized_results),
+        },
+    }, 200
+
 
 @recommendation_bp.route(
     "",

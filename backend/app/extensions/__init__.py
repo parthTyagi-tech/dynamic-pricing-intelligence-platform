@@ -3,15 +3,21 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_jwt_extended import JWTManager
 from flask_migrate import Migrate
 from flask_cors import CORS
-from supabase import create_client, Client
+
+try:
+    from supabase import create_client, Client
+except ImportError:  # pragma: no cover - optional dependency in local dev
+    create_client = None
+    Client = object
+
 
 db = SQLAlchemy()
 
 supabase_url = os.environ.get("SUPABASE_URL")
 supabase_key = os.environ.get("SUPABASE_KEY")
-supabase: Client = None
+supabase = None
 
-if supabase_url and supabase_key:
+if supabase_url and supabase_key and create_client:
     supabase = create_client(supabase_url, supabase_key)
 
 

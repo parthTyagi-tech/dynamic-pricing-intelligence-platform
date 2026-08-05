@@ -21,6 +21,15 @@ def get_ai_client():
         if key:
             key = key.strip('"').strip("'")
         return OpenAI(api_key=key), "openai"
+    elif provider == "gemini":
+        from openai import OpenAI
+        key = os.environ.get("GEMINI_API_KEY", "")
+        if key:
+            key = key.strip('"').strip("'")
+        return OpenAI(
+            api_key=key,
+            base_url="https://generativelanguage.googleapis.com/v1beta/openai/"
+        ), "gemini"
     else:
         from groq import Groq
         key = os.environ.get("GROQ_API_KEY", "")
@@ -39,6 +48,15 @@ def get_async_ai_client():
         if key:
             key = key.strip('"').strip("'")
         return AsyncOpenAI(api_key=key), "openai"
+    elif provider == "gemini":
+        from openai import AsyncOpenAI
+        key = os.environ.get("GEMINI_API_KEY", "")
+        if key:
+            key = key.strip('"').strip("'")
+        return AsyncOpenAI(
+            api_key=key,
+            base_url="https://generativelanguage.googleapis.com/v1beta/openai/"
+        ), "gemini"
     else:
         from groq import AsyncGroq
         key = os.environ.get("GROQ_API_KEY", "")
@@ -50,6 +68,8 @@ def get_async_ai_client():
 def get_model_name(provider: str) -> str:
     if provider == "openai":
         return "gpt-4o-mini"
+    elif provider == "gemini":
+        return "gemini-1.5-flash"
     return "llama-3.3-70b-versatile"
 
 
@@ -59,12 +79,16 @@ def calculate_llm_cost(model_name: str, prompt_tokens: int, completion_tokens: i
     if "gpt-4o-mini" in model_name:
         input_rate = 0.150 / 1000000.0
         output_rate = 0.600 / 1000000.0
+    elif "gemini-1.5-flash" in model_name:
+        input_rate = 0.075 / 1000000.0
+        output_rate = 0.300 / 1000000.0
     else:
         # Defaults to llama-3.3-70b rates
         input_rate = 0.59 / 1000000.0
         output_rate = 0.79 / 1000000.0
 
     return (prompt_tokens * input_rate) + (completion_tokens * output_rate)
+
 
 
 def _log_call(
@@ -195,6 +219,7 @@ async def async_chat_completion(
     
     groq_models = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "gemma2-9b-it"]
     openai_models = ["gpt-4o-mini", "gpt-4o"]
+    gemini_models = ["gemini-1.5-flash", "gemini-1.5-pro"]
     
     provider_pref = os.environ.get("AI_PROVIDER", "groq").lower()
     
@@ -202,6 +227,18 @@ async def async_chat_completion(
     if provider_pref == "openai" and os.environ.get("OPENAI_API_KEY"):
         for m in openai_models:
             attempts_to_try.append(("openai", m))
+        if os.environ.get("GEMINI_API_KEY"):
+            for m in gemini_models:
+                attempts_to_try.append(("gemini", m))
+        if os.environ.get("GROQ_API_KEY"):
+            for m in groq_models:
+                attempts_to_try.append(("groq", m))
+    elif provider_pref == "gemini" and os.environ.get("GEMINI_API_KEY"):
+        for m in gemini_models:
+            attempts_to_try.append(("gemini", m))
+        if os.environ.get("OPENAI_API_KEY"):
+            for m in openai_models:
+                attempts_to_try.append(("openai", m))
         if os.environ.get("GROQ_API_KEY"):
             for m in groq_models:
                 attempts_to_try.append(("groq", m))
@@ -209,6 +246,9 @@ async def async_chat_completion(
         if os.environ.get("GROQ_API_KEY"):
             for m in groq_models:
                 attempts_to_try.append(("groq", m))
+        if os.environ.get("GEMINI_API_KEY"):
+            for m in gemini_models:
+                attempts_to_try.append(("gemini", m))
         if os.environ.get("OPENAI_API_KEY"):
             for m in openai_models:
                 attempts_to_try.append(("openai", m))
@@ -226,6 +266,13 @@ async def async_chat_completion(
                     from openai import AsyncOpenAI
                     key = os.environ.get("OPENAI_API_KEY", "").strip('"').strip("'")
                     client = AsyncOpenAI(api_key=key)
+                elif provider == "gemini":
+                    from openai import AsyncOpenAI
+                    key = os.environ.get("GEMINI_API_KEY", "").strip('"').strip("'")
+                    client = AsyncOpenAI(
+                        api_key=key,
+                        base_url="https://generativelanguage.googleapis.com/v1beta/openai/"
+                    )
                 else:
                     from groq import AsyncGroq
                     key = os.environ.get("GROQ_API_KEY", "").strip('"').strip("'")

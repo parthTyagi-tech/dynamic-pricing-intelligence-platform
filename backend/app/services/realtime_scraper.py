@@ -778,11 +778,13 @@ Search Listings:
             pnames = [t[0] for t in tasks]
             coroutines = [t[1] for t in tasks]
             
-            # Execute tasks sequentially rather than in parallel to keep memory usage under Render 512MB RAM limit (avoiding OOM/SIGKILL)
-            for pname, coroutine in zip(pnames, coroutines):
-                yield f"data: {json.dumps({'status': 'started', 'message': f'Crawling {pname} directly with Playwright stealth browser...'})}\n\n"
-                try:
-                    res = await coroutine
+            # Execute tasks in parallel if running on a high-memory environment (e.g. Google Cloud Run)
+            parallel_crawling = os.environ.get("PARALLEL_CRAWLING", "false").lower() == "true"
+            
+            if parallel_crawling:
+                yield f"data: {json.dumps({'status': 'started', 'message': f'Crawling {len(coroutines)} platforms in parallel with Playwright stealth browsers...'})}\n\n"
+                results = await asyncio.gather(*coroutines, return_exceptions=True)
+                for pname, res in zip(pnames, results):
                     if isinstance(res, Exception):
                         print(f"[Pass 2] Error crawling {pname}: {res}")
                         continue
@@ -790,34 +792,76 @@ Search Listings:
                         price = float(res.get("price_inr", 0))
                         url = res.get("url", "")
                         if price > 0 and url:
-                            # Direct metadata verification (double checking)
-                            direct_match = verify_direct_page_price(url, pname)
-                            if direct_match:
-                                final_price = direct_match["price"]
-                                if direct_match["currency"] == "USD":
-                                    final_price = round(final_price * 83.3, 2)
-                                extracted[pname] = {
-                                    "price": final_price,
-                                    "url": url,
-                                    "in_stock": direct_match["in_stock"],
-                                    "available": True,
-                                    "verified": True
-                                }
-                                print(f"[Pass 2] Verified crawled page for {pname} live. Price: {final_price}")
-                            else:
-                                # Convert currency to INR if USD in case of direct fallback
-                                is_usd = pname in ("Walmart", "Ebay", "BestBuy", "Target")
-                                final_price = round(price * 83.3, 2) if is_usd else price
-                                extracted[pname] = {
-                                    "price": final_price,
-                                    "url": url,
-                                    "in_stock": True,
-                                    "available": True,
-                                    "verified": False
-                                }
-                                print(f"[Pass 2] Match Crawl4AI fallback for {pname}. Price: {final_price}")
-                except Exception as e:
-                    print(f"[Pass 2] Exception during crawling of {pname}: {e}")
+                            try:
+                                # Direct metadata verification (double checking)
+                                direct_match = verify_direct_page_price(url, pname)
+                                if direct_match:
+                                    final_price = direct_match["price"]
+                                    if direct_match["currency"] == "USD":
+                                        final_price = round(final_price * 83.3, 2)
+                                    extracted[pname] = {
+                                        "price": final_price,
+                                        "url": url,
+                                        "in_stock": direct_match["in_stock"],
+                                        "available": True,
+                                        "verified": True
+                                    }
+                                    print(f"[Pass 2] Verified crawled page for {pname} live. Price: {final_price}")
+                                else:
+                                    # Convert currency to INR if USD in case of direct fallback
+                                    is_usd = pname in ("Walmart", "Ebay", "BestBuy", "Target")
+                                    final_price = round(price * 83.3, 2) if is_usd else price
+                                    extracted[pname] = {
+                                        "price": final_price,
+                                        "url": url,
+                                        "in_stock": True,
+                                        "available": True,
+                                        "verified": False
+                                    }
+                                    print(f"[Pass 2] Match Crawl4AI fallback for {pname}. Price: {final_price}")
+                            except Exception as e:
+                                print(f"[Pass 2] Exception during parsing of {pname}: {e}")
+            else:
+                # Execute tasks sequentially rather than in parallel to keep memory usage under Render 512MB RAM limit (avoiding OOM/SIGKILL)
+                for pname, coroutine in zip(pnames, coroutines):
+                    yield f"data: {json.dumps({'status': 'started', 'message': f'Crawling {pname} directly with Playwright stealth browser...'})}\n\n"
+                    try:
+                        res = await coroutine
+                        if isinstance(res, Exception):
+                            print(f"[Pass 2] Error crawling {pname}: {res}")
+                            continue
+                        if res and isinstance(res, dict):
+                            price = float(res.get("price_inr", 0))
+                            url = res.get("url", "")
+                            if price > 0 and url:
+                                # Direct metadata verification (double checking)
+                                direct_match = verify_direct_page_price(url, pname)
+                                if direct_match:
+                                    final_price = direct_match["price"]
+                                    if direct_match["currency"] == "USD":
+                                        final_price = round(final_price * 83.3, 2)
+                                    extracted[pname] = {
+                                        "price": final_price,
+                                        "url": url,
+                                        "in_stock": direct_match["in_stock"],
+                                        "available": True,
+                                        "verified": True
+                                    }
+                                    print(f"[Pass 2] Verified crawled page for {pname} live. Price: {final_price}")
+                                else:
+                                    # Convert currency to INR if USD in case of direct fallback
+                                    is_usd = pname in ("Walmart", "Ebay", "BestBuy", "Target")
+                                    final_price = round(price * 83.3, 2) if is_usd else price
+                                    extracted[pname] = {
+                                        "price": final_price,
+                                        "url": url,
+                                        "in_stock": True,
+                                        "available": True,
+                                        "verified": False
+                                    }
+                                    print(f"[Pass 2] Match Crawl4AI fallback for {pname}. Price: {final_price}")
+                    except Exception as e:
+                        print(f"[Pass 2] Exception during crawling of {pname}: {e}")
                 
     # 4. Format and yield results
     for pname, pconfig in pconfigs.items():

@@ -340,6 +340,20 @@ def import_csv():
             barcode = row_clean.get("barcode", "")
             inventory_qty = int(row_clean.get("inventory_quantity", 0) or 0)
 
+            category_hint = row_clean.get("category_hint") or category
+            normalized_query = row_clean.get("normalized_query") or name
+            
+            # Parse attributes JSON if present
+            attrs_val = {}
+            if "attributes" in row_clean and row_clean["attributes"]:
+                try:
+                    import json
+                    attrs_val = json.loads(row_clean["attributes"])
+                    if not isinstance(attrs_val, dict):
+                        attrs_val = {}
+                except Exception:
+                    attrs_val = {}
+
             # Check if SKU already exists in this organization
             existing = Product.query.filter_by(sku=sku, organization_id=current_user.organization_id).first()
             if existing:
@@ -351,6 +365,9 @@ def import_csv():
                 existing.barcode = barcode
                 existing.description = description
                 existing.inventory_quantity = inventory_qty
+                existing.category_hint = category_hint
+                existing.normalized_query = normalized_query
+                existing.attributes = attrs_val
             elif sku in seen_skus_in_batch:
                 # Update the already mapped object in memory instead of inserting again
                 mapping = seen_skus_in_batch[sku]
@@ -362,6 +379,9 @@ def import_csv():
                 mapping["barcode"] = barcode
                 mapping["description"] = description
                 mapping["inventory_quantity"] = inventory_qty
+                mapping["category_hint"] = category_hint
+                mapping["normalized_query"] = normalized_query
+                mapping["attributes"] = attrs_val
             else:
                 new_mapping = {
                     "sku": sku,
@@ -373,7 +393,10 @@ def import_csv():
                     "current_price": current_price,
                     "cost_price": cost_price,
                     "inventory_quantity": inventory_qty,
-                    "organization_id": current_user.organization_id
+                    "organization_id": current_user.organization_id,
+                    "category_hint": category_hint,
+                    "normalized_query": normalized_query,
+                    "attributes": attrs_val
                 }
                 db_mappings.append(new_mapping)
                 seen_skus_in_batch[sku] = new_mapping

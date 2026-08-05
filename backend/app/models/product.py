@@ -79,6 +79,24 @@ class Product(db.Model):
         default=ProductCategory.ELECTRONICS
     )
 
+    category_hint = db.Column(
+        db.String(100),
+        nullable=True,
+        default=None
+    )
+
+    normalized_query = db.Column(
+        db.String(255),
+        nullable=True,
+        default=None
+    )
+
+    attributes = db.Column(
+        db.JSON,
+        nullable=True,
+        default=dict
+    )
+
     description = db.Column(
         db.Text,
         nullable=True
@@ -194,6 +212,9 @@ class Product(db.Model):
             "brand": self.brand or "",
             "barcode": self.barcode or "",
             "category": self.category,
+            "category_hint": self.category_hint or self.category,
+            "normalized_query": self.normalized_query or self.name,
+            "attributes": self.attributes or {},
             "description": self.description,
             "current_price": self.current_price,
             "cost_price": self.cost_price,
