@@ -248,7 +248,7 @@ export const getProcessedCompetitors = (competitorList, productInput) => {
     };
   }
 
-  const platforms = ["Amazon", "Flipkart", "Walmart", "Ebay", "BestBuy", "Target"];
+  const platforms = ["Amazon", "Flipkart", "Walmart", "Ebay", "BestBuy", "Target", "Myntra", "Official Store"];
   const uniqueMatches = {};
   
   platforms.forEach((platform) => {
@@ -271,11 +271,14 @@ export const getProcessedCompetitors = (competitorList, productInput) => {
       }
     }
     
-    if (platforms.includes(name)) {
+    if (name) {
+      if (!platforms.includes(name)) {
+        platforms.push(name);
+      }
       uniqueMatches[name] = {
         id: c.id || name,
         competitor_name: name,
-        competitor_price: c.competitor_price || uniqueMatches[name].competitor_price,
+        competitor_price: c.competitor_price || (uniqueMatches[name] ? uniqueMatches[name].competitor_price : 0),
         in_stock: c.in_stock !== undefined ? c.in_stock : true
       };
     }

@@ -134,7 +134,7 @@ export default function Recommendations() {
           let attempts = 0;
           const interval = setInterval(async () => {
             attempts++;
-            if (attempts > 30) {
+            if (attempts > 90) {
               clearInterval(interval);
               reject(new Error("Timeout waiting for recommendation pricing queue"));
               return;

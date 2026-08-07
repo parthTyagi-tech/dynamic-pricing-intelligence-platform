@@ -10,6 +10,8 @@ const PLATFORM_ICONS = {
   "Ebay":     { icon: "Eb", gradient: "from-[#0064D2] to-[#F5AF02]" },
   "BestBuy":  { icon: "BB", gradient: "from-[#0046BE] to-[#FFF200]" },
   "Target":   { icon: "Tg", gradient: "from-[#CC0000] to-[#E60000]" },
+  "Myntra":   { icon: "My", gradient: "from-[#FF3F6C] to-[#E6005C]" },
+  "Official Store": { icon: "OS", gradient: "from-[#10B981] to-[#047857]" },
 };
 
 export default function CompetitorMatcher() {
