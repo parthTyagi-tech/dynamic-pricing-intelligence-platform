@@ -51,9 +51,6 @@ Return ONLY valid JSON with this exact structure:
 # Amazon Real-time Scraper (Mobile UA)
 # ─────────────────────────────────────────────────────────
 
-from crawl4ai import AsyncWebCrawler, BrowserConfig
-
-
 def _compute_match_score(product_title: str, brand: str, match_keywords: list = None) -> float:
     """
     Score how well a scraped product title matches the target product.
@@ -120,6 +117,7 @@ async def scrape_platform_with_crawl4ai(
     html = ""
     markdown_content = ""
     try:
+        from crawl4ai import AsyncWebCrawler, BrowserConfig
         browser_config = BrowserConfig(
             headless=True,
             enable_stealth=True,

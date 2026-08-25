@@ -26,7 +26,6 @@ from flask import current_app
 from itsdangerous import URLSafeSerializer, BadSignature
 
 import asyncio
-from app.services.agents.price_execution_agent import execute_price_change
 
 approval_bp = Blueprint(
     "approvals",
@@ -122,6 +121,7 @@ def approve_recommendation(recommendation_id):
     # =====================================
     # Trigger the AI agent to log in and update the real platform
     try:
+        from app.services.agents.price_execution_agent import execute_price_change
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         agent_result = loop.run_until_complete(
@@ -430,6 +430,7 @@ def rollback_approval(action_id):
     # PHYSICAL EXECUTION (BROWSER USE)
     # =====================================
     try:
+        from app.services.agents.price_execution_agent import execute_price_change
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         agent_result = loop.run_until_complete(
@@ -536,6 +537,7 @@ def email_rollback(token):
 
     # Physical Execution
     try:
+        from app.services.agents.price_execution_agent import execute_price_change
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         agent_result = loop.run_until_complete(

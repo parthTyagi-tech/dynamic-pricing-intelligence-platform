@@ -1,4 +1,6 @@
 from flask import Flask, jsonify
+import os
+
 from werkzeug.exceptions import HTTPException
 
 from app.config.settings import get_config
@@ -55,8 +57,9 @@ app.config.from_object(
 # =====================================
 
 init_extensions(app)
-from app.services.task_worker import init_worker
-init_worker(app)
+if os.environ.get("VERCEL") != "1":
+    from app.services.task_worker import init_worker
+    init_worker(app)
 
 with app.app_context():
     db.create_all()
