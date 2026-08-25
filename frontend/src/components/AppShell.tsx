@@ -1,0 +1,32 @@
+import { AnimatePresence, motion } from "framer-motion";
+import { BarChart3, Bell, Bot, Boxes, ChevronDown, CircleHelp, Cog, Command, Gauge, Layers3, LogOut, Menu, Moon, PanelLeftClose, PanelLeftOpen, Search, Settings2, SlidersHorizontal, Sparkles, Sun, Target, X, Zap } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+import { cn } from "../lib/utils";
+import { Badge, Button } from "./ui";
+
+const navGroups = [
+  { label: "Workspace", items: [{ label: "Command center", to: "/dashboard", icon: Gauge }, { label: "Catalog intelligence", to: "/catalog", icon: Boxes }, { label: "Approvals", to: "/approvals", icon: Target }] },
+  { label: "Optimize", items: [{ label: "Rule engine", to: "/pricing", icon: SlidersHorizontal }, { label: "Competitor pulse", to: "/competitors", icon: BarChart3 }, { label: "AI agents", to: "/agents", icon: Bot }] },
+  { label: "Manage", items: [{ label: "Integrations", to: "/settings", icon: Layers3 }, { label: "Settings", to: "/settings", icon: Settings2 }] },
+];
+
+export function AppShell({ children, onToast }: { children: ReactNode; onToast: (message: string) => void }) {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [dark, setDark] = useState(true);
+
+  const Sidebar = ({ mobile = false }: { mobile?: boolean }) => <aside className={cn("sidebar", collapsed && "sidebar-collapsed", mobile && "sidebar-mobile")}>
+    <div className="brand"><div className="brand-glyph"><Sparkles size={17} /></div>{(!collapsed || mobile) && <div><strong>KLYPUP<span>AI</span></strong><small>PRICING INTELLIGENCE</small></div>}{mobile && <button type="button" className="icon-button sidebar-close" onClick={() => setMobileOpen(false)} aria-label="Close menu"><X size={18} /></button>}</div>
+    <div className="workspace-switcher"><div className="workspace-avatar">KE</div>{(!collapsed || mobile) && <div className="workspace-label"><strong>Klypup Enterprise</strong><span>Growth workspace</span></div>}{(!collapsed || mobile) && <ChevronDown size={14} />}</div>
+    <nav className="nav-groups">{navGroups.map((group) => <div className="nav-group" key={group.label}><p>{(!collapsed || mobile) && group.label}</p>{group.items.map((item) => { const active = location.pathname === item.to || (item.to === "/settings" && location.pathname === "/settings"); return <NavLink key={item.label} to={item.to} className={cn("nav-item", active && "nav-item-active")} onClick={() => setMobileOpen(false)}><item.icon size={17} /><span>{(!collapsed || mobile) && item.label}</span>{active && (!collapsed || mobile) && <span className="nav-glint" />}</NavLink>; })}</div>)}</nav>
+    <div className="sidebar-bottom"><div className="ai-status"><span className="status-dot status-green" />{(!collapsed || mobile) && <span><strong>Autopilot online</strong><small>Agents monitoring 1,284 SKUs</small></span>}</div>{(!collapsed || mobile) && <button type="button" className="upgrade-card" onClick={() => onToast("Growth plan insights are coming soon.")}><Zap size={16} /><span><strong>Unlock more signal</strong><small>Explore Growth plan</small></span><ChevronDown size={14} className="rotate-neg" /></button>}</div>
+  </aside>;
+
+  return <div className={cn("app-frame", dark ? "theme-dark" : "theme-light")}><div className="app-noise" /><div className="desktop-sidebar"><Sidebar /></div><AnimatePresence>{mobileOpen && <><motion.div className="mobile-scrim" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setMobileOpen(false)} /><motion.div initial={{ x: -320 }} animate={{ x: 0 }} exit={{ x: -320 }} transition={{ duration: .22 }} className="mobile-sidebar"><Sidebar mobile /></motion.div></>}</AnimatePresence><main className="main-shell"><header className="topbar"><div className="topbar-left"><button type="button" className="mobile-menu icon-button" onClick={() => setMobileOpen(true)} aria-label="Open menu"><Menu size={18} /></button><button type="button" className="collapse-button icon-button" onClick={() => setCollapsed(!collapsed)} aria-label="Toggle sidebar">{collapsed ? <PanelLeftOpen size={17} /> : <PanelLeftClose size={17} />}</button><div className="breadcrumbs"><span>Workspace</span><span>/</span><strong>{location.pathname === "/dashboard" ? "Command center" : location.pathname.slice(1).replace("/", " / ") || "Command center"}</strong></div></div><div className="topbar-actions"><button className="command-search" type="button" onClick={() => onToast("Command palette is ready for your next workflow.")}><Search size={14} /><span>Search workspace</span><kbd><Command size={11} /> K</kbd></button><button className="icon-button" type="button" onClick={() => onToast("You’re all caught up.")} aria-label="View notifications"><Bell size={17} /><span className="notification-dot" /></button><button className="icon-button" type="button" onClick={() => setDark(!dark)} aria-label="Toggle theme">{dark ? <Sun size={17} /> : <Moon size={17} />}</button><div className="profile-wrap"><button type="button" className="profile-button" onClick={() => setProfileOpen(!profileOpen)}><span className="avatar">{user?.name?.slice(0, 2).toUpperCase() || "KE"}</span><span className="profile-copy"><strong>{user?.name || "Kiran E."}</strong><small>{user?.role || "Admin"}</small></span><ChevronDown size={14} /></button><AnimatePresence>{profileOpen && <motion.div className="profile-menu" initial={{ opacity: 0, y: 6, scale: .98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 6 }}><div className="profile-menu-head"><span className="avatar avatar-large">{user?.name?.slice(0, 2).toUpperCase() || "KE"}</span><div><strong>{user?.name || "Kiran E."}</strong><small>{user?.email || "admin@klypup.ai"}</small></div></div><button type="button" onClick={() => { navigate("/settings"); setProfileOpen(false); }}><Cog size={15} /> Account settings</button><button type="button" onClick={() => { logout(); navigate("/login"); }}><LogOut size={15} /> Sign out</button></motion.div>}</AnimatePresence></div></div></header><div className="page-content">{children}</div></main></div>;
+}
