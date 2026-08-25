@@ -30,3 +30,8 @@ Thumbs.db
 venv/
 env/
 __pycache__/
+
+# Runtime logs and local scratch data
+backend/emails/
+backend/whatsapp_logs/
+scratch/

@@ -1,4 +1,5 @@
-from flask import Flask
+from flask import Flask, jsonify
+from werkzeug.exceptions import HTTPException
 
 from app.config.settings import get_config
 
@@ -33,13 +34,11 @@ from app.routes.startup_routes import startup_bp
 from app.routes.webhook_routes import webhook_bp
 from app.routes.ab_test_routes import ab_test_bp
 
-from flask_cors import CORS
 # =====================================
 # CREATE FLASK APP
 # =====================================
 
 app = Flask(__name__)
-CORS(app, supports_credentials=True)
 
 
 # =====================================
@@ -61,6 +60,20 @@ init_worker(app)
 
 with app.app_context():
     db.create_all()
+
+# =====================================
+# CLEAN JSON ERROR HANDLERS
+# =====================================
+@app.errorhandler(HTTPException)
+def handle_http_error(error):
+    return jsonify({"success": False, "message": error.description}), error.code
+
+
+@app.errorhandler(Exception)
+def handle_unexpected_error(error):
+    app.logger.exception("Unhandled application error")
+    return jsonify({"success": False, "message": "Internal server error"}), 500
+
 
 # =====================================
 # REGISTER BLUEPRINTS
@@ -153,5 +166,5 @@ if __name__ == "__main__":
     app.run(
         host="0.0.0.0",
         port=port,
-        debug=True
+        debug=bool(app.config.get("DEBUG", False))
     )

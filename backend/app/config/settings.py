@@ -1,14 +1,23 @@
 from dotenv import load_dotenv
 load_dotenv()
 import os
+import secrets
 from datetime import timedelta
 from dotenv import load_dotenv
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 
+def _secret_value(name: str) -> str:
+    value = os.environ.get(name)
+    if value:
+        return value
+    if os.environ.get("FLASK_ENV", "development") == "production":
+        raise RuntimeError(f"{name} must be configured in production")
+    return secrets.token_urlsafe(32)
+
 
 class BaseConfig:
-    SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-key")
+    SECRET_KEY = _secret_value("SECRET_KEY")
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ENGINE_OPTIONS = {
         "pool_pre_ping": True,
@@ -16,7 +25,7 @@ class BaseConfig:
     }
 
     # JWT
-    JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "dev-jwt-secret")
+    JWT_SECRET_KEY = _secret_value("JWT_SECRET_KEY")
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(
         seconds=int(os.environ.get("JWT_ACCESS_TOKEN_EXPIRES", 3600))
     )
@@ -53,7 +62,7 @@ class DevelopmentConfig(BaseConfig):
     DEBUG = True
     
     _dev_db_url = os.environ.get(
-        "DATABASE_URL", "postgresql://postgres:password@localhost:5432/pricing_dashboard"
+        "DATABASE_URL", "sqlite:///pricing_dashboard.db"
     )
     if _dev_db_url:
         if _dev_db_url.startswith("postgres://"):
@@ -67,6 +76,8 @@ class DevelopmentConfig(BaseConfig):
 
 class ProductionConfig(BaseConfig):
     DEBUG = False
+    SECRET_KEY = _secret_value("SECRET_KEY")
+    JWT_SECRET_KEY = _secret_value("JWT_SECRET_KEY")
     
     _db_url = os.environ.get("DATABASE_URL")
     if _db_url:

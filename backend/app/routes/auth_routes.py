@@ -27,10 +27,14 @@ auth_bp = Blueprint(
     "/register",
     methods=["POST"]
 )
+@auth_bp.route(
+    "/signup",
+    methods=["POST"]
+)
 def register():
 
     # Get JSON data
-    data = request.get_json()
+    data = request.get_json(silent=True) or {}
 
     # Validate required fields
     required_fields = [
@@ -164,8 +168,7 @@ def profile():
 )
 def login():
 
-    data = request.get_json()
-
+    data = request.get_json(silent=True) or {}
     # Validate fields
     required_fields = [
         "email",

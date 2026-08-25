@@ -21,6 +21,8 @@ from app.models.market_data import CompetitorPrice
 from app.services.email_service import send_recommendation_action_email
 from app.services.whatsapp_service import send_whatsapp_recommendation_action
 import os
+from html import escape
+from flask import current_app
 from itsdangerous import URLSafeSerializer, BadSignature
 
 import asyncio
@@ -491,7 +493,7 @@ def rollback_approval(action_id):
 # =====================================
 @approval_bp.route("/email-rollback/<token>", methods=["GET"])
 def email_rollback(token):
-    s = URLSafeSerializer(os.environ.get("SECRET_KEY", "dev-secret-key"))
+    s = URLSafeSerializer(current_app.config["SECRET_KEY"])
     try:
         action_id = s.loads(token)
     except BadSignature:
@@ -580,7 +582,7 @@ def email_rollback(token):
         <body style="background-color: #0b0f19; color: #f8fafc; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh;">
             <div style="background-color: #0f172a; padding: 40px; border-radius: 16px; border: 1px solid #1e293b; text-align: center;">
                 <h1 style="color: #2dd4bf; margin-bottom: 20px;">Price Rolled Back Successfully!</h1>
-                <p>The price for <b>{product.name}</b> has been reverted to ₹{restored_price:.2f}.</p>
+                <p>The price for <b>{escape(product.name)}</b> has been reverted to ₹{restored_price:.2f}.</p>
                 <p>The Klypup AI agent is currently updating your live Shopify store.</p>
                 <br/>
                 <a href="http://localhost:3000/dashboard/observability" style="color: #818cf8;">View Audit Logs</a>
