@@ -132,7 +132,7 @@ export default function Sidebar({
           height: 220,
           borderRadius: "50%",
           background:
-            "rgba(0,161,155,0.10)",
+            "rgba(0,240,255,0.10)",
 
           filter: "blur(80px)",
 
@@ -187,7 +187,7 @@ export default function Sidebar({
 
             style={{
               background:
-                "linear-gradient(135deg,#047857,#10b981)",
+                "linear-gradient(135deg,#00a9b5,#7c3aed)",
             }}
           >
 
@@ -282,8 +282,8 @@ export default function Sidebar({
 
                     ? `
                       bg-gradient-to-r
-                      from-[#059669]/20
-                      to-[#059669]/20
+                      from-[#00f0ff]/12
+                      to-[#7c3aed]/18
                       text-white
                       border
                       border-white/10
@@ -313,7 +313,7 @@ export default function Sidebar({
 
                 style={{
                   background:
-                    "linear-gradient(135deg,rgba(0,161,155,0.06),rgba(99,102,241,0.06))",
+                    "linear-gradient(135deg,rgba(0,240,255,0.07),rgba(124,58,237,0.08))",
                 }}
               />
 

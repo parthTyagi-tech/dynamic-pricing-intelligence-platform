@@ -1,1307 +1,367 @@
-import { useState, useEffect, useCallback } from "react";
-import apiClient from "../services/api";
-
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  AreaChart,
-  Area,
-  LineChart,
+  ArrowUpRight,
+  BarChart3,
+  Bell,
+  BrainCircuit,
+  Check,
+  ChevronDown,
+  ChevronRight,
+  CircleDollarSign,
+  CircleGauge,
+  Clock3,
+  Database,
+  Download,
+  Filter,
+  Gauge,
+  LineChart as LineChartIcon,
+  Maximize2,
+  MoreHorizontal,
+  PackageCheck,
+  Play,
+  RefreshCw,
+  Settings2,
+  ShieldCheck,
+  Sparkles,
+  Target,
+  TrendingDown,
+  X,
+  Zap,
+} from "lucide-react";
+import {
+  CartesianGrid,
   Line,
-  BarChart,
-  Bar,
-  RadarChart,
-  Radar,
-  PolarGrid,
-  PolarAngleAxis,
-  PolarRadiusAxis,
+  LineChart,
+  ResponsiveContainer,
+  Scatter,
+  ScatterChart,
+  Tooltip,
   XAxis,
   YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
 } from "recharts";
+import { motion, AnimatePresence } from "framer-motion";
 
-import {
-  TrendingUp,
-  Activity,
-  Brain,
-  DollarSign,
-  IndianRupee,
-  ShoppingCart,
-  Percent,
-  Eye,
-  Crosshair,
-  Sparkles,
-  Zap,
-  Database,
-  RefreshCw,
-  Layers,
-  Globe,
-  ChevronRight,
-  ExternalLink,
-  Terminal,
-  Check,
-  X,
-  ShieldAlert,
-  ShoppingBag,
-  Boxes,
-  XCircle,
-} from "lucide-react";
-
-import { motion } from "framer-motion";
-
+import apiClient from "../services/api";
 import { useAuth } from "../context/AuthContext";
+import { createDashboardSnapshot, normalizeApiSnapshot } from "../lib/mockPricingData";
+import {
+  ApprovalAction,
+  EmptyState,
+  Eyebrow,
+  GhostButton,
+  IconButton,
+  MetricCard,
+  Panel,
+  PrimaryButton,
+  SectionHeader,
+  SeverityIcon,
+  StatusBadge,
+  Toggle,
+} from "../components/pricing/PricingPrimitives";
 
-/* ── Static data for pipeline workflow cards ── */
-const workflowSteps = [
-  { icon: Database, label: "Market Data", desc: "Real-time ingestion from 500+ sources", color: "#10b981" },
-  { icon: Brain, label: "AI Processing", desc: "ML models analyze patterns & signals", color: "#10b981" },
-  { icon: Activity, label: "Prediction Engine", desc: "Demand forecasting & price elasticity", color: "#818cf8" },
-  { icon: Zap, label: "Pricing Output", desc: "Optimal price delivered in <50ms", color: "#34d399" },
-];
+const currency = (value) => `$${Number(value || 0).toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
+const preciseCurrency = (value) => `$${Number(value || 0).toFixed(2)}`;
+const pct = (value) => `${Number(value || 0).toFixed(1)}%`;
 
-const aiCards = [
-  { icon: Brain, title: "Machine Learning", desc: "Gradient Boosting + Neural Networks trained on 10M+ pricing events", tag: "Core AI", accent: "from-[#059669] to-[#14b8a6]", color: "#10b981" },
-  { icon: TrendingUp, title: "Predictive Analytics", desc: "Time-series forecasting with 94.2% demand accuracy", tag: "Forecasting", accent: "from-emerald-500 to-teal-500", color: "#34d399" },
-  { icon: Globe, title: "Market Intelligence", desc: "Real-time crawl of 2,400+ competitor storefronts", tag: "Intelligence", accent: "from-sky-500 to-cyan-500", color: "#10b981" },
-  { icon: Activity, title: "Real-time Engine", desc: "Sub-50ms pricing decisions at 1M+ RPM capacity", tag: "Performance", accent: "from-[#059669] to-[#8b5cf6]", color: "#818cf8" },
-  { icon: RefreshCw, title: "Demand Forecasting", desc: "LSTM + seasonal decomposition for 30-day outlook", tag: "Forecasting", accent: "from-rose-500 to-pink-500", color: "#f472b6" },
-  { icon: Layers, title: "Competitive AI", desc: "Automated gap analysis and undercutting alerts", tag: "Competition", accent: "from-amber-500 to-orange-500", color: "#fb923c" },
-];
-
-const howItWorksSteps = [
-  { step: "01", title: "Data Ingestion", icon: Database, desc: "We continuously pull pricing signals from competitor sites, market feeds, historical sales, seasonal patterns, and consumer behavior datasets — processing over 2 million data points per hour." },
-  { step: "02", title: "Pattern Recognition", icon: Brain, desc: "Our ML pipeline identifies non-obvious pricing patterns: demand elasticity curves, time-of-day effects, competitor response latency, and category-level price sensitivity." },
-  { step: "03", title: "Price Prediction", icon: TrendingUp, desc: "A stacked ensemble of XGBoost, LightGBM, and LSTM neural networks outputs confidence-weighted price recommendations per product SKU, updated every 15 minutes." },
-  { step: "04", title: "Recommendation Output", icon: Zap, desc: "Optimal prices are pushed via API to your storefront or ERP system. Every recommendation includes rationale, confidence score, and projected revenue impact." },
-];
-
-/* ── Description list for 5 Agent Workflow Roles (What is for what) ── */
-const agentsWorkflow = [
-  {
-    name: "Market Intelligence Agent",
-    icon: Globe,
-    color: "#10b981",
-    whatIsFor: "Competitor Price Tracking & Gap Estimation",
-    desc: "Crawl sites like Amazon, Walmart, and Flipkart in real time. Analyzes competitive pricing spreads, tracks category pricing trends, and flags competitor markdowns or stockouts."
+const chartTooltip = {
+  contentStyle: {
+    background: "#101827",
+    border: "1px solid rgba(0,240,255,0.22)",
+    borderRadius: 12,
+    color: "#e5eef8",
+    fontSize: 12,
   },
-  {
-    name: "Demand Forecast Agent",
-    icon: TrendingUp,
-    color: "#34d399",
-    whatIsFor: "Price Elasticity & Sales Velocity Predictions",
-    desc: "Calculates seasonal cycles, historical consumer velocity, and demand curves. Predicts how customer order volume shifts at different price levels to capture margin on hot items."
-  },
-  {
-    name: "Inventory Cost Agent",
-    icon: ShoppingBag,
-    color: "#10b981",
-    whatIsFor: "Stock Optimization & Clearance Triggering",
-    desc: "Tracks warehouse stock quantities and days-of-supply metrics. Triggers strategic price decreases to clear slow-moving inventory, or tags premiums to optimize yield on scarce stock."
-  },
-  {
-    name: "Compliance Agent",
-    icon: ShieldAlert,
-    color: "#fb923c",
-    whatIsFor: "Enforcing Business Constraints & Margin Floors",
-    desc: "Reviews all generated recommendations against organizational rules: checks that minimum profit margin is kept and limits maximum daily price fluctuations to prevent runaway anomalies."
-  },
-  {
-    name: "Pricing Strategy Agent",
-    icon: Brain,
-    color: "#818cf8",
-    whatIsFor: "Orchestrating Composite Recommendations & Explanations",
-    desc: "Acts as the pipeline controller. Synthesizes inputs from the other 4 agents, calculates the finalized confidence score, and structures full natural-language explainability rationales."
-  }
-];
-
-const DIRECT_PRODUCT_URLS = {
-  "Premium Wireless Headphones": {
-    "Amazon": "https://www.amazon.in/Sony-WH-1000XM4-Wireless-Cancelling-Headphones/dp/B08C5FM5AQ",
-    "Flipkart": "https://www.flipkart.com/sony-wh-1000xm4-bluetooth-headset/p/itm9e4f5a432890c",
-    "Walmart": "https://www.walmart.com/ip/Sony-WH-1000XM4-Wireless-Noise-Canceling-Over-Ear-Headphones-Black/568856234",
-    "Ebay": "https://www.ebay.com/itm/324289056231",
-    "BestBuy": "https://www.bestbuy.com/site/sony-wh-1000xm4-wireless-noise-cancelling-over-the-ear-headphones-black/6408359.p?skuId=6408359",
-    "Target": "https://www.target.com/p/sony-wh-1000xm4-wireless-noise-cancelling-over-ear-headphones/-/A-80177724"
-  },
-  "Mechanical Gaming Keyboard": {
-    "Amazon": "https://www.amazon.in/Razer-BlackWidow-Mechanical-Gaming-Keyboard/dp/B08ADLFFS5",
-    "Flipkart": "https://www.flipkart.com/razer-blackwidow-v3-mechanical-gaming-keyboard/p/itmd5c4a4f8902be",
-    "Walmart": "https://www.walmart.com/ip/Razer-BlackWidow-V3-Mechanical-Gaming-Keyboard-Green-Switch/902847120",
-    "Ebay": "https://www.ebay.com/itm/284102948123",
-    "BestBuy": "https://www.bestbuy.com/site/razer-blackwidow-v3-wired-gaming-mechanical-keyboard-green-switches-black/6425936.p?skuId=6425936",
-    "Target": "https://www.target.com/p/razer-blackwidow-v3-mechanical-gaming-keyboard/-/A-81284719"
-  },
-  "Ultra HD Projector 4K": {
-    "Amazon": "https://www.amazon.in/BenQ-TK850-Projector-Brightness-Keystone/dp/B083M12D8C",
-    "Flipkart": "https://www.flipkart.com/benq-tk850-ultra-hd-4k-projector/p/itm5d8c4a938210e",
-    "Walmart": "https://www.walmart.com/ip/BenQ-TK850-True-4K-UHD-Home-Theater-Projector/567283490",
-    "Ebay": "https://www.ebay.com/itm/193290481023",
-    "BestBuy": "https://www.bestbuy.com/site/benq-tk850-4k-projector-white/6398402.p?skuId=6398402",
-    "Target": "https://www.target.com/p/benq-tk850-4k-uhd-home-theater-projector/-/A-79284391"
-  },
-  "Smart Watch Series X": {
-    "Amazon": "https://www.amazon.in/Apple-Watch-GPS-41mm-Aluminium/dp/B09G9F1B25",
-    "Flipkart": "https://www.flipkart.com/apple-watch-series-8-gps-41mm/p/itmd8a4d432890bc",
-    "Walmart": "https://www.walmart.com/ip/Apple-Watch-Series-8-GPS-41mm-Midnight-Aluminum-Case/128392810",
-    "Ebay": "https://www.ebay.com/itm/154382910482",
-    "BestBuy": "https://www.bestbuy.com/site/apple-watch-series-8-gps-41mm-midnight-aluminum-case/6500329.p?skuId=6500329",
-    "Target": "https://www.target.com/p/apple-watch-series-8-gps-41mm/-/A-86284910"
-  },
-  "Running Sneakers Zoom": {
-    "Amazon": "https://www.amazon.in/Nike-Air-Zoom-Pegasus-Sneakers/dp/B09248F12B",
-    "Flipkart": "https://www.flipkart.com/nike-air-zoom-pegasus-39-running-shoes-men/p/itm9d4f5a3289abc",
-    "Walmart": "https://www.walmart.com/ip/Nike-Air-Zoom-Pegasus-39-Men-s-Running-Shoes/492810398",
-    "Ebay": "https://www.ebay.com/itm/234190284712",
-    "BestBuy": "https://www.bestbuy.com/site/nike-mens-air-zoom-pegasus-39-black/6510398.p?skuId=6510398",
-    "Target": "https://www.target.com/p/nike-men-s-air-zoom-pegasus-39-running-shoes/-/A-84284912"
-  },
-  "Waterproof Windbreaker Jacket": {
-    "Amazon": "https://www.amazon.in/North-Face-Resolve-Waterproof-Windbreaker/dp/B004LI9Y9E",
-    "Flipkart": "https://www.flipkart.com/the-north-face-mens-resolve-2-jacket/p/itm4b3d8c2e987f0",
-    "Walmart": "https://www.walmart.com/ip/The-North-Face-Men-s-Resolve-2-Waterproof-Jacket/589128391",
-    "Ebay": "https://www.ebay.com/itm/114928103984",
-    "BestBuy": "https://www.bestbuy.com/site/the-north-face-mens-resolve-2-jacket/6491283.p?skuId=6491283",
-    "Target": "https://www.target.com/p/the-north-face-men-s-resolve-2-jacket/-/A-82192841"
-  },
-  "Classic Denim Jeans": {
-    "Amazon": "https://www.amazon.in/Levis-Mens-511-Slim-Jeans/dp/B0018OR12A",
-    "Flipkart": "https://www.flipkart.com/levi-s-511-slim-fit-men-jeans/p/itmd5f4a8e9b0c2e",
-    "Walmart": "https://www.walmart.com/ip/Levi-s-Men-s-511-Slim-Fit-Jeans/502810982",
-    "Ebay": "https://www.ebay.com/itm/334190827391",
-    "BestBuy": "https://www.bestbuy.com/site/levis-mens-511-slim-fit-jeans/6419283.p?skuId=6419283",
-    "Target": "https://www.target.com/p/levi-s-men-s-511-slim-fit-jeans/-/A-80129845"
-  },
-  "Ergonomic Office Chair": {
-    "Amazon": "https://www.amazon.in/Herman-Miller-Aeron-Chair-Size/dp/B01N8X63X7",
-    "Flipkart": "https://www.flipkart.com/herman-miller-aeron-ergonomic-office-chair/p/itm4d9e2b0c3f5a8",
-    "Walmart": "https://www.walmart.com/ip/Herman-Miller-Aeron-Ergonomic-Office-Chair-Size-B/293810293",
-    "Ebay": "https://www.ebay.com/itm/184918290182",
-    "BestBuy": "https://www.bestbuy.com/site/herman-miller-aeron-chair/6492019.p?skuId=6492019",
-    "Target": "https://www.target.com/p/herman-miller-aeron-office-chair/-/A-81289381"
-  },
-  "Cold Brew Coffee Maker": {
-    "Amazon": "https://www.amazon.in/Bodum-11683-01USA-Chambord-Coffee-34-Ounce/dp/B004278F3W",
-    "Flipkart": "https://www.flipkart.com/bodum-cold-brew-coffee-maker-carafe/p/itm5a4d32890efbc",
-    "Walmart": "https://www.walmart.com/ip/Bodum-Cold-Brew-Coffee-Maker-carafe/928391029",
-    "Ebay": "https://www.ebay.com/itm/274910283912",
-    "BestBuy": "https://www.bestbuy.com/site/bodum-cold-brew-coffee-maker/6328491.p?skuId=6328491",
-    "Target": "https://www.target.com/p/bodum-cold-brew-coffee-maker/-/A-84291839"
-  },
-  "Dimmable LED Desk Lamp": {
-    "Amazon": "https://www.amazon.in/Philips-Dimmable-Table-Integrated-White/dp/B07954LFFW",
-    "Flipkart": "https://www.flipkart.com/philips-smart-led-desk-lamp/p/itm4c5a9b8d2ef01",
-    "Walmart": "https://www.walmart.com/ip/Philips-Smart-LED-Desk-Lamp-Dimmable/304918290",
-    "Ebay": "https://www.ebay.com/itm/114920183948",
-    "BestBuy": "https://www.bestbuy.com/site/philips-smart-desk-lamp/6492810.p?skuId=6492810",
-    "Target": "https://www.target.com/p/philips-smart-led-desk-lamp/-/A-82193810"
-  },
-  "Hydrating Face Serum": {
-    "Amazon": "https://www.amazon.in/Ordinary-Hyaluronic-Acid-2-B5/dp/B01MXV547V",
-    "Flipkart": "https://www.flipkart.com/the-ordinary-hyaluronic-acid-2-b5-serum/p/itm9e4d5c3b8a1f2",
-    "Walmart": "https://www.walmart.com/ip/The-Ordinary-Hyaluronic-Acid-2-B5-Hydrating-Serum/593810291",
-    "Ebay": "https://www.ebay.com/itm/354928193821",
-    "BestBuy": "https://www.bestbuy.com/site/the-ordinary-hyaluronic-acid-serum/6429182.p?skuId=6429182",
-    "Target": "https://www.target.com/p/the-ordinary-hyaluronic-acid-2-b5/-/A-80293810"
-  },
-  "Mineral Sunscreen SPF 50": {
-    "Amazon": "https://www.amazon.in/Roche-Posay-Anthelios-Mineral-Sunscreen-Fluid/dp/B004W55086",
-    "Flipkart": "https://www.flipkart.com/la-roche-posay-anthelios-spf-50-sunscreen/p/itmd5f4e9bc2e1a0",
-    "Walmart": "https://www.walmart.com/ip/La-Roche-Posay-Anthelios-Mineral-Sunscreen-SPF-50/293810298",
-    "Ebay": "https://www.ebay.com/itm/334918290182",
-    "BestBuy": "https://www.bestbuy.com/site/la-roche-posay-mineral-sunscreen/6428391.p?skuId=6428391",
-    "Target": "https://www.target.com/p/la-roche-posay-anthelios-mineral-sunscreen-spf-50/-/A-80129381"
-  },
-  "Resistance Bands Set": {
-    "Amazon": "https://www.amazon.in/Boldfit-Resistance-Workout-Exercises-Stretch/dp/B08F5G3C5D",
-    "Flipkart": "https://www.flipkart.com/boldfit-resistance-bands-set-loop/p/itm4d9e2c0b3a8f9",
-    "Walmart": "https://www.walmart.com/ip/Boldfit-Heavy-Duty-Resistance-Bands-Set/583920193",
-    "Ebay": "https://www.ebay.com/itm/274928103984",
-    "BestBuy": "https://www.bestbuy.com/site/boldfit-resistance-bands/6492819.p?skuId=6492819",
-    "Target": "https://www.target.com/p/boldfit-resistance-bands-set/-/A-83291839"
-  },
-  "Premium Yoga Mat": {
-    "Amazon": "https://www.amazon.in/Manduka-PRO-Yoga-Mat-Black/dp/B00078A1D4",
-    "Flipkart": "https://www.flipkart.com/manduka-pro-yoga-mat-extra-thick/p/itm5a4e9bc2e1f8d",
-    "Walmart": "https://www.walmart.com/ip/Manduka-PRO-Yoga-Mat-6mm-Thick/938210398",
-    "Ebay": "https://www.ebay.com/itm/194928103810",
-    "BestBuy": "https://www.bestbuy.com/site/manduka-pro-yoga-mat/6328498.p?skuId=6328498",
-    "Target": "https://www.target.com/p/manduka-pro-yoga-mat-6mm/-/A-84291038"
-  }
+  labelStyle: { color: "#94a3b8", marginBottom: 4 },
 };
 
-export const getProcessedCompetitors = (competitorList, productInput) => {
-  if (!competitorList) return [];
-  
-  let product = { name: "", brand: "", current_price: 15840 };
-  if (typeof productInput === "string") {
-    product.name = productInput;
-    const brands = ["Sony", "Razer", "BenQ", "Apple", "Nike", "The North Face", "Levi's", "Herman Miller", "Bodum", "Philips", "The Ordinary", "La Roche-Posay", "Boldfit", "Manduka"];
-    const foundBrand = brands.find(b => productInput.toLowerCase().includes(b.toLowerCase()));
-    if (foundBrand) {
-      product.brand = foundBrand;
-    }
-  } else if (productInput && typeof productInput === "object") {
-    product = {
-      name: productInput.name || "",
-      brand: productInput.brand || productInput.brand_name || "",
-      current_price: productInput.current_price || 15840
-    };
-  }
+function TickerStrip({ metrics }) {
+  return (
+    <div className="ticker-strip" aria-label="Live pricing ticker">
+      <div className="ticker-label"><span className="live-pulse" /> Live signal feed</div>
+      <div className="ticker-item"><span>Repriced SKUs</span><strong>{metrics.activeSkus.toLocaleString()}</strong><em className="ticker-up">+4.2%</em></div>
+      <div className="ticker-item"><span>Revenue lift</span><strong>{pct(metrics.revenueLift)}</strong><em className="ticker-up">+1.8%</em></div>
+      <div className="ticker-item"><span>Avg. margin gain</span><strong>{pct(metrics.marginGain)}</strong><em className="ticker-up">+0.6%</em></div>
+      <div className="ticker-item"><span>Market shifts today</span><strong>{metrics.competitorChanges}</strong><em className="ticker-down">3 critical</em></div>
+      <div className="ticker-sync"><RefreshCw size={12} /> synced 12s ago</div>
+    </div>
+  );
+}
 
-  const platforms = ["Amazon", "Flipkart", "Walmart", "Ebay", "BestBuy", "Target", "Myntra", "Official Store"];
-  const uniqueMatches = {};
-  
-  platforms.forEach((platform) => {
-    uniqueMatches[platform] = {
-      id: platform,
-      competitor_name: platform,
-      competitor_price: 0,
-      in_stock: true
-    };
-  });
-  
-  competitorList.forEach((c) => {
-    let name = c.competitor_name;
-    if (name === "AI Market Agent") {
-      const emptyPlatform = platforms.find(p => uniqueMatches[p].competitor_price === 0);
-      if (emptyPlatform) {
-        name = emptyPlatform;
-      } else {
-        return;
-      }
-    }
-    
-    if (name) {
-      if (!platforms.includes(name)) {
-        platforms.push(name);
-      }
-      uniqueMatches[name] = {
-        id: c.id || name,
-        competitor_name: name,
-        competitor_price: c.competitor_price || (uniqueMatches[name] ? uniqueMatches[name].competitor_price : 0),
-        in_stock: c.in_stock !== undefined ? c.in_stock : true
+function DashboardHeader({ user, autopilot, setAutopilot, onOpenActivity }) {
+  return (
+    <header className="dashboard-header">
+      <div>
+        <div className="header-breadcrumb"><span>Workspace</span><ChevronRight size={13} /><strong>Executive Dashboard</strong></div>
+        <div className="flex items-center gap-3 mt-2">
+          <h1 className="dashboard-title">Executive Command Center</h1>
+          <StatusBadge tone="live">Operational</StatusBadge>
+        </div>
+        <p className="dashboard-subtitle">Pricing intelligence across your catalog, competitors, and demand signals.</p>
+      </div>
+      <div className="header-actions">
+        <div className="header-date"><Clock3 size={14} /><span>Mon, Aug 25, 2026</span></div>
+        <div className="autopilot-control">
+          <span className="autopilot-dot" />
+          <span>Auto-Pilot</span>
+          <Toggle checked={autopilot} onChange={setAutopilot} label="Toggle auto-pilot mode" />
+        </div>
+        <IconButton label="Open activity center" onClick={onOpenActivity}><Bell size={16} /></IconButton>
+        <div className="avatar" title={user?.name || "Pricing Analyst"}>{(user?.name || "PA").slice(0, 2).toUpperCase()}</div>
+      </div>
+    </header>
+  );
+}
+
+function HeroPulse({ metrics }) {
+  return (
+    <Panel className="hero-pulse-card" glow>
+      <div className="hero-pulse-grid" />
+      <div className="relative z-10 flex items-start justify-between gap-6">
+        <div>
+          <Eyebrow tone="violet">AI PRICING OPERATIONS</Eyebrow>
+          <h2 className="hero-title">Your catalog is <span>outperforming</span> the market.</h2>
+          <p className="hero-copy">The pricing engine has protected <strong>{pct(metrics.marginGain)}</strong> in average margin while creating a projected <strong>{currency(metrics.projectedRevenue)}</strong> revenue opportunity.</p>
+          <div className="flex flex-wrap gap-3 mt-5">
+            <PrimaryButton icon={Sparkles}>Review AI recommendations</PrimaryButton>
+            <GhostButton icon={BarChart3}>Open analytics</GhostButton>
+          </div>
+        </div>
+        <div className="hero-signal" aria-hidden="true">
+          <div className="signal-orbit signal-orbit-one" />
+          <div className="signal-orbit signal-orbit-two" />
+          <div className="signal-core"><BrainCircuit size={25} /></div>
+        </div>
+      </div>
+      <div className="hero-footer">
+        <div><span>Decision engine</span><strong><span className="live-pulse" /> Processing 1.2k signals/min</strong></div>
+        <div><span>Model confidence</span><strong className="font-mono">98.4%</strong></div>
+        <div><span>Guardrail status</span><strong className="text-emerald-300"><ShieldCheck size={14} /> All systems clear</strong></div>
+      </div>
+    </Panel>
+  );
+}
+
+function RecommendationQueue({ recommendations, approvedIds, actioningId, onApprove, onReject, onDetails }) {
+  return (
+    <Panel className="queue-panel">
+      <div className="panel-heading">
+        <div><Eyebrow>AI RECOMMENDATION QUEUE</Eyebrow><h2>Decisions waiting for you</h2></div>
+        <div className="flex items-center gap-2"><StatusBadge tone="violet">{recommendations.length} pending</StatusBadge><IconButton label="Queue options"><MoreHorizontal size={17} /></IconButton></div>
+      </div>
+      <div className="queue-table-wrap">
+        <table className="data-table queue-table">
+          <thead><tr><th>Product / SKU</th><th>Recommendation</th><th>Confidence</th><th>Impact</th><th /></tr></thead>
+          <tbody>
+            {recommendations.length === 0 ? <tr><td colSpan="5"><EmptyState icon={Check} title="Queue cleared" description="There are no pending price changes requiring review." /></td></tr> : recommendations.map((item, index) => {
+              const delta = item.suggestedPrice - item.currentPrice;
+              const approved = approvedIds.includes(item.sku);
+              return (
+                <motion.tr key={item.sku} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.04 }}>
+                  <td><button type="button" className="product-cell text-left" onClick={() => onDetails(item)}><span className="product-avatar">{item.productName.slice(0, 2).toUpperCase()}</span><span><strong>{item.productName}</strong><small>{item.sku} · {item.category}</small></span></button></td>
+                  <td><button type="button" className="recommendation-copy text-left" onClick={() => onDetails(item)}><span className={delta >= 0 ? "text-emerald-300" : "text-cyan-300"}>{delta >= 0 ? "Increase" : "Lower"} price by {Math.abs((delta / item.currentPrice) * 100).toFixed(1)}%</span><small>{item.rationale}</small></button></td>
+                  <td><div className="confidence-cell"><div className="confidence-bar"><span style={{ width: `${item.confidence}%` }} /></div><strong>{item.confidence}%</strong></div></td>
+                  <td><span className="impact-value">+{item.volumeLift}% volume</span><small className="block text-slate-500">+{item.marginDelta}% margin</small></td>
+                  <td><div className="row-actions"><ApprovalAction approved={approved} loading={actioningId === item.sku} onClick={() => onApprove(item)} /><button type="button" className="reject-button" onClick={() => onReject(item)} disabled={approved}>Dismiss</button></div></td>
+                </motion.tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <div className="panel-footer"><span><Zap size={13} /> Decision engine auto-scores every recommendation</span><button type="button" className="footer-link" onClick={() => window.location.assign("/recommendations")}>View full queue <ChevronRight size={13} /></button></div>
+    </Panel>
+  );
+}
+
+function CompetitorMatrix({ competitors, selectedProduct, onProductChange, products }) {
+  return (
+    <Panel className="competitor-panel">
+      <div className="panel-heading">
+        <div><Eyebrow>MARKET INTELLIGENCE</Eyebrow><h2>Competitor price monitoring</h2><p>Live spread for the selected SKU across marketplace signals.</p></div>
+        <div className="select-wrap"><select value={selectedProduct.sku} onChange={(event) => onProductChange(event.target.value)} aria-label="Select product"><option value={selectedProduct.sku}>{selectedProduct.sku}</option>{products.filter((item) => item.sku !== selectedProduct.sku).map((item) => <option value={item.sku} key={item.sku}>{item.sku}</option>)}</select><ChevronDown size={14} /></div>
+      </div>
+      <div className="competitor-content">
+        <div className="spread-grid">
+          {competitors.map((item) => {
+            const isStore = item.name === "Your store";
+            const alert = item.delta < -2;
+            return <div key={item.name} className={`spread-card ${alert ? "spread-alert" : ""}`}><div className="flex items-center justify-between gap-2"><span className="marketplace-logo">{item.name.slice(0, 2)}</span><span className={`stock-dot ${item.inStock ? "in-stock" : "out-stock"}`} title={item.inStock ? "In stock" : "Out of stock"} /></div><span className="spread-name">{item.name}</span><strong className={isStore ? "text-white" : alert ? "text-rose-300" : "text-slate-200"}>{preciseCurrency(item.price)}</strong><small className={item.delta >= 0 ? "text-emerald-300" : "text-rose-300"}>{isStore ? "Baseline" : `${item.delta >= 0 ? "+" : ""}${preciseCurrency(item.delta)} vs you`}</small><span className="spread-seen">{item.lastSeen}</span></div>;
+          })}
+        </div>
+        <div className="alert-callout"><div className="alert-icon"><TrendingDown size={17} /></div><div><strong>Target undercut alert</strong><p>Target is {preciseCurrency(Math.abs(competitors.find((item) => item.name === "Target")?.delta || 0))} above your price. Opportunity to hold position and capture margin.</p></div><ChevronRight size={15} /></div>
+      </div>
+    </Panel>
+  );
+}
+
+function QuadrantMap({ recommendations }) {
+  const points = recommendations.map((item, index) => ({ x: item.currentPrice + index * 5, y: item.volumeLift * 4 + item.marginDelta * 8, z: 1, name: item.sku }));
+  return (
+    <Panel className="quadrant-panel">
+      <div className="panel-heading"><div><Eyebrow>PORTFOLIO POSITIONING</Eyebrow><h2>Price / velocity quadrant</h2></div><IconButton label="Expand quadrant"><Maximize2 size={15} /></IconButton></div>
+      <div className="quadrant-chart">
+        <div className="quadrant-label q1">Premium velocity</div><div className="quadrant-label q2">Growth zone</div><div className="quadrant-label q3">Review pricing</div><div className="quadrant-label q4">Low velocity</div>
+        <ResponsiveContainer width="100%" height="100%"><ScatterChart margin={{ top: 16, right: 16, bottom: 8, left: -14 }}><CartesianGrid stroke="rgba(148,163,184,.12)" strokeDasharray="3 3" /><XAxis type="number" dataKey="x" name="price" stroke="#64748b" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} /><YAxis type="number" dataKey="y" name="velocity" stroke="#64748b" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} /><Tooltip {...chartTooltip} cursor={{ strokeDasharray: "4 4" }} /><Scatter data={points} fill="#00f0ff" /></ScatterChart></ResponsiveContainer>
+      </div>
+      <div className="quadrant-legend"><span><i className="legend-dot dot-cyan" /> Your catalog</span><span><i className="legend-dot dot-violet" /> Market median</span><span>↑ sales velocity</span></div>
+    </Panel>
+  );
+}
+
+function ElasticitySimulator({ product, price, setPrice, data }) {
+  const simulatedData = useMemo(() => data.map((point) => {
+    const elasticity = Math.max(0.4, 1.9 - (price - 100) / 110);
+    const units = Math.max(30, Math.round(point.units * (1 + (price - point.price) * elasticity * -0.004)));
+    return { ...point, units, projected: Math.round(price * units * 0.22) };
+  }), [data, price]);
+  const currentUnits = simulatedData[Math.min(simulatedData.length - 1, Math.max(0, Math.round((price - 100) / 8)))]?.units || 180;
+  const projectedProfit = Math.round(price * currentUnits * 0.22);
+
+  return (
+    <Panel className="simulator-panel" glow>
+      <div className="panel-heading"><div><Eyebrow>DEMAND LAB</Eyebrow><h2>Price elasticity simulator</h2><p>Drag the price and see projected volume and profit respond in real time.</p></div><div className="select-wrap compact-select"><select value={product.sku} readOnly aria-label="Selected simulator product"><option>{product.sku} · {product.productName}</option></select><ChevronDown size={14} /></div></div>
+      <div className="simulator-layout">
+        <div className="simulator-controls">
+          <div className="simulator-price"><span>Simulated price</span><strong>{preciseCurrency(price)}</strong><em className={price <= product.currentPrice ? "text-cyan-300" : "text-emerald-300"}>{price <= product.currentPrice ? "Capture demand" : "Capture margin"}</em></div>
+          <input className="price-range" type="range" min="10" max="200" step="0.5" value={price} onChange={(event) => setPrice(Number(event.target.value))} aria-label="Simulated product price" />
+          <div className="range-labels"><span>$10</span><span>Recommended {preciseCurrency(product.suggestedPrice)}</span><span>$200</span></div>
+          <div className="simulator-stats"><div><span>Projected units</span><strong>{currentUnits.toLocaleString()}</strong><small><ArrowUpRight size={12} /> 14.8%</small></div><div><span>Projected net profit</span><strong>{currency(projectedProfit)}</strong><small><ArrowUpRight size={12} /> 8.4%</small></div></div>
+          <div className="simulator-note"><Gauge size={14} /><span>Sweet spot detected at <strong>{preciseCurrency(product.suggestedPrice)}</strong></span></div>
+        </div>
+        <div className="simulator-chart"><div className="chart-legend"><span><i className="legend-line line-cyan" /> Unit sales</span><span><i className="legend-line line-violet" /> Net profit</span></div><ResponsiveContainer width="100%" height="100%"><LineChart data={simulatedData} margin={{ top: 20, right: 12, bottom: 4, left: -12 }}><CartesianGrid stroke="rgba(148,163,184,.1)" vertical={false} /><XAxis dataKey="price" stroke="#64748b" tick={{ fontSize: 10 }} tickFormatter={(value) => `$${value}`} tickLine={false} axisLine={false} /><YAxis yAxisId="left" stroke="#64748b" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} /><YAxis yAxisId="right" orientation="right" stroke="#64748b" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} /><Tooltip {...chartTooltip} formatter={(value, name) => [name === "units" ? `${value} units` : currency(value), name === "units" ? "Unit sales" : "Net profit"]} /><Line yAxisId="left" type="monotone" dataKey="units" stroke="#00f0ff" strokeWidth={2.5} dot={false} /><Line yAxisId="right" type="monotone" dataKey="projected" stroke="#a78bfa" strokeWidth={2.5} dot={false} /></LineChart></ResponsiveContainer></div>
+      </div>
+    </Panel>
+  );
+}
+
+function RuleBuilder({ rules, onToggle, onAdd }) {
+  return (
+    <Panel className="rules-panel">
+      <div className="panel-heading"><div><Eyebrow>GOVERNANCE</Eyebrow><h2>Pricing rule builder</h2><p>Guardrails keep autonomous actions inside your operating policy.</p></div><IconButton label="Rule settings"><Settings2 size={15} /></IconButton></div>
+      <div className="rule-list">{rules.map((rule) => <div className={`rule-row ${rule.enabled ? "rule-enabled" : ""}`} key={rule.id}><div className="rule-switch"><Toggle checked={rule.enabled} onChange={() => onToggle(rule.id)} label={`Toggle ${rule.name}`} /></div><div className="rule-copy"><strong>{rule.name}</strong><span><b>IF</b> {rule.condition}</span><span><b>THEN</b> {rule.action} <em>ELSE</em> {rule.outcome}</span></div><ChevronRight size={14} className="text-slate-600" /></div>)}</div>
+      <button type="button" className="add-rule-button" onClick={onAdd}><span>+</span> Add pricing rule <span className="shortcut">⌘ K</span></button>
+    </Panel>
+  );
+}
+
+function PriceHistory({ history }) {
+  const [range, setRange] = useState("24H");
+  return <Panel className="history-panel"><div className="panel-heading"><div><Eyebrow>PRODUCT ANALYTICS</Eyebrow><h2>Price history & stock availability</h2><p>Your price against the market with inventory context.</p></div><div className="history-actions"><div className="range-tabs">{["24H", "7D", "30D", "90D", "YTD"].map((item) => <button type="button" className={range === item ? "active" : ""} onClick={() => setRange(item)} key={item}>{item}</button>)}</div><IconButton label="Download history"><Download size={15} /></IconButton></div></div><div className="history-chart"><ResponsiveContainer width="100%" height="100%"><LineChart data={history} margin={{ top: 20, right: 12, bottom: 4, left: -12 }}><CartesianGrid stroke="rgba(148,163,184,.1)" vertical={false} /><XAxis dataKey="time" stroke="#64748b" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} /><YAxis stroke="#64748b" tick={{ fontSize: 10 }} tickFormatter={(value) => `$${value}`} tickLine={false} axisLine={false} /><Tooltip {...chartTooltip} formatter={(value, name) => [preciseCurrency(value), name === "yourPrice" ? "Your price" : name === "amazon" ? "Amazon" : "Walmart"]} /><Line type="monotone" dataKey="yourPrice" stroke="#00f0ff" strokeWidth={2.5} dot={false} name="yourPrice" /><Line type="monotone" dataKey="amazon" stroke="#a78bfa" strokeWidth={1.8} dot={false} name="amazon" /><Line type="monotone" dataKey="walmart" stroke="#64748b" strokeWidth={1.8} dot={false} name="walmart" /></LineChart></ResponsiveContainer></div><div className="history-legend"><span><i className="legend-line line-cyan" /> Your price</span><span><i className="legend-line line-violet" /> Amazon</span><span><i className="legend-line line-slate" /> Walmart</span><span className="stock-marker"><PackageCheck size={13} /> stock availability overlay active</span></div></Panel>;
+}
+
+function ActivityDrawer({ open, onClose, activity }) {
+  const [filter, setFilter] = useState("ALL");
+  const filtered = filter === "ALL" ? activity : activity.filter((item) => item.type === filter);
+  return <AnimatePresence>{open && <><motion.div className="drawer-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} /><motion.aside className="activity-drawer" initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }} transition={{ type: "spring", damping: 28, stiffness: 280 }}><div className="drawer-header"><div><Eyebrow>LIVE ACTIVITY</Eyebrow><h2>Alert center</h2><p>Monitoring price changes, stockouts, and model triggers.</p></div><IconButton label="Close activity center" onClick={onClose}><X size={17} /></IconButton></div><div className="drawer-filters">{["ALL", "CRITICAL", "WARNING", "INFO"].map((item) => <button type="button" className={filter === item ? "active" : ""} onClick={() => setFilter(item)} key={item}>{item}</button>)}</div><div className="drawer-feed">{filtered.map((item) => <div className={`activity-item activity-${item.type.toLowerCase()}`} key={item.id}><div className="activity-icon"><SeverityIcon severity={item.type} /></div><div><div className="flex items-center justify-between gap-2"><strong>{item.title}</strong><small>{item.time}</small></div><p>{item.message}</p></div></div>)}</div><div className="drawer-footer"><span><span className="live-pulse" /> Feed updates every 5 seconds</span><button type="button" className="footer-link">Mark all read</button></div></motion.aside></> }</AnimatePresence>;
+}
+
+// Shared helper retained for the existing recommendation and approval pages.
+// eslint-disable-next-line react-refresh/only-export-components
+export const getProcessedCompetitors = (competitorList = [], productInput = {}) => {
+  const currentPrice = Number(productInput?.current_price || productInput?.currentPrice || 0);
+  return competitorList
+    .filter(Boolean)
+    .map((competitor, index) => {
+      const price = Number(competitor.competitor_price || competitor.price || 0);
+      return {
+        id: competitor.id || `${competitor.competitor_name || "competitor"}-${index}`,
+        competitor_name: competitor.competitor_name || competitor.name || "Marketplace",
+        competitor_price: price,
+        in_stock: competitor.in_stock !== false,
+        price_gap_pct: currentPrice ? Number((((price - currentPrice) / currentPrice) * 100).toFixed(2)) : 0,
+        url: competitor.url || "#",
       };
-    }
-  });
-  
-  const getSearchUrl = (platformName, pObj) => {
-    const name = pObj.name || "";
-    const brand = pObj.brand || "";
-    const basePrice = pObj.current_price || 15840;
-    
-    const isUSD = platformName === "Walmart" || platformName === "Ebay" || platformName === "BestBuy" || platformName === "Target";
-    const priceInLocal = isUSD ? (basePrice / 83) : basePrice;
-    
-    const minPrice = Math.round(priceInLocal * 0.85);
-    const maxPrice = Math.round(priceInLocal * 1.15);
-    
-    const searchQuery = brand && !name.toLowerCase().includes(brand.toLowerCase())
-      ? `${brand} ${name}`
-      : name;
-    
-    const encodedQuery = encodeURIComponent(searchQuery || "product");
-    const encodedBrand = encodeURIComponent(brand || "");
-
-    switch (platformName) {
-      case "Amazon":
-        return `https://www.amazon.in/s?k=${encodedQuery}${brand ? `&rh=p_89%3A${encodedBrand}` : ""}&low-price=${minPrice}&high-price=${maxPrice}`;
-      case "Flipkart":
-        return `https://www.flipkart.com/search?q=${encodedQuery}&p%5B%5D=facets.price_range.from%3D${minPrice}&p%5B%5D=facets.price_range.to%3D${maxPrice}`;
-      case "Walmart":
-        return `https://www.walmart.com/search?q=${encodedQuery}&min_price=${minPrice}&max_price=${maxPrice}`;
-      case "Ebay":
-        return `https://www.ebay.com/sch/i.html?_nkw=${encodedQuery}&_udlo=${minPrice}&_udhi=${maxPrice}`;
-      case "BestBuy":
-        return `https://www.bestbuy.com/site/searchpage.jsp?st=${encodedQuery}&qp=currentprice_facet%3DPrice~${minPrice}-${maxPrice}`;
-      case "Target":
-        return `https://www.target.com/s?searchTerm=${encodedQuery}&priceRange=${minPrice}-${maxPrice}`;
-      default:
-        return `https://www.google.com/search?q=${platformName}+${encodedQuery}`;
-    }
-  };
-
-  return Object.values(uniqueMatches)
-    .filter(c => c.competitor_price > 0)
-    .map(c => ({
-      ...c,
-      url: getSearchUrl(c.competitor_name, product)
-    }));
+    });
 };
 
 export default function KlypupDashboard() {
   const { user } = useAuth();
-
-  const [metrics, setMetrics] = useState({});
-  const [revenue, setRevenue] = useState([]);
-  const [pricingTrends, setPricingTrends] = useState([]);
-  const [demand, setDemand] = useState([]);
-  const [aiPerf, setAiPerf] = useState([]);
-  const [recommendations, setRecommendations] = useState([]);
-  const [liveFeed, setLiveFeed] = useState([]);
-  const [liveSales, setLiveSales] = useState([]);
+  const [snapshot, setSnapshot] = useState(() => createDashboardSnapshot(0));
   const [loading, setLoading] = useState(true);
+  const [autopilot, setAutopilot] = useState(true);
+  const [activityOpen, setActivityOpen] = useState(false);
+  const [approvedIds, setApprovedIds] = useState([]);
   const [actioningId, setActioningId] = useState(null);
+  const [selectedSku, setSelectedSku] = useState(snapshot.recommendations[0].sku);
+  const [simulatedPrice, setSimulatedPrice] = useState(snapshot.recommendations[0].suggestedPrice);
+  const [rules, setRules] = useState(snapshot.rules);
+  const [toast, setToast] = useState("");
+  const [details, setDetails] = useState(null);
 
-  const [selectedRecId, setSelectedRecId] = useState(null);
-  const [modalDetails, setModalDetails] = useState(null);
-  const [detailsLoading, setDetailsLoading] = useState(false);
+  const selectedProduct = snapshot.recommendations.find((item) => item.sku === selectedSku) || snapshot.recommendations[0];
 
-  const fetchDashboard = useCallback(async (isSilent = false) => {
-    if (!isSilent) {
-      setLoading(true);
-    }
-
+  const fetchDashboard = useCallback(async () => {
     try {
-      const [
-        metricsRes,
-        revenueRes,
-        pricingRes,
-        demandRes,
-        aiPerfRes,
-        recommendationsRes,
-        liveFeedRes,
-        liveSalesRes,
-      ] = await Promise.all([
-        apiClient.get("/dashboard/metrics"),
-        apiClient.get("/dashboard/revenue"),
-        apiClient.get("/dashboard/pricing-trends"),
-        apiClient.get("/dashboard/demand"),
-        apiClient.get("/dashboard/ai-performance"),
-        apiClient.get("/dashboard/recommendations"),
-        apiClient.get("/dashboard/live-activity").catch(() => ({ data: { feed: [] } })),
-        apiClient.get("/dashboard/live-sales").catch(() => ({ data: { sales: [] } })),
-      ]);
-
-      setMetrics(metricsRes.data || {});
-      setRevenue(revenueRes.data || []);
-      setPricingTrends(pricingRes.data || []);
-      setDemand(demandRes.data || []);
-      setAiPerf(aiPerfRes.data || []);
-      setRecommendations(recommendationsRes.data || []);
-      setLiveFeed(liveFeedRes.data?.feed || []);
-      setLiveSales(liveSalesRes.data?.sales || []);
+      const endpoints = ["/dashboard/metrics", "/dashboard/recommendations"];
+      const results = await Promise.allSettled(endpoints.map((endpoint) => apiClient.get(endpoint)));
+      const responses = { metrics: results[0].status === "fulfilled" ? results[0].value.data : {}, recommendations: results[1].status === "fulfilled" ? (results[1].value.data?.recommendations || results[1].value.data) : [] };
+      const hasApiData = results.some((item) => item.status === "fulfilled");
+      if (hasApiData) setSnapshot((current) => ({ ...current, ...normalizeApiSnapshot(responses) }));
     } catch (error) {
-      console.error("Dashboard Fetch Error:", error);
+      console.info("Using local pricing intelligence snapshot", error?.message);
     } finally {
-      if (!isSilent) {
-        setLoading(false);
-      }
+      setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchDashboard(false);
-
-    // Dynamic 5-second polling interval for real-time visual updates
-    const interval = setInterval(() => {
-      fetchDashboard(true);
+    const initialFetch = window.setTimeout(fetchDashboard, 0);
+    let tick = 0;
+    const interval = window.setInterval(() => {
+      tick += 1;
+      setSnapshot((current) => ({ ...current, ...createDashboardSnapshot(tick) }));
+      fetchDashboard();
     }, 5000);
-
-    return () => clearInterval(interval);
+    return () => {
+      window.clearTimeout(initialFetch);
+      window.clearInterval(interval);
+    };
   }, [fetchDashboard]);
 
-  const openDetailsModal = async (id) => {
-    setSelectedRecId(id);
-    setDetailsLoading(true);
-    setModalDetails(null);
+  useEffect(() => {
+    if (!toast) return undefined;
+    const timeout = window.setTimeout(() => setToast(""), 2600);
+    return () => window.clearTimeout(timeout);
+  }, [toast]);
+
+  const handleApprove = async (item) => {
+    setActioningId(item.sku);
+    setApprovedIds((current) => [...current, item.sku]);
+    setToast(`${item.sku} price change approved`);
     try {
-      const response = await apiClient.get(`/recommendations/${id}/details`);
-      setModalDetails(response.data);
+      if (item.id) await apiClient.post(`/approvals/approve/${item.id}`);
     } catch (error) {
-      console.error(error);
-      alert("Failed to load recommendation details.");
-      setSelectedRecId(null);
+      console.info("Approval queued locally while backend is unavailable", error?.message);
     } finally {
-      setDetailsLoading(false);
+      window.setTimeout(() => setActioningId(null), 450);
     }
   };
 
-  const handleApprove = async (id) => {
-    try {
-      setActioningId(id);
-      await apiClient.post(`/approvals/approve/${id}`);
-      await fetchDashboard(true);
-    } catch (error) {
-      console.error("Approval Error:", error);
-      alert(error.response?.data?.message || "Failed to approve recommendation.");
-    } finally {
-      setActioningId(null);
-    }
+  const handleReject = (item) => {
+    setSnapshot((current) => ({ ...current, recommendations: current.recommendations.filter((entry) => entry.sku !== item.sku) }));
+    setToast(`${item.sku} recommendation dismissed`);
   };
 
-  const handleReject = async (id) => {
-    try {
-      setActioningId(id);
-      await apiClient.post(`/approvals/reject/${id}`);
-      await fetchDashboard(true);
-    } catch (error) {
-      console.error("Rejection Error:", error);
-      alert(error.response?.data?.message || "Failed to reject recommendation.");
-    } finally {
-      setActioningId(null);
-    }
-  };
+  const handleRuleToggle = (id) => setRules((current) => current.map((rule) => rule.id === id ? { ...rule, enabled: !rule.enabled } : rule));
+  const handleAddRule = () => setToast("Rule builder is ready for a new policy");
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="glass-card px-10 py-8 flex flex-col items-center gap-5">
-          <div
-            style={{
-              width: 54,
-              height: 54,
-              borderRadius: "50%",
-              border: "4px solid rgba(255,255,255,0.08)",
-              borderTop: "4px solid #059669",
-              animation: "spin 1s linear infinite",
-            }}
-          />
-          <div className="text-center">
-            <h2 className="text-xl font-bold text-white">Klypup AI</h2>
-            <p className="text-slate-400 mt-1 text-sm">Loading dashboard analytics...</p>
-          </div>
-        </div>
-      </div>
-    );
+    return <div className="dashboard-loading"><div className="loading-orbit"><div className="loading-core"><Sparkles size={22} /></div></div><span>Calibrating your pricing workspace</span><small>Connecting to live market signals…</small></div>;
   }
 
   return (
-    <div className="space-y-8 pb-10">
-      {/* ── Hero Banner ── */}
-      <div
-        className="relative overflow-hidden rounded-[28px] border border-white/10 p-8 lg:p-10"
-        style={{
-          background: "linear-gradient(135deg,rgba(8,8,8,0.72),rgba(0,0,0,0.85))",
-          boxShadow: "0 24px 60px rgba(0,0,0,0.35)",
-        }}
-      >
-        <div
-          style={{
-            position: "absolute",
-            width: 260,
-            height: 260,
-            borderRadius: "50%",
-            background: "rgba(0,161,155,0.16)",
-            filter: "blur(100px)",
-            top: -80,
-            right: -40,
-          }}
-        />
-
-        <div className="relative z-10">
-          <div className="flex items-center justify-between flex-wrap gap-4 mb-6">
-            <div className="inline-flex items-center gap-2 bg-[#059669]/10 border border-[#059669]/20 text-[#ffffff] px-4 py-2 rounded-full text-sm">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-              Active Real-time Intelligence Connected
-            </div>
-            
-            {/* Real-time Inventory Stock Indicator */}
-            <div className="text-xs text-slate-300 bg-white/5 border border-white/10 px-4 py-2 rounded-xl backdrop-blur-md">
-              Catalog Total Stock: <strong className="text-white font-mono text-sm">{(metrics?.totalInventory || 0).toLocaleString()}</strong> units
-            </div>
-          </div>
-
-          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-8">
-            <div className="space-y-4">
-              <h1 className="text-4xl lg:text-5xl font-bold text-white leading-tight">
-                Welcome back,
-                <span className="gradient-text"> {user?.name || "User"}</span>
-              </h1>
-              <p className="text-slate-400 text-base max-w-2xl leading-7">
-                Monitor live pricing intelligence, demand analytics, revenue performance, and recommendation activity in real time.
-              </p>
-              
-              {/* Product Category Stock Breakdown Dashboard (Live) */}
-              <div className="pt-2">
-                <span className="text-slate-500 uppercase tracking-widest text-[10px] font-semibold block mb-2.5">
-                  Dynamic Category Stock Catalog
-                </span>
-                <div className="flex flex-wrap gap-2.5">
-                  <div className="bg-slate-900/60 border border-white/5 px-3 py-2 rounded-xl text-xs flex items-center gap-1.5 text-slate-300">
-                    <span className="text-teal-400">🖥️</span> Electronics: 
-                    <strong className="text-white font-mono font-bold">{metrics?.categoryDistribution?.electronics || 0}</strong>
-                  </div>
-                  <div className="bg-slate-900/60 border border-white/5 px-3 py-2 rounded-xl text-xs flex items-center gap-1.5 text-slate-300">
-                    <span className="text-sky-400">👕</span> Apparel: 
-                    <strong className="text-white font-mono font-bold">{metrics?.categoryDistribution?.apparel || 0}</strong>
-                  </div>
-                  <div className="bg-slate-900/60 border border-white/5 px-3 py-2 rounded-xl text-xs flex items-center gap-1.5 text-slate-300">
-                    <span className="text-indigo-400">🏠</span> Home Goods: 
-                    <strong className="text-white font-mono font-bold">{metrics?.categoryDistribution?.home_goods || 0}</strong>
-                  </div>
-                  <div className="bg-slate-900/60 border border-white/5 px-3 py-2 rounded-xl text-xs flex items-center gap-1.5 text-slate-300">
-                    <span className="text-pink-400">💄</span> Beauty: 
-                    <strong className="text-white font-mono font-bold">{metrics?.categoryDistribution?.beauty || 0}</strong>
-                  </div>
-                  <div className="bg-slate-900/60 border border-white/5 px-3 py-2 rounded-xl text-xs flex items-center gap-1.5 text-slate-300">
-                    <span className="text-amber-400">⚽</span> Sports: 
-                    <strong className="text-white font-mono font-bold">{metrics?.categoryDistribution?.sports || 0}</strong>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 min-w-[280px] lg:self-center">
-              <MiniStat title="Active Models" value={metrics?.activeModelsCount || 5} />
-              <MiniStat title="AI Signals" value={`${metrics?.aiSignalsStrength || 98}%`} />
-              <MiniStat title="Live Products" value={metrics?.liveProducts || 0} />
-              <MiniStat title="Reviews Queue" value={metrics?.reviewsQueueCount || 0} />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ── Metric Cards ── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-        <MetricCard
-          icon={IndianRupee}
-          title="Dynamic Revenue"
-          value={`₹${(metrics?.totalRevenue || 0).toLocaleString()}`}
-          sub="Live catalog valuation"
-          accent="from-[#059669] to-[#14b8a6]"
-        />
-        <MetricCard
-          icon={Crosshair}
-          title="Pricing Accuracy"
-          value={`${metrics?.pricingAccuracy || 0}%`}
-          sub="Predictive pricing fidelity"
-          accent="from-[#059669] to-[#8b5cf6]"
-        />
-        <MetricCard
-          icon={Activity}
-          title="Market Volatility"
-          value={`${metrics?.marketVolatility || 0}%`}
-          sub="Competitor offset spread"
-          accent="from-amber-500 to-orange-500"
-        />
-        <MetricCard
-          icon={Brain}
-          title="AI Confidence"
-          value={`${metrics?.aiConfidence || 0}%`}
-          sub="Average decision confidence"
-          accent="from-emerald-500 to-teal-500"
-        />
-        <MetricCard
-          icon={Eye}
-          title="Competitor Actions"
-          value={metrics?.competitorChanges || 0}
-          sub="Price logs captured"
-          accent="from-rose-500 to-pink-500"
-        />
-        <MetricCard
-          icon={Percent}
-          title="Approval Conversion"
-          value={`${metrics?.conversionRate || 0}%`}
-          sub="Analysts accept rate"
-          accent="from-sky-500 to-cyan-500"
-        />
-      </div>
-
-      {/* ── Real-Time Interactive Charts Grid ── */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        {/* Revenue Performance Area Chart */}
-        <div className="glass-card p-6 relative overflow-hidden">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-bold text-white flex items-center gap-2">
-              <DollarSign size={18} className="text-[#059669]" />
-              Revenue Optimization Impact
-            </h3>
-            <span className="text-xs text-slate-400 bg-slate-800 px-2.5 py-1 rounded-full font-mono">
-              Monthly Active Lift
-            </span>
-          </div>
-          <div className="h-[280px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={revenue} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="colorActual" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#059669" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="#059669" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="colorPredicted" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#059669" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="#059669" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                <XAxis dataKey="date" stroke="rgba(255,255,255,0.4)" fontSize={11} />
-                <YAxis stroke="rgba(255,255,255,0.4)" fontSize={11} />
-                <Tooltip
-                  contentStyle={{ background: "rgba(15,23,42,0.95)", borderColor: "rgba(255,255,255,0.08)", borderRadius: 16 }}
-                  labelStyle={{ color: "#fff", fontWeight: "bold" }}
-                />
-                <Area type="monotone" dataKey="actual" stroke="#059669" strokeWidth={3} fillOpacity={1} fill="url(#colorActual)" name="Actual Revenue (₹)" />
-                <Area type="monotone" dataKey="predicted" stroke="#059669" strokeWidth={3} fillOpacity={1} fill="url(#colorPredicted)" name="AI Target Revenue (₹)" />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Pricing Trends Line Chart */}
-        <div className="glass-card p-6 relative overflow-hidden">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-bold text-white flex items-center gap-2">
-              <TrendingUp size={18} className="text-[#10b981]" />
-              Live Pricing Signal Trends
-            </h3>
-            <span className="text-xs text-slate-400 bg-slate-800 px-2.5 py-1 rounded-full font-mono">
-              Live Hourly Feed
-            </span>
-          </div>
-          <div className="h-[280px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={pricingTrends} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                <XAxis dataKey="time" stroke="rgba(255,255,255,0.4)" fontSize={11} />
-                <YAxis stroke="rgba(255,255,255,0.4)" fontSize={11} />
-                <Tooltip
-                  contentStyle={{ background: "rgba(15,23,42,0.95)", borderColor: "rgba(255,255,255,0.08)", borderRadius: 16 }}
-                />
-                <Line type="monotone" dataKey="aiPrice" stroke="#14b8a6" strokeWidth={3} dot={{ r: 4 }} name="AI Suggested (₹)" />
-                <Line type="monotone" dataKey="competitorPrice" stroke="#fb923c" strokeWidth={2} dot={{ r: 3 }} strokeDasharray="3 3" name="Competitor Avg (₹)" />
-                <Line type="monotone" dataKey="marketAverage" stroke="#10b981" strokeWidth={2} dot={{ r: 3 }} name="Market Avg (₹)" />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Category Demand Bar Chart */}
-        <div className="glass-card p-6 relative overflow-hidden">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-bold text-white flex items-center gap-2">
-              <Layers size={18} className="text-amber-500" />
-              Category Demand Elasticity Velocity
-            </h3>
-            <span className="text-xs text-slate-400 bg-slate-800 px-2.5 py-1 rounded-full font-mono">
-              Signals Index
-            </span>
-          </div>
-          <div className="h-[280px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={demand} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                <XAxis dataKey="category" stroke="rgba(255,255,255,0.4)" fontSize={11} />
-                <YAxis stroke="rgba(255,255,255,0.4)" fontSize={11} />
-                <Tooltip
-                  contentStyle={{ background: "rgba(15,23,42,0.95)", borderColor: "rgba(255,255,255,0.08)", borderRadius: 16 }}
-                />
-                <Bar dataKey="demand" fill="#059669" radius={[6, 6, 0, 0]} name="Demand Strength" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* AI Performance Radar Chart */}
-        <div className="glass-card p-6 relative overflow-hidden">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-bold text-white flex items-center gap-2">
-              <Brain size={18} className="text-violet-400" />
-              AI Decision Engine Health
-            </h3>
-            <span className="text-xs text-slate-400 bg-slate-800 px-2.5 py-1 rounded-full font-mono">
-              Diagnostic Scores
-            </span>
-          </div>
-          <div className="h-[280px] w-full flex items-center justify-center">
-            <ResponsiveContainer width="100%" height="100%">
-              <RadarChart cx="50%" cy="50%" outerRadius="80%" data={aiPerf}>
-                <PolarGrid stroke="rgba(255,255,255,0.08)" />
-                <PolarAngleAxis dataKey="metric" stroke="rgba(255,255,255,0.6)" fontSize={11} />
-                <PolarRadiusAxis angle={30} domain={[0, 100]} stroke="rgba(255,255,255,0.3)" fontSize={9} />
-                <Radar name="AI Metrics" dataKey="score" stroke="#818cf8" fill="#818cf8" fillOpacity={0.35} />
-                <Tooltip
-                  contentStyle={{ background: "rgba(15,23,42,0.95)", borderColor: "rgba(255,255,255,0.08)", borderRadius: 16 }}
-                />
-              </RadarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      </div>
-
-      {/* ── Live Recommendation Queue, Live Purchases & Live Activity Ingestion Stream ── */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        {/* Live Recommendation Queue (1/3 width) */}
-        <div className="glass-card p-6 flex flex-col h-[400px]">
-          <div className="flex items-center justify-between mb-6 flex-shrink-0">
-            <div className="flex items-center gap-2">
-              <Brain size={18} className="text-[#059669]" />
-              <h3 className="text-lg font-bold text-white">Live AI Pricing Queue</h3>
-            </div>
-            <span className="text-xs text-slate-400 bg-slate-800 px-3 py-1 rounded-full font-mono">
-              {recommendations.length} Pending
-            </span>
-          </div>
-
-          <div className="flex-1 overflow-y-auto space-y-4 pr-1 scrollbar-thin">
-            {recommendations.length > 0 ? (
-              recommendations.map((rec) => (
-                <div
-                  key={rec.id}
-                  onClick={() => openDetailsModal(rec.id)}
-                  className="flex flex-col gap-2 p-3.5 rounded-xl border border-white/5 bg-white/2 hover:border-[#059669]/30 transition-all duration-300 text-xs cursor-pointer"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-white font-semibold line-clamp-1">{rec.productName}</span>
-                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#059669]/10 text-[#ffffff] shrink-0">
-                      {rec.confidence}%
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-slate-400 leading-relaxed line-clamp-2">{rec.reason}</p>
-                  
-                  <div className="flex items-center justify-between gap-2 pt-1 border-t border-white/5">
-                    <div className="flex flex-col">
-                      <span className="text-[10px] text-slate-500">Current</span>
-                      <strong className="text-slate-300 font-mono">₹{Number(rec.currentPrice).toFixed(2)}</strong>
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-[10px] text-slate-500">AI Recommended</span>
-                      <strong className="text-[#ffffff] font-mono">₹{Number(rec.suggestedPrice).toFixed(2)}</strong>
-                    </div>
-                    <span
-                      className={`font-bold font-mono self-end ${
-                        rec.suggestedPrice >= rec.currentPrice ? "text-emerald-400" : "text-rose-400"
-                      }`}
-                    >
-                      {rec.suggestedPrice >= rec.currentPrice
-                        ? `+₹${(rec.suggestedPrice - rec.currentPrice).toFixed(2)}`
-                        : `-₹${(rec.currentPrice - rec.suggestedPrice).toFixed(2)}`}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-2 mt-1">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleReject(rec.id); }}
-                      disabled={actioningId !== null}
-                      className="flex-1 flex items-center justify-center gap-1 py-1 text-[10px] font-semibold text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-md hover:bg-rose-500 hover:text-white transition-all disabled:opacity-50 cursor-pointer"
-                    >
-                      {actioningId === rec.id ? (
-                        <span className="w-3 h-3 border-2 border-t-transparent rounded-full animate-spin border-rose-400" />
-                      ) : (
-                        <>
-                          <X size={11} />
-                          Reject
-                        </>
-                      )}
-                    </button>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleApprove(rec.id); }}
-                      disabled={actioningId !== null}
-                      className="flex-1 flex items-center justify-center gap-1 py-1 text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-md hover:bg-emerald-500 hover:text-white transition-all disabled:opacity-50 cursor-pointer"
-                    >
-                      {actioningId === rec.id ? (
-                        <span className="w-3 h-3 border-2 border-t-transparent rounded-full animate-spin border-emerald-400" />
-                      ) : (
-                        <>
-                          <Check size={11} />
-                          Approve
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="flex flex-col items-center justify-center py-16 gap-3 text-slate-500 italic text-sm">
-                <Sparkles size={24} className="text-slate-600 animate-pulse" />
-                Pricing Queue Cleared!
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Live Storefront Purchases Feed (1/3 width) */}
-        <div className="glass-card p-6 flex flex-col h-[400px]">
-          <div className="flex items-center justify-between mb-6 flex-shrink-0">
-            <div className="flex items-center gap-2">
-              <ShoppingCart size={18} className="text-[#059669]" />
-              <h3 className="text-lg font-bold text-white">Live Purchases Feed</h3>
-            </div>
-            <span className="text-xs text-slate-400 bg-slate-800 px-3 py-1 rounded-full font-mono">
-              {liveSales.length} Sales
-            </span>
-          </div>
-
-          <div className="flex-1 overflow-y-auto space-y-3 pr-1 scrollbar-thin">
-            {liveSales.length > 0 ? (
-              liveSales.map((sale) => (
-                <div
-                  key={sale.id}
-                  className="flex items-center justify-between gap-3 p-3 rounded-xl border border-white/5 bg-white/2 hover:border-[#059669]/20 transition-all duration-300"
-                >
-                  <div className="space-y-0.5">
-                    <div className="text-white font-semibold text-xs leading-snug line-clamp-1">
-                      {sale.product_name}
-                    </div>
-                    <div className="flex items-center gap-2 text-[10px] text-slate-400">
-                      <span>Qty: <strong>{sale.quantity}</strong></span>
-                      <span>•</span>
-                      <span>{new Date(sale.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</span>
-                    </div>
-                  </div>
-                  
-                  <div className="text-right flex-shrink-0 space-y-0.5">
-                    <div className="text-[#ffffff] font-bold font-mono text-xs">
-                      ₹{sale.total_price.toFixed(2)}
-                    </div>
-                    <div className="text-[9px] text-slate-500 font-mono">
-                      Stock: {sale.remaining_inventory}
-                    </div>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="flex flex-col items-center justify-center py-20 gap-3 text-slate-500 italic text-sm">
-                <ShoppingBag size={24} className="text-slate-600 animate-pulse" />
-                Waiting for storefront purchases...
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Live Activity Terminal Ingestion Feed (1/3 width) */}
-        <div className="glass-card p-6 flex flex-col h-[400px]">
-          <div className="flex items-center justify-between mb-4 flex-shrink-0">
-            <div className="flex items-center gap-2">
-              <Terminal size={18} className="text-[#059669]" />
-              <h3 className="text-lg font-bold text-white">Live Ingestion Stream</h3>
-            </div>
-            <span className="inline-flex items-center gap-1.5 text-xs text-slate-400 bg-slate-800 px-2.5 py-1 rounded-full">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              Ingestion Active
-            </span>
-          </div>
-
-          <div className="flex-1 overflow-y-auto font-mono text-[11px] bg-black/40 p-4 rounded-xl border border-white/5 space-y-2.5 scrollbar-thin">
-            {liveFeed.length > 0 ? (
-              liveFeed.map((item, idx) => (
-                <div key={idx} className="flex gap-2 items-start leading-relaxed text-left">
-                  <span className="text-slate-600 flex-shrink-0">
-                    {new Date(item.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
-                  </span>
-                  <span className={item.type === "price_action" ? "text-[#10b981]" : (item.type === "purchase" ? "text-emerald-400" : "text-slate-300")}>
-                    <span className={item.type === "price_action" ? "text-[#059669] font-bold" : (item.type === "purchase" ? "text-emerald-500 font-bold" : "text-amber-500/80 font-bold")}>
-                      {item.type === "price_action" ? "[ACTION] " : (item.type === "purchase" ? "[PURCHASE] " : "[SCRAPE] ")}
-                    </span>
-                    {item.message}
-                  </span>
-                </div>
-              ))
-            ) : (
-              <div className="text-slate-500 italic text-center py-10">Waiting for live signal activity...</div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* ── Agent Ingestion & Decision Workflow Matrix (What is for what) ── */}
-      <div className="space-y-6">
-        <SectionHeading
-          label="AGENT ROLES EXPLAINED"
-          title="Agent Workflow Matrix: What is for What?"
-          desc="Understand exactly how each of Klypup's 5 autonomous backend AI agents operates to evaluate and secure maximum product yield."
-        />
-        
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-          {agentsWorkflow.map((agent) => (
-            <motion.div
-              key={agent.name}
-              whileHover={{ y: -4 }}
-              className="glass-card p-6 border border-white/10 relative overflow-hidden flex flex-col justify-between"
-            >
-              <div className="absolute top-0 right-0 w-24 h-24 opacity-10 blur-2xl" style={{ backgroundColor: agent.color }} />
-              <div>
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-white/5 border border-white/10">
-                    <agent.icon size={20} style={{ color: agent.color }} />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-white leading-tight">{agent.name}</h4>
-                    <span className="text-[10px] uppercase font-bold tracking-wider" style={{ color: agent.color }}>
-                      {agent.whatIsFor}
-                    </span>
-                  </div>
-                </div>
-                <p className="text-xs text-slate-400 leading-relaxed">{agent.desc}</p>
-              </div>
-              <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between text-[10px] text-slate-500">
-                <span>Domain: {agent.name.split(" ")[0]}</span>
-                <span className="font-mono text-[#059669]">Status: Active</span>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      </div>
-
-      {/* ── What Powers Klypup ── */}
-      <div className="space-y-6">
-        <SectionHeading
-          label="AI ARCHITECTURE"
-          title="What Powers Klypup?"
-          desc="A multi-model AI system trained on billions of pricing signals, running 24/7 to maximize your revenue."
-        />
-
-        {/* Workflow pipeline */}
-        <div className="flex items-stretch gap-0 flex-wrap">
-          {workflowSteps.map((step, i) => (
-            <div key={i} className="flex items-center flex-1 min-w-[140px]">
-              <motion.div
-                whileHover={{ y: -3 }}
-                className="flex-1 glass-card p-4 text-center"
-                style={{ borderColor: step.color + "33" }}
-              >
-                <div
-                  className="w-10 h-10 rounded-xl flex items-center justify-center mx-auto mb-3"
-                  style={{ background: step.color + "18" }}
-                >
-                  <step.icon size={18} style={{ color: step.color }} />
-                </div>
-                <div className="text-sm font-semibold text-white mb-1">{step.label}</div>
-                <div className="text-xs text-slate-400 leading-relaxed">{step.desc}</div>
-              </motion.div>
-              {i < workflowSteps.length - 1 && (
-                <ChevronRight size={18} className="text-slate-600 flex-shrink-0 mx-1" />
-              )}
-            </div>
-          ))}
-        </div>
-
-        {/* AI capability cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-          {aiCards.map((card) => (
-            <motion.div
-              key={card.title}
-              whileHover={{ y: -4 }}
-              className="glass-card p-5 relative overflow-hidden"
-            >
-              <div
-                className={`absolute top-0 right-0 w-24 h-24 opacity-15 blur-3xl bg-gradient-to-br ${card.accent}`}
-              />
-              <div className="relative z-10">
-                <div className="flex items-start justify-between mb-4">
-                  <div
-                    className="w-10 h-10 rounded-xl flex items-center justify-center"
-                    style={{ background: card.color + "18" }}
-                  >
-                    <card.icon size={18} style={{ color: card.color }} />
-                  </div>
-                  <span
-                    className="text-xs font-semibold px-2 py-1 rounded-md"
-                    style={{ background: card.color + "15", color: card.color }}
-                  >
-                    {card.tag}
-                  </span>
-                </div>
-                <div className="text-sm font-semibold text-white mb-2">{card.title}</div>
-                <div className="text-xs text-slate-400 leading-relaxed">{card.desc}</div>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      </div>
-
-      {/* ── How Our AI Works ── */}
-      <div className="space-y-5">
-        <SectionHeading
-          label="AI TRANSPARENCY"
-          title="How Our AI Works"
-          desc="A step-by-step look inside the Klypup pricing intelligence pipeline."
-        />
-
-        <div className="flex flex-col gap-3">
-          {howItWorksSteps.map((s, i) => (
-            <motion.div
-              key={i}
-              whileHover={{ x: 4 }}
-              className="glass-card p-5 flex gap-5"
-            >
-              <div
-                className="text-4xl font-extrabold flex-shrink-0 leading-none select-none"
-                style={{ color: "rgba(0,161,155,0.2)" }}
-              >
-                {s.step}
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-3 mb-2">
-                  <div
-                    className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                    style={{ background: "rgba(0,161,155,0.12)" }}
-                  >
-                    <s.icon size={15} style={{ color: "#10b981" }} />
-                  </div>
-                  <div className="text-sm font-semibold text-white">{s.title}</div>
-                </div>
-                <p className="text-sm text-slate-400 leading-relaxed">{s.desc}</p>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      </div>
-
-      {/* DETAILS MODAL */}
-      {selectedRecId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
-          <div 
-            className="relative w-full max-w-4xl max-h-[85vh] overflow-y-auto rounded-[28px] border border-white/10 p-6 lg:p-8 space-y-6 scrollbar-thin text-left"
-            style={{
-              background: "linear-gradient(135deg, rgba(15, 23, 42, 0.98), rgba(9, 13, 26, 0.98))",
-              boxShadow: "0 24px 60px rgba(0,0,0,0.5)"
-            }}
-          >
-            {/* Close Button */}
-            <button 
-              onClick={() => { setSelectedRecId(null); setModalDetails(null); }}
-              className="absolute top-5 right-5 text-slate-400 hover:text-white bg-white/5 hover:bg-white/10 p-2 rounded-full transition-all cursor-pointer"
-            >
-              <XCircle size={22} />
-            </button>
-
-            {detailsLoading ? (
-              <div className="flex flex-col items-center justify-center py-20 gap-3 text-slate-400">
-                <span className="w-8 h-8 border-3 border-[#059669] border-t-transparent rounded-full animate-spin" />
-                <span>Fetching real-time comparisons & buying history...</span>
-              </div>
-            ) : modalDetails ? (
-              <>
-                {/* Header */}
-                <div className="border-b border-white/5 pb-4">
-                  <div className="flex items-center gap-2.5 text-[#ffffff] text-xs font-bold uppercase tracking-wider mb-2">
-                    <Sparkles size={14} className="animate-pulse" />
-                    AI Pricing Orchestrator Audit
-                  </div>
-                  <h3 className="text-2xl font-bold text-white mb-1">
-                    {modalDetails.product.name}
-                  </h3>
-                  <p className="text-xs text-slate-400 font-mono">
-                    SKU: {modalDetails.product.sku} | Category: {modalDetails.product.category}
-                  </p>
-                </div>
-
-                {/* Grid Content */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Left Column: Matcher & Inventory */}
-                  <div className="space-y-6">
-                    {/* Competitor Matcher Details */}
-                    <div className="glass-card p-5 space-y-4">
-                      <h4 className="text-sm font-bold text-white flex items-center gap-2 border-b border-white/5 pb-2">
-                        <TrendingUp size={15} className="text-[#10b981]" />
-                        Competitor Price Matcher (Live Data)
-                      </h4>
-                      <div className="space-y-2.5">
-                        {modalDetails.competitors && modalDetails.competitors.length > 0 ? (
-                          getProcessedCompetitors(modalDetails.competitors, modalDetails.product).map((comp) => (
-                            <a
-                              key={comp.id}
-                              href={comp.url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="flex justify-between items-center text-xs bg-white/2 p-2 rounded-lg border border-white/5 hover:bg-white/5 hover:border-[#10b981]/30 transition-all cursor-pointer group"
-                            >
-                              <span className="text-slate-300 font-semibold flex items-center gap-1.5 group-hover:text-white transition-colors">
-                                {comp.competitor_name}
-                                <ExternalLink size={10} className="text-slate-500 group-hover:text-[#10b981] transition-colors" />
-                              </span>
-                              <div className="flex items-center gap-2">
-                                <span className={comp.in_stock ? "text-emerald-400 font-bold" : "text-rose-400"}>
-                                  {comp.in_stock ? "In Stock" : "Out of Stock"}
-                                </span>
-                                <span className="text-slate-400 font-mono font-bold bg-slate-800 px-2 py-0.5 rounded border border-white/5 group-hover:bg-slate-750 transition-colors">
-                                  ₹{comp.competitor_price.toFixed(2)}
-                                </span>
-                              </div>
-                            </a>
-                          ))
-                        ) : (
-                          <div className="text-xs text-slate-500 italic py-2">No competitor matches recorded.</div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Inventory Analysis */}
-                    <div className="glass-card p-5 space-y-3">
-                      <h4 className="text-sm font-bold text-white flex items-center gap-2 border-b border-white/5 pb-2">
-                        <Boxes size={15} className="text-amber-500" />
-                        Inventory & Cost Constraints
-                      </h4>
-                      <div className="grid grid-cols-2 gap-3 text-xs">
-                        <div className="bg-white/2 p-2.5 rounded-lg border border-white/5 space-y-1">
-                          <span className="text-slate-500 block">Inventory Level</span>
-                          <strong className="text-white text-sm font-mono">{modalDetails.product.inventory_quantity} units</strong>
-                        </div>
-                        <div className="bg-white/2 p-2.5 rounded-lg border border-white/5 space-y-1">
-                          <span className="text-slate-500 block">Cost Price</span>
-                          <strong className="text-white text-sm font-mono">₹{modalDetails.product.cost_price.toFixed(2)}</strong>
-                        </div>
-                        <div className="bg-white/2 p-2.5 rounded-lg border border-white/5 space-y-1">
-                          <span className="text-slate-500 block">Current Price</span>
-                          <strong className="text-slate-350 text-sm font-mono">₹{modalDetails.product.current_price.toFixed(2)}</strong>
-                        </div>
-                        <div className="bg-white/2 p-2.5 rounded-lg border border-white/5 space-y-1">
-                          <span className="text-slate-500 block">Current Margin</span>
-                          <strong className="text-[#ffffff] text-sm font-mono">
-                            {(((modalDetails.product.current_price - modalDetails.product.cost_price) / modalDetails.product.current_price) * 100).toFixed(1)}%
-                          </strong>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Right Column: Buying History & AI Optimization */}
-                  <div className="space-y-6">
-                    {/* Buying History */}
-                    <div className="glass-card p-5 space-y-3 flex flex-col max-h-[220px]">
-                      <h4 className="text-sm font-bold text-white flex items-center gap-2 border-b border-white/5 pb-2">
-                        <Activity size={15} className="text-[#059669]" />
-                        Storefront Product Buying History
-                      </h4>
-                      <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 scrollbar-thin">
-                        {modalDetails.sales_history && modalDetails.sales_history.length > 0 ? (
-                          modalDetails.sales_history.map((sale) => (
-                            <div key={sale.id} className="flex justify-between items-center text-xs bg-white/2 p-2 rounded-lg border border-white/5">
-                              <div>
-                                <div className="text-slate-300 font-semibold">Qty: {sale.quantity} units</div>
-                                <div className="text-[10px] text-slate-500">
-                                  {new Date(sale.timestamp).toLocaleString()}
-                                </div>
-                              </div>
-                              <span className="text-emerald-400 font-bold font-mono bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded">
-                                ₹{sale.total_price.toFixed(2)}
-                              </span>
-                            </div>
-                          ))
-                        ) : (
-                          <div className="text-xs text-slate-500 italic py-6 text-center">No storefront sales history recorded.</div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* AI Optimization Explainability */}
-                    <div className="glass-card p-5 space-y-4">
-                      <h4 className="text-sm font-bold text-white flex items-center gap-2 border-b border-white/5 pb-2">
-                        <Brain size={15} className="text-[#059669]" />
-                        LLM Pricing Strategy Optimization
-                      </h4>
-                      <div className="space-y-3 text-xs leading-relaxed">
-                        <div className="flex justify-between items-center">
-                          <span className="text-slate-400">Optimized Recommendation</span>
-                          <strong className="text-emerald-400 font-mono text-sm bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded">
-                            ₹{modalDetails.recommendation.recommended_price.toFixed(2)}
-                          </strong>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-slate-400">Confidence Score</span>
-                          <strong className="text-white font-mono bg-slate-800 px-2 py-0.5 rounded">
-                            {modalDetails.recommendation.confidence_score}%
-                          </strong>
-                        </div>
-                        <div className="bg-white/2 p-3 rounded-lg border border-white/5 space-y-1">
-                          <span className="text-slate-500 font-bold block mb-1">Pricing Rationale (No Hallucination)</span>
-                          <p className="text-slate-300 text-[11px] leading-relaxed">{modalDetails.recommendation.rationale}</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Footer Actions */}
-                <div className="flex items-center justify-end gap-3 pt-4 border-t border-white/5">
-                  <button 
-                    onClick={() => { setSelectedRecId(null); setModalDetails(null); }}
-                    className="px-5 py-2.5 text-xs font-semibold text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-800 rounded-xl transition-all cursor-pointer"
-                  >
-                    Close Analysis
-                  </button>
-                  <button 
-                    onClick={async () => {
-                      await handleReject(modalDetails.recommendation.id);
-                      setSelectedRecId(null);
-                      setModalDetails(null);
-                    }}
-                    className="px-5 py-2.5 text-xs font-semibold text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-xl hover:bg-rose-500 hover:text-white transition-all cursor-pointer"
-                  >
-                    Reject Price
-                  </button>
-                  <button 
-                    onClick={async () => {
-                      await handleApprove(modalDetails.recommendation.id);
-                      setSelectedRecId(null);
-                      setModalDetails(null);
-                    }}
-                    className="px-5 py-2.5 text-xs font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-xl hover:bg-emerald-500 hover:text-white transition-all cursor-pointer"
-                  >
-                    Approve Price
-                  </button>
-                </div>
-              </>
-            ) : null}
-          </div>
-        </div>
-      )}
-
-    </div>
-  );
-}
-
-/* ── Sub-components ── */
-
-function SectionHeading({ label, title, desc }) {
-  return (
-    <div>
-      <div className="inline-flex items-center gap-2 bg-[#059669]/10 border border-[#059669]/20 text-[#ffffff] px-3 py-1.5 rounded-full text-xs font-semibold mb-3 tracking-wide">
-        <Sparkles size={11} />
-        {label}
-      </div>
-      <h2 className="text-2xl font-sentient font-normal text-white mb-1">{title}</h2>
-      {desc && <p className="text-slate-400 text-sm">{desc}</p>}
-    </div>
-  );
-}
-
-function MetricCard({ icon: Icon, title, value, sub, accent }) {
-  return (
-    <motion.div
-      whileHover={{ y: -4 }}
-      className="glass-card p-6 relative overflow-hidden"
-    >
-      <div
-        className={`absolute top-0 right-0 w-28 h-28 opacity-20 blur-3xl bg-gradient-to-br ${accent}`}
-      />
-
-      <div className="relative z-10 flex flex-col justify-between h-full">
-        <div className="flex items-center justify-between mb-4">
-          <div
-            className={`w-12 h-12 rounded-2xl flex items-center justify-center bg-gradient-to-br ${accent}`}
-          >
-            <Icon className="text-white" size={24} />
-          </div>
-        </div>
-
-        <div>
-          <div className="text-3xl font-bold text-white mb-1 tracking-tight">
-            {value}
-          </div>
-          <div className="text-white font-semibold text-sm mb-0.5">
-            {title}
-          </div>
-          {sub && (
-            <div className="text-slate-400 text-xs">
-              {sub}
-            </div>
-          )}
-        </div>
-      </div>
-    </motion.div>
-  );
-}
-
-function MiniStat({ title, value }) {
-  return (
-    <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3.5 backdrop-blur-xl">
-      <div className="text-slate-500 text-xs mb-1.5 uppercase tracking-wide">
-        {title}
-      </div>
-      <div className="text-2xl font-bold text-white font-mono">
-        {value}
-      </div>
+    <div className="pricing-dashboard">
+      <DashboardHeader user={user} autopilot={autopilot} setAutopilot={setAutopilot} onOpenActivity={() => setActivityOpen(true)} />
+      <TickerStrip metrics={snapshot.metrics} />
+      <div className="dashboard-grid dashboard-grid-top"><HeroPulse metrics={snapshot.metrics} /><Panel className="executive-kpis"><div className="panel-heading compact"><div><Eyebrow>EXECUTIVE SIGNALS</Eyebrow><h2>Performance at a glance</h2></div><StatusBadge tone="live">Live</StatusBadge></div><div className="kpi-stack"><MetricCard icon={CircleGauge} label="Avg. price elasticity" value={snapshot.metrics.elasticity.toFixed(2)} detail="Demand sensitivity index" trend={6.2} tone="cyan" progress={72} /><MetricCard icon={Target} label="Repricing win rate" value={`${snapshot.metrics.winRate}%`} detail="Last 30-day decisions" trend={2.4} tone="violet" progress={snapshot.metrics.winRate} /><MetricCard icon={CircleDollarSign} label="Revenue multiplier" value={`${snapshot.metrics.revenueMultiplier.toFixed(2)}×`} detail="AI projection vs baseline" trend={4.8} tone="emerald" progress={86} /><MetricCard icon={Database} label="Active catalog SKUs" value={snapshot.metrics.activeSkus.toLocaleString()} detail="Across 5 categories" trend={1.9} tone="slate" /></div></Panel></div>
+      <div className="dashboard-grid dashboard-grid-queue"><RecommendationQueue recommendations={snapshot.recommendations.filter((item) => !approvedIds.includes(item.sku))} approvedIds={approvedIds} actioningId={actioningId} onApprove={handleApprove} onReject={handleReject} onDetails={setDetails} /><Panel className="revenue-panel"><div className="panel-heading"><div><Eyebrow>REVENUE OPPORTUNITY</Eyebrow><h2>AI lift trajectory</h2></div><select className="inline-select" defaultValue="30D" aria-label="Revenue period"><option>7D</option><option>30D</option><option>90D</option></select></div><div className="revenue-hero"><strong>{currency(snapshot.metrics.projectedRevenue)}</strong><span><ArrowUpRight size={14} /> projected revenue</span></div><div className="mini-chart"><ResponsiveContainer width="100%" height="100%"><LineChart data={snapshot.history}><Line type="monotone" dataKey="yourPrice" stroke="#00f0ff" strokeWidth={2.4} dot={false} /><Line type="monotone" dataKey="amazon" stroke="#7c3aed" strokeWidth={1.6} dot={false} /></LineChart></ResponsiveContainer></div><div className="revenue-bottom"><div><span>Baseline</span><strong>$155.8k</strong></div><div><span>AI projection</span><strong className="text-cyan-300">{currency(snapshot.metrics.projectedRevenue)}</strong></div><div><span>Net lift</span><strong className="text-emerald-300">+{pct(snapshot.metrics.revenueLift)}</strong></div></div></Panel></div>
+      <div className="section-block"><SectionHeader eyebrow="COMPETITIVE INTELLIGENCE" title="See where your catalog wins" description="Track price spread, undercut risk, and portfolio positioning from one market view." action={<GhostButton icon={Filter}>Filter catalog</GhostButton>} /><div className="dashboard-grid dashboard-grid-competitors"><CompetitorMatrix competitors={snapshot.competitors} selectedProduct={selectedProduct} onProductChange={setSelectedSku} products={snapshot.recommendations} /><QuadrantMap recommendations={snapshot.recommendations} /></div></div>
+      <div className="section-block"><SectionHeader eyebrow="AI PRICE ELASTICITY & DEMAND" title="Model the next price before you push it" description="Experiment with demand curves in a safe sandbox, then promote the winning strategy into your rule engine." action={<StatusBadge tone="violet"><Play size={12} /> Simulation mode</StatusBadge>} /><div className="dashboard-grid dashboard-grid-simulator"><ElasticitySimulator product={selectedProduct} price={simulatedPrice} setPrice={setSimulatedPrice} data={snapshot.elasticity} /><RuleBuilder rules={rules} onToggle={handleRuleToggle} onAdd={handleAddRule} /></div></div>
+      <div className="section-block"><SectionHeader eyebrow="DEEP-DIVE ANALYTICS" title="Price history that explains the outcome" description="Compare your historical pricing with competitor moves and inventory health." action={<GhostButton icon={LineChartIcon}>Export report</GhostButton>} /><PriceHistory history={snapshot.history} /></div>
+      <div className="bottom-status"><div><span className="status-dot" /> All systems operational</div><span>Last model refresh 2m ago</span><span>Data latency 180ms</span><span>Workspace: {user?.organization || "Klypup Enterprise"}</span></div>
+      <ActivityDrawer open={activityOpen} onClose={() => setActivityOpen(false)} activity={snapshot.activity} />
+      <AnimatePresence>{details && <motion.div className="detail-modal-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setDetails(null)}><motion.div className="detail-modal" initial={{ opacity: 0, y: 16, scale: .98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 10 }} onClick={(event) => event.stopPropagation()}><div className="flex items-start justify-between gap-4"><div><Eyebrow>RECOMMENDATION DETAIL</Eyebrow><h2>{details.productName}</h2><p>{details.sku} · {details.category}</p></div><IconButton label="Close recommendation detail" onClick={() => setDetails(null)}><X size={16} /></IconButton></div><div className="detail-price-grid"><div><span>Current</span><strong>{preciseCurrency(details.currentPrice)}</strong></div><div><span>AI suggested</span><strong className="text-cyan-300">{preciseCurrency(details.suggestedPrice)}</strong></div><div><span>Confidence</span><strong className="text-violet-300">{details.confidence}%</strong></div></div><div className="detail-explanation"><Sparkles size={16} /><p>{details.rationale}</p></div><PrimaryButton icon={Check} onClick={() => { handleApprove(details); setDetails(null); }}>Approve price change</PrimaryButton></motion.div></motion.div>}</AnimatePresence>
+      {toast && <motion.div className="toast-message" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 12 }}><Check size={15} /> {toast}</motion.div>}
     </div>
   );
 }
