@@ -27,7 +27,7 @@ interface BackendActivity { message: string; timestamp: string; type: string; }
 
 const moneyValue = (value: number) => value >= 1_000_000 ? `$${(value / 1_000_000).toFixed(2)}m` : `$${(value / 1_000).toFixed(1)}k`;
 const initials = (name: string) => name.split(/\s+/).map((word) => word[0]).join("").slice(0, 2).toUpperCase();
-const gradientFor = (category: string) => ({ electronics: "linear-gradient(135deg,#be123c,#fb7185)", apparel: "linear-gradient(135deg,#7c3aed,#c084fc)", beauty: "linear-gradient(135deg,#db2777,#f9a8d4)", sports: "linear-gradient(135deg,#0f766e,#2dd4bf)", home_goods: "linear-gradient(135deg,#059669,#34d399)" }[category.toLowerCase()] || "linear-gradient(135deg,#4338ca,#818cf8)");
+const gradientFor = (_category: string) => "#18181b";
 
 const toProduct = (item: BackendProduct, recommendations: BackendRecommendation[]): Product => {
   const match = recommendations.find((recommendation) => recommendation.product?.id === item.id || recommendation.productName === item.name);
