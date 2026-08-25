@@ -32,8 +32,35 @@ approval_bp = Blueprint(
 )
 
 
+def _finalize_action_email(action_record, current_user, product, recommendation, action_type, previous_price, executed_price):
+    """Send the action email and persist a complete, queryable audit record."""
+    competitor_records = CompetitorPrice.query.filter_by(product_id=product.id, organization_id=current_user.organization_id).all()
+    competitor_prices = [record.to_dict() for record in competitor_records]
+    rationale = recommendation.rationale or recommendation.ai_summary or "No rationale provided."
+    action_record.sku = product.sku
+    action_record.llm_statement = rationale
+    action_record.user_email = current_user.email
+    action_record.email_sent_status = "pending"
+    db.session.commit()
+    result = send_recommendation_action_email(
+        user_email=current_user.email,
+        action_type=action_type,
+        product_details={"name": product.name, "sku": product.sku, "category": product.category, "base_price": previous_price},
+        recommendation_details={"id": recommendation.id, "previous_price": previous_price, "executed_price": executed_price, "rationale": rationale, "confidence_score": recommendation.confidence_score},
+        competitor_prices=competitor_prices,
+        action_id=action_record.id,
+        user_role=current_user.role,
+    )
+    action_record.email_sent_status = result.get("status", "failed")
+    action_record.email_provider_message_id = result.get("provider_message_id")
+    action_record.email_error = result.get("error")
+    db.session.commit()
+    return result
+
+
 # =====================================
 # APPROVE RECOMMENDATION
+
 # =====================================
 
 @approval_bp.route(
@@ -140,34 +167,16 @@ def approve_recommendation(recommendation_id):
     db.session.add(approval_action)
     db.session.commit()
 
+    product_details = {"name": product.name, "sku": product.sku, "category": product.category}
+    rec_details = {"id": recommendation.id, "previous_price": previous_price, "executed_price": recommendation.recommended_price, "rationale": recommendation.rationale, "confidence_score": recommendation.confidence_score}
     try:
-        competitor_records = CompetitorPrice.query.filter_by(
-            product_id=product.id,
-            organization_id=current_user.organization_id
-        ).all()
-        comp_prices = [c.to_dict() for c in competitor_records]
-        
-        product_details = {
-            "name": product.name,
-            "sku": product.sku
-        }
-        rec_details = {
-            "id": recommendation.id,
-            "previous_price": previous_price,
-            "executed_price": recommendation.recommended_price,
-            "rationale": recommendation.rationale,
-            "confidence_score": recommendation.confidence_score
-        }
-        send_recommendation_action_email(
-            user_email=current_user.email,
-            action_type="approve",
-            product_details=product_details,
-            recommendation_details=rec_details,
-            competitor_prices=comp_prices,
-            action_id=approval_action.id
-        )
+        _finalize_action_email(approval_action, current_user, product, recommendation, "approve", previous_price, recommendation.recommended_price)
     except Exception as e:
+        approval_action.email_sent_status = "failed"
+        approval_action.email_error = str(e)
+        db.session.commit()
         print(f"[Approval Route] Failed to send approval email: {e}")
+    comp_prices = [c.to_dict() for c in CompetitorPrice.query.filter_by(product_id=product.id, organization_id=current_user.organization_id).all()]
 
     # Send WhatsApp notification if user has phone number
     if current_user.phone_number:
@@ -273,33 +282,16 @@ def reject_recommendation(recommendation_id):
     db.session.add(rejection_action)
     db.session.commit()
 
+    product_details = {"name": product.name, "sku": product.sku, "category": product.category}
+    rec_details = {"id": recommendation.id, "previous_price": product.current_price, "executed_price": recommendation.recommended_price, "rationale": recommendation.rationale, "confidence_score": recommendation.confidence_score}
     try:
-        competitor_records = CompetitorPrice.query.filter_by(
-            product_id=product.id,
-            organization_id=current_user.organization_id
-        ).all()
-        comp_prices = [c.to_dict() for c in competitor_records]
-        
-        product_details = {
-            "name": product.name,
-            "sku": product.sku
-        }
-        rec_details = {
-            "id": recommendation.id,
-            "previous_price": product.current_price,
-            "executed_price": recommendation.recommended_price,
-            "rationale": recommendation.rationale,
-            "confidence_score": recommendation.confidence_score
-        }
-        send_recommendation_action_email(
-            user_email=current_user.email,
-            action_type="reject",
-            product_details=product_details,
-            recommendation_details=rec_details,
-            competitor_prices=comp_prices
-        )
+        _finalize_action_email(rejection_action, current_user, product, recommendation, "reject", product.current_price, recommendation.recommended_price)
     except Exception as e:
+        rejection_action.email_sent_status = "failed"
+        rejection_action.email_error = str(e)
+        db.session.commit()
         print(f"[Approval Route] Failed to send rejection email: {e}")
+    comp_prices = [c.to_dict() for c in CompetitorPrice.query.filter_by(product_id=product.id, organization_id=current_user.organization_id).all()]
 
     # Send WhatsApp notification if user has phone number
     if current_user.phone_number:
@@ -455,7 +447,7 @@ def rollback_approval(action_id):
             organization_id=current_user.organization_id
         ).all()
         comp_prices = [c.to_dict() for c in competitor_records]
-        
+
         product_details = {
             "name": product.name,
             "sku": product.sku
@@ -467,14 +459,11 @@ def rollback_approval(action_id):
             "rationale": f"Reverted price back to pre-approval value of \u20b9{restored_price:.2f} via audit history rollback control.",
             "confidence_score": 1.0
         }
-        send_recommendation_action_email(
-            user_email=current_user.email,
-            action_type="rollback",
-            product_details=product_details,
-            recommendation_details=rec_details,
-            competitor_prices=comp_prices
-        )
+        _finalize_action_email(rollback_action, current_user, product, recommendation, "rollback", original_price, restored_price)
     except Exception as e:
+        rollback_action.email_sent_status = "failed"
+        rollback_action.email_error = str(e)
+        db.session.commit()
         print(f"[Approval Route] Failed to send rollback email: {e}")
 
     # Send WhatsApp notification if user has phone number
@@ -520,7 +509,7 @@ def email_rollback(token):
         recommendation_id=recommendation.id,
         action_type="rollback"
     ).first()
-    
+
     if already_rolled_back:
         return "<h1>This price change has already been rolled back.</h1>", 400
 
@@ -558,8 +547,35 @@ def email_rollback(token):
     except Exception as e:
         print(f"[Approval Route] Email Rollback Browser Agent Failed: {e}")
 
-    # Optionally send a confirmation email here (omitted for brevity as they just clicked the email)
+        # Send and persist the rollback confirmation for one-click email rollbacks as well.
+    try:
+        recipient = target_action.user_email or (target_action.approver.email if target_action.approver else None)
+        if recipient:
+            competitor_records = CompetitorPrice.query.filter_by(product_id=product.id, organization_id=recommendation.organization_id).all()
+            result = send_recommendation_action_email(
+                user_email=recipient,
+                action_type="rollback",
+                product_details={"name": product.name, "sku": product.sku, "category": product.category, "base_price": original_price},
+                recommendation_details={"id": recommendation.id, "previous_price": original_price, "executed_price": restored_price, "rationale": "Reverted via one-click email rollback.", "confidence_score": 1.0},
+                competitor_prices=[record.to_dict() for record in competitor_records],
+                action_id=rollback_action.id,
+                user_role=target_action.approver.role if target_action.approver else "unknown",
+            )
+            rollback_action.sku = product.sku
+            rollback_action.llm_statement = "Reverted via one-click email rollback."
+            rollback_action.user_email = recipient
+            rollback_action.email_sent_status = result.get("status", "failed")
+            rollback_action.email_provider_message_id = result.get("provider_message_id")
+            rollback_action.email_error = result.get("error")
+            db.session.commit()
+    except Exception as e:
+        rollback_action.email_sent_status = "failed"
+        rollback_action.email_error = str(e)
+        db.session.commit()
+        print(f"[Approval Route] Failed to send one-click rollback email: {e}")
+
     return f"""
+
     <html>
         <body style="background-color: #0b0f19; color: #f8fafc; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh;">
             <div style="background-color: #0f172a; padding: 40px; border-radius: 16px; border: 1px solid #1e293b; text-align: center;">
@@ -571,4 +587,4 @@ def email_rollback(token):
             </div>
         </body>
     </html>
-    """, 200
+    """, 200

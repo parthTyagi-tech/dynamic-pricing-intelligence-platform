@@ -6,7 +6,7 @@ import uuid
 from app.extensions import db
 from app.models.user import User
 from app.models.organization import Organization
-from app.services.email_service import send_registration_email
+from app.services.email_service import send_login_email
 from app.services.whatsapp_service import send_whatsapp_welcome
 
 from flask_jwt_extended import (
@@ -92,12 +92,12 @@ def register():
 
     db.session.commit()
 
-    # Send welcoming onboarding email in background
+    # Send registration security email in background through Brevo.
     try:
         import threading
         threading.Thread(
-            target=send_registration_email,
-            args=(user.email, user.name),
+            target=send_login_email,
+            args=(user.email, user.name, request.remote_addr or "unknown", request.headers.get("User-Agent", "unknown"), "registration", "REGISTRATION"),
             daemon=True
         ).start()
     except Exception as e:
@@ -210,13 +210,10 @@ def login():
     )
 
     try:
-        from app.services.email_service import send_registration_email
         import threading
-        # Repurpose the registration email as a welcome/login email for now, 
-        # since the user explicitly requested an email upon login.
         threading.Thread(
-            target=send_registration_email,
-            args=(user.email, user.name),
+            target=send_login_email,
+            args=(user.email, user.name, request.remote_addr or "unknown", request.headers.get("User-Agent", "unknown"), access_token[-12:], "LOGIN"),
             daemon=True
         ).start()
     except Exception as e:

@@ -388,6 +388,76 @@ def _get_multi_platform_fallback(baseline_inr: float, category: str) -> dict:
     }
 
 
+def normalize_price(value, currency: str = "INR") -> float:
+    """Normalize marketplace price strings into a clean INR float."""
+    if value is None:
+        return 0.0
+    raw = str(value).strip().replace("₹", "").replace(",", "").replace(" ", " ")
+    numbers = re.findall(r"\d+(?:\.\d+)?", raw)
+    if not numbers:
+        return 0.0
+    price = float(numbers[0])
+    code = (currency or "INR").upper()
+    if code in {"USD", "$"} or "$" in str(value):
+        price *= INR_TO_USD
+    elif code in {"EUR", "€"} or "€" in str(value):
+        price *= 90.0
+    elif code in {"GBP", "£"} or "£" in str(value):
+        price *= 105.0
+    return round(price, 2)
+
+
+def extract_price_from_html(html: str) -> dict | None:
+    """Extract a product price using structured data, metadata, then resilient text fallback."""
+    import json
+    from bs4 import BeautifulSoup
+
+    soup = BeautifulSoup(html or "", "html.parser")
+    # Strategy A: JSON-LD / Schema.org offers.
+    for script in soup.find_all("script", type="application/ld+json"):
+        try:
+            payload = json.loads(script.string or script.get_text() or "")
+            candidates = payload if isinstance(payload, list) else [payload]
+            expanded = []
+            for candidate in candidates:
+                expanded.append(candidate)
+                expanded.extend(candidate.get("@graph", []) if isinstance(candidate, dict) else [])
+            for candidate in expanded:
+                if not isinstance(candidate, dict):
+                    continue
+                offers = candidate.get("offers")
+                offers = offers[0] if isinstance(offers, list) and offers else offers
+                if isinstance(offers, dict) and offers.get("price") is not None:
+                    price = normalize_price(offers.get("price"), offers.get("priceCurrency", "INR"))
+                    if price > 0:
+                        availability = str(offers.get("availability", "")).lower()
+                        return {"price": price, "currency": "INR", "in_stock": "outofstock" not in availability and "discontinued" not in availability, "extraction_strategy": "jsonld"}
+        except (ValueError, TypeError, json.JSONDecodeError):
+            continue
+
+    # Strategy A/B: OpenGraph, product meta, and common price attributes.
+    price_meta = soup.find("meta", attrs={"property": re.compile(r"(?:og:price:amount|product:price:amount|twitter:price:amount)", re.I)}) or soup.find("meta", attrs={"name": re.compile(r"(?:price|amount)", re.I)})
+    if price_meta and price_meta.get("content"):
+        currency_meta = soup.find("meta", attrs={"property": re.compile(r"(?:og:price:currency|product:price:currency|twitter:price:currency)", re.I)}) or soup.find("meta", attrs={"name": re.compile(r"currency", re.I)})
+        currency = currency_meta.get("content", "INR") if currency_meta else "INR"
+        price = normalize_price(price_meta.get("content"), currency)
+        if price > 0:
+            availability = " ".join(tag.get("content", "") for tag in soup.find_all("meta") if "availability" in str(tag.get("property", "")).lower() or "availability" in str(tag.get("name", "")).lower()).lower()
+            return {"price": price, "currency": "INR", "in_stock": "outofstock" not in availability, "extraction_strategy": "metadata"}
+
+    # Strategy B/C: resilient DOM text and search-result snippet fallback.
+    text = soup.get_text(" ", strip=True)
+    patterns = [r"(?:₹|INR\s*)\s*([\d,]+(?:\.\d{1,2})?)", r"(?:\$|USD\s*)\s*([\d,]+(?:\.\d{1,2})?)", r"(?:price|mrp|now)\s*[:\-]?\s*([\d,]+(?:\.\d{1,2})?)"]
+    for pattern in patterns:
+        match = re.search(pattern, text, re.I)
+        if match:
+            currency = "USD" if "$" in match.group(0) or "USD" in match.group(0).upper() else "INR"
+            price = normalize_price(match.group(1), currency)
+            if price > 0:
+                return {"price": price, "currency": "INR", "in_stock": "out of stock" not in text.lower(), "extraction_strategy": "dom_text"}
+    return None
+
+
 def verify_direct_page_price(url: str, platform_name: str) -> dict:
     """
     Attempts to fetch a direct e-commerce product URL and extract the 100% verified
@@ -419,8 +489,14 @@ def verify_direct_page_price(url: str, platform_name: str) -> dict:
             return None
             
         soup = BeautifulSoup(r.text, 'html.parser')
+
+        # Run the shared deterministic extraction engine first; retain the legacy parser below as a compatibility fallback.
+        extracted = extract_price_from_html(r.text)
+        if extracted:
+            print(f"[Direct Page Verifier] {extracted['extraction_strategy']}: {extracted['price']} INR")
+            return extracted
         
-        # 1. Try to find standard JSON-LD Schema.org product data
+        # Legacy compatibility fallback for platform-specific markup.
         for script in soup.find_all('script', type='application/ld+json'):
             try:
                 data = json.loads(script.string or '')

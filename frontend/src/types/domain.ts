@@ -95,6 +95,21 @@ export interface ScraperAgent {
   coverage: number;
 }
 
+export interface ApprovalAuditEvent {
+  id: string;
+  recommendationId: string;
+  actionType: "approve" | "reject" | "rollback" | "auto_execute";
+  sku: string;
+  productName: string;
+  previousPrice: number;
+  executedPrice: number;
+  llmStatement: string;
+  userEmail: string;
+  emailSentStatus: "pending" | "sent" | "mocked" | "failed";
+  timestamp: string;
+  rolledBack?: boolean;
+}
+
 export interface PriceDropAlert {
   id: string;
   productId: string;
