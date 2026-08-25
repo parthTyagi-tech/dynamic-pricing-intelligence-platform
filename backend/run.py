@@ -21,6 +21,7 @@ from app.routes.auth_routes import auth_bp
 from app.routes.product_routes import product_bp
 
 from app.routes.recommendation_routes import recommendation_bp
+from app.routes.alert_routes import alert_bp
 
 from app.routes.approval_routes import approval_bp
 
@@ -78,6 +79,11 @@ app.register_blueprint(
 app.register_blueprint(
     recommendation_bp,
     url_prefix="/api/recommendations"
+)
+
+app.register_blueprint(
+    alert_bp,
+    url_prefix="/api/alerts"
 )
 
 app.register_blueprint(

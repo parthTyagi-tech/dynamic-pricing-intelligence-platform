@@ -95,6 +95,22 @@ export interface ScraperAgent {
   coverage: number;
 }
 
+export interface PriceDropAlert {
+  id: string;
+  productId: string;
+  productName: string;
+  sku: string;
+  competitorName: string;
+  previousPrice: number;
+  currentPrice: number;
+  dropPercent: number;
+  dropAmount: number;
+  thresholdPercent: number;
+  status: "open" | "acknowledged";
+  detectedAt: string;
+  acknowledgedAt?: string | null;
+}
+
 export interface Integration {
   id: "shopify" | "woocommerce" | "amazon";
   name: string;

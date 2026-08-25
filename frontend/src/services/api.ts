@@ -1,6 +1,6 @@
 import axios, { AxiosError, type AxiosInstance, type AxiosRequestConfig } from "axios";
 import { mockDashboard } from "../lib/mockData";
-import type { ActivityItem, DashboardSnapshot, Product, User } from "../types/domain";
+import type { ActivityItem, DashboardSnapshot, PriceDropAlert, Product, User } from "../types/domain";
 
 const configuredBaseUrl = import.meta.env.VITE_API_URL as string | undefined;
 const baseURL = configuredBaseUrl || (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" ? "http://localhost:5000/api" : "/api");
@@ -56,6 +56,14 @@ export async function getDashboardSnapshot(config?: AxiosRequestConfig): Promise
     return { kpis, chart, products: products.map((item) => toProduct(item, recommendations)), activity: (activityResponse.data.feed || []).map(toActivity), systemHealth: metrics.marketVolatility > 30 ? "attention" : "healthy", updatedAt: "Just now" };
   } catch { return mockDashboard; }
 }
+
+interface BackendPriceDropAlert { id: string; product_id: string; product_name: string; sku: string; competitor_name: string; previous_price: number; current_price: number; drop_percent: number; drop_amount: number; threshold_percent: number; status: "open" | "acknowledged"; detected_at: string; acknowledged_at?: string | null; }
+
+const toPriceDropAlert = (alert: BackendPriceDropAlert): PriceDropAlert => ({ id: alert.id, productId: alert.product_id, productName: alert.product_name, sku: alert.sku, competitorName: alert.competitor_name, previousPrice: Number(alert.previous_price), currentPrice: Number(alert.current_price), dropPercent: Number(alert.drop_percent), dropAmount: Number(alert.drop_amount), thresholdPercent: Number(alert.threshold_percent), status: alert.status, detectedAt: alert.detected_at, acknowledgedAt: alert.acknowledged_at });
+
+export async function getPriceDropAlerts(status: "open" | "acknowledged" | "all" = "open"): Promise<PriceDropAlert[]> { const response = await apiClient.get<{ alerts?: BackendPriceDropAlert[] }>(`/alerts?status=${status}`); return (response.data.alerts || []).map(toPriceDropAlert); }
+export async function scanPriceDropAlerts(payload: { productId: string; previousPrices: Record<string, number>; observations: Record<string, number>; thresholdPct?: number; minDropInr?: number }): Promise<PriceDropAlert[]> { const response = await apiClient.post<{ alerts?: BackendPriceDropAlert[] }>("/alerts/scan", { product_id: payload.productId, previous_prices: payload.previousPrices, observations: payload.observations, threshold_pct: payload.thresholdPct, min_drop_inr: payload.minDropInr }); return (response.data.alerts || []).map(toPriceDropAlert); }
+export async function acknowledgePriceDropAlert(id: string): Promise<PriceDropAlert> { const response = await apiClient.patch<{ alert: BackendPriceDropAlert }>(`/alerts/${id}/acknowledge`); return toPriceDropAlert(response.data.alert); }
 
 export async function getProfile(): Promise<User> { const response = await apiClient.get<Wrapped<{ user?: User } | User>>("/auth/profile"); const data = unwrap(response.data); return (typeof data === "object" && data !== null && "user" in data ? data.user : data) as User; }
 export async function loginRequest(email: string, password: string): Promise<{ token: string; user: User }> { const response = await apiClient.post<{ token?: string; access_token?: string; user?: User }>("/auth/login", { email, password }); const data = unwrap(response.data); return { token: data.token || data.access_token || "", user: data.user || { id: "remote", name: email.split("@")[0], email, organization: "Klypup workspace", role: "analyst" } }; }

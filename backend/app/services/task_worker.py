@@ -100,6 +100,13 @@ def _process_pricing_job(recommendation_id: str, product_id: str):
             )
         )
         
+        # Capture the last snapshot before replacement so sudden drops can trigger alerts.
+        previous_prices = {
+            row.competitor_name: float(row.competitor_price)
+            for row in CompetitorPrice.query.filter_by(product_id=product.id).all()
+            if row.competitor_price
+        }
+
         # Clear existing competitor prices to avoid duplicates/outdated data
         CompetitorPrice.query.filter_by(product_id=product.id).delete()
         
@@ -117,6 +124,17 @@ def _process_pricing_job(recommendation_id: str, product_id: str):
             )
             db.session.add(cp)
         db.session.commit()
+
+        # Trigger persistent in-app alerts for meaningful marketplace drops.
+        from app.services.price_alert_service import detect_and_create_alerts
+        current_prices = {
+            comp_name: float(comp_data.get("price", 0) if isinstance(comp_data, dict) else comp_data)
+            for comp_name, comp_data in scraped_prices.items()
+        }
+        drop_alerts = detect_and_create_alerts(product, previous_prices, current_prices)
+        if drop_alerts:
+            db.session.commit()
+            logger.info("[task_worker] Created %s competitor drop alert(s) for %s", len(drop_alerts), product.sku)
 
         # Run AI Pricing strategy orchestrator
         ai_result = PricingStrategyAgent.generate(product)
