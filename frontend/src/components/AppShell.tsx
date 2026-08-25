@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { BarChart3, Bell, Bot, Boxes, ChevronDown, CircleHelp, Cog, Command, Gauge, Layers3, LogOut, Menu, Moon, PanelLeftClose, PanelLeftOpen, Search, Settings2, SlidersHorizontal, Sparkles, Sun, Target, X, Zap } from "lucide-react";
+import { BarChart3, Bell, Bot, Boxes, ChevronDown, CircleHelp, Cog, Command, Gauge, Layers3, LogOut, Menu, Moon, PanelLeftClose, PanelLeftOpen, Radio, Search, Settings2, SlidersHorizontal, Sparkles, Sun, Target, X, Zap } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
@@ -8,7 +8,7 @@ import { Badge, Button } from "./ui";
 
 const navGroups = [
   { label: "Workspace", items: [{ label: "Command center", to: "/dashboard", icon: Gauge }, { label: "Catalog intelligence", to: "/catalog", icon: Boxes }, { label: "Approvals", to: "/approvals", icon: Target }] },
-  { label: "Optimize", items: [{ label: "Rule engine", to: "/pricing", icon: SlidersHorizontal }, { label: "Competitor pulse", to: "/competitors", icon: BarChart3 }, { label: "AI agents", to: "/agents", icon: Bot }] },
+  { label: "Optimize", items: [{ label: "Rule engine", to: "/pricing", icon: SlidersHorizontal }, { label: "Competitor pulse", to: "/competitors", icon: BarChart3 }, { label: "Scraper hub", to: "/scrapers", icon: Radio }, { label: "AI agents", to: "/agents", icon: Bot }] },
   { label: "Manage", items: [{ label: "Integrations", to: "/settings", icon: Layers3 }, { label: "Settings", to: "/settings", icon: Settings2 }] },
 ];
 

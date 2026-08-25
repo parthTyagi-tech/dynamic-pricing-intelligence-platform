@@ -1,4 +1,5 @@
 import re
+import os
 import random
 import requests
 from urllib.parse import quote_plus
@@ -10,48 +11,14 @@ from app.services.ai.client import async_structured_json_completion
 # ─────────────────────────────────────────────────────────
 
 PLATFORMS = [
-    {
-        "name": "Amazon",
-        "icon": "Az",
-        "color": "#FF9900",
-        "search_url": "https://www.amazon.in/s?k={query}",
-        "currency": "INR",
-    },
-    {
-        "name": "Flipkart",
-        "icon": "FK",
-        "color": "#2874F0",
-        "search_url": "https://www.flipkart.com/search?q={query}",
-        "currency": "INR",
-    },
-    {
-        "name": "Walmart",
-        "icon": "Wm",
-        "color": "#0071CE",
-        "search_url": "https://www.walmart.com/search?q={query}",
-        "currency": "INR",
-    },
-    {
-        "name": "Ebay",
-        "icon": "Eb",
-        "color": "#0064D2",
-        "search_url": "https://www.ebay.com/sch/i.html?_nkw={query}",
-        "currency": "USD",
-    },
-    {
-        "name": "BestBuy",
-        "icon": "BB",
-        "color": "#0046BE",
-        "search_url": "https://www.bestbuy.com/site/searchpage.jsp?st={query}",
-        "currency": "USD",
-    },
-    {
-        "name": "Target",
-        "icon": "Tg",
-        "color": "#CC0000",
-        "search_url": "https://www.target.com/s?searchTerm={query}",
-        "currency": "USD",
-    },
+    {"name": "Amazon", "icon": "Az", "color": "#FF9900", "search_url": "https://www.amazon.in/s?k={query}", "currency": "INR"},
+    {"name": "Flipkart", "icon": "FK", "color": "#2874F0", "search_url": "https://www.flipkart.com/search?q={query}", "currency": "INR"},
+    {"name": "Ajio", "icon": "AJ", "color": "#F472B6", "search_url": "https://www.ajio.com/search/?text={query}", "currency": "INR"},
+    {"name": "Croma", "icon": "CR", "color": "#34D399", "search_url": "https://www.croma.com/searchB?q={query}", "currency": "INR"},
+    {"name": "Myntra", "icon": "MY", "color": "#FB7185", "search_url": "https://www.myntra.com/{query}", "currency": "INR"},
+    {"name": "Nykaa", "icon": "NK", "color": "#F9A8D4", "search_url": "https://www.nykaa.com/search/result/?q={query}", "currency": "INR"},
+    {"name": "Reliance Digital", "icon": "RD", "color": "#A78BFA", "search_url": "https://www.reliancedigital.in/search?q={query}", "currency": "INR"},
+    {"name": "Tata CLiQ", "icon": "TC", "color": "#C084FC", "search_url": "https://www.tatacliq.com/search/?searchCategory=all&searchText={query}", "currency": "INR"},
 ]
 
 INR_TO_USD = 83.3
@@ -64,18 +31,18 @@ IMPORTANT RULES:
 - You MUST multiply US Dollar amounts by 83.3 to get the INR price for US platforms like Walmart, Shopify, and Brand Website. DO NOT output $194 as 194 INR; it must be ~16000 INR.
 - All returned prices MUST be within ±5-15% of the seller's INR price.
 - If a product category doesn't match a platform (e.g., electronics on Myntra which is fashion-only), set "available" to false and price to 0.
-- Be realistic: Discount platforms like Meesho should be cheaper. Use the barcode (EAN/UPC) if provided to assume highly accurate matched pricing.
+- Be realistic: marketplace pricing varies by category and channel. Use the barcode (EAN/UPC) if provided to assume highly accurate matched pricing.
 
 Return ONLY valid JSON with this exact structure:
 {
   "Amazon": {"price": <float>, "currency": "INR", "in_stock": <bool>, "available": <bool>},
   "Flipkart": {"price": <float>, "currency": "INR", "in_stock": <bool>, "available": <bool>},
-  "Walmart": {"price": <float>, "currency": "INR", "in_stock": <bool>, "available": <bool>},
-  "Myntra": {"price": <float>, "currency": "INR", "in_stock": <bool>, "available": <bool>},
   "Ajio": {"price": <float>, "currency": "INR", "in_stock": <bool>, "available": <bool>},
-  "Meesho": {"price": <float>, "currency": "INR", "in_stock": <bool>, "available": <bool>},
-  "Shopify Stores": {"price": <float>, "currency": "INR", "in_stock": <bool>, "available": <bool>},
-  "Brand Website": {"price": <float>, "currency": "INR", "in_stock": <bool>, "available": <bool>}
+  "Croma": {"price": <float>, "currency": "INR", "in_stock": <bool>, "available": <bool>},
+  "Myntra": {"price": <float>, "currency": "INR", "in_stock": <bool>, "available": <bool>},
+  "Nykaa": {"price": <float>, "currency": "INR", "in_stock": <bool>, "available": <bool>},
+  "Reliance Digital": {"price": <float>, "currency": "INR", "in_stock": <bool>, "available": <bool>},
+  "Tata CLiQ": {"price": <float>, "currency": "INR", "in_stock": <bool>, "available": <bool>}
 }
 """
 
@@ -279,10 +246,10 @@ Markdown Content:
                             elif platform_name == "Amazon": url = "https://www.amazon.in" + url
                             elif platform_name == "Ajio": url = "https://www.ajio.com" + url
                             elif platform_name == "Meesho": url = "https://www.meesho.com" + url
-                            elif platform_name == "Walmart": url = "https://www.walmart.com" + url
-                            elif platform_name == "Ebay": url = "https://www.ebay.com" + url
-                            elif platform_name == "BestBuy": url = "https://www.bestbuy.com" + url
-                            elif platform_name == "Target": url = "https://www.target.com" + url
+                            elif platform_name == "Croma": url = "https://www.croma.com" + url
+                            elif platform_name == "Nykaa": url = "https://www.nykaa.com" + url
+                            elif platform_name == "Reliance Digital": url = "https://www.reliancedigital.in" + url
+                            elif platform_name == "Tata CLiQ": url = "https://www.tatacliq.com" + url
                         
                         # If LLM didn't extract a valid product URL, reject the match to avoid returning the search page
                         if not url or url == search_url or len(url) < 10:
@@ -412,12 +379,12 @@ def _get_multi_platform_fallback(baseline_inr: float, category: str) -> dict:
     return {
         "Amazon": {"price": round(baseline_inr * random.uniform(0.92, 1.05), 2), "currency": "INR", "in_stock": True, "available": True},
         "Flipkart": {"price": round(baseline_inr * random.uniform(0.90, 1.03), 2), "currency": "INR", "in_stock": True, "available": True},
-        "Walmart": {"price": round(baseline_inr * random.uniform(0.91, 1.04), 2), "currency": "INR", "in_stock": True, "available": True},
-        "Myntra": {"price": round(baseline_inr * random.uniform(0.88, 1.02), 2) if is_fashion else 0, "currency": "INR", "in_stock": is_fashion, "available": is_fashion},
         "Ajio": {"price": round(baseline_inr * random.uniform(0.85, 0.98), 2) if is_fashion else 0, "currency": "INR", "in_stock": is_fashion, "available": is_fashion},
-        "Meesho": {"price": round(baseline_inr * random.uniform(0.70, 0.90), 2) if is_fashion else 0, "currency": "INR", "in_stock": is_fashion, "available": is_fashion},
-        "Shopify Stores": {"price": round(baseline_inr * random.uniform(0.95, 1.10), 2), "currency": "INR", "in_stock": True, "available": True},
-        "Brand Website": {"price": round(baseline_inr * random.uniform(1.00, 1.15), 2), "currency": "INR", "in_stock": True, "available": True},
+        "Croma": {"price": round(baseline_inr * random.uniform(0.94, 1.06), 2) if not is_fashion else 0, "currency": "INR", "in_stock": not is_fashion, "available": not is_fashion},
+        "Myntra": {"price": round(baseline_inr * random.uniform(0.88, 1.02), 2) if is_fashion else 0, "currency": "INR", "in_stock": is_fashion, "available": is_fashion},
+        "Nykaa": {"price": round(baseline_inr * random.uniform(0.90, 1.04), 2) if category in ("beauty", "personal care") else 0, "currency": "INR", "in_stock": category in ("beauty", "personal care"), "available": category in ("beauty", "personal care")},
+        "Reliance Digital": {"price": round(baseline_inr * random.uniform(0.93, 1.07), 2) if not is_fashion else 0, "currency": "INR", "in_stock": not is_fashion, "available": not is_fashion},
+        "Tata CLiQ": {"price": round(baseline_inr * random.uniform(0.92, 1.08), 2), "currency": "INR", "in_stock": True, "available": True},
     }
 
 
@@ -561,10 +528,12 @@ async def stream_multi_platform_prices(
     pconfigs = {
         "Amazon": {"icon": "Az", "color": "#FF9900", "domains": ["amazon.in", "amazon.com"]},
         "Flipkart": {"icon": "FK", "color": "#2874F0", "domains": ["flipkart.com"]},
-        "Walmart": {"icon": "Wm", "color": "#0071CE", "domains": ["walmart.com"]},
-        "Ebay": {"icon": "Eb", "color": "#0064D2", "domains": ["ebay.com"]},
-        "BestBuy": {"icon": "BB", "color": "#0046BE", "domains": ["bestbuy.com"]},
-        "Target": {"icon": "Tg", "color": "#CC0000", "domains": ["target.com"]}
+        "Ajio": {"icon": "AJ", "color": "#F472B6", "domains": ["ajio.com"]},
+        "Croma": {"icon": "CR", "color": "#34D399", "domains": ["croma.com"]},
+        "Myntra": {"icon": "MY", "color": "#FB7185", "domains": ["myntra.com"]},
+        "Nykaa": {"icon": "NK", "color": "#F9A8D4", "domains": ["nykaa.com"]},
+        "Reliance Digital": {"icon": "RD", "color": "#A78BFA", "domains": ["reliancedigital.in"]},
+        "Tata CLiQ": {"icon": "TC", "color": "#C084FC", "domains": ["tatacliq.com"]}
     }
     
     extracted = {}
@@ -722,7 +691,7 @@ Search Listings:
                                 }
                                 print(f"[Pass 1] Verified extracted URL for {pname} live. Price: {final_price}")
                             elif price > 0:
-                                is_usd = pname in ("Walmart", "Ebay", "BestBuy", "Target")
+                                is_usd = False
                                 final_price = round(price * 83.3, 2) if is_usd else price
                                 extracted[pname] = {
                                     "price": final_price,
@@ -733,7 +702,7 @@ Search Listings:
                                 }
                                 print(f"[Pass 1] Live verification failed for {pname}, keeping snippet price: {final_price}")
                         elif price > 0:
-                            is_usd = pname in ("Walmart", "Ebay", "BestBuy", "Target")
+                            is_usd = False
                             final_price = round(price * 83.3, 2) if is_usd else price
                             extracted[pname] = {
                                 "price": final_price,
@@ -809,7 +778,7 @@ Search Listings:
                                     print(f"[Pass 2] Verified crawled page for {pname} live. Price: {final_price}")
                                 else:
                                     # Convert currency to INR if USD in case of direct fallback
-                                    is_usd = pname in ("Walmart", "Ebay", "BestBuy", "Target")
+                                    is_usd = False
                                     final_price = round(price * 83.3, 2) if is_usd else price
                                     extracted[pname] = {
                                         "price": final_price,
@@ -850,7 +819,7 @@ Search Listings:
                                     print(f"[Pass 2] Verified crawled page for {pname} live. Price: {final_price}")
                                 else:
                                     # Convert currency to INR if USD in case of direct fallback
-                                    is_usd = pname in ("Walmart", "Ebay", "BestBuy", "Target")
+                                    is_usd = False
                                     final_price = round(price * 83.3, 2) if is_usd else price
                                     extracted[pname] = {
                                         "price": final_price,

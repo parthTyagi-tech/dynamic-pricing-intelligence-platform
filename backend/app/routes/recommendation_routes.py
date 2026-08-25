@@ -33,6 +33,7 @@ from app.services.ai_pricing_service import (
     PricingStrategyAgent
 )
 from app.services.marketplace_normalizer import normalize_marketplace_result, normalize_product_record
+from app.models.audit_loging import PricingRule
 
 
 recommendation_bp = Blueprint(
@@ -174,6 +175,53 @@ def generate_recommendation(product_id):
             "success": False,
             "message": str(e)
         }, 500
+
+
+# =====================================
+# RECALCULATE PRICES FROM LATEST MARKET SIGNALS
+# =====================================
+
+@recommendation_bp.route("/recalculate", methods=["POST"])
+@jwt_required()
+def recalculate_recommendations():
+    current_user_id = get_jwt_identity()
+    current_user = User.query.get(current_user_id)
+    if not current_user:
+        return {"success": False, "message": "User not found"}, 404
+
+    payload = request.get_json(silent=True) or {}
+    product_query = Product.query.filter_by(organization_id=current_user.organization_id)
+    product_id = payload.get("product_id")
+    if product_id:
+        product_query = product_query.filter_by(id=product_id)
+    products = product_query.all()
+    if not products:
+        return {"success": False, "message": "No products found for recalculation"}, 404
+
+    rule = PricingRule.query.filter_by(organization_id=current_user.organization_id).first()
+    minimum_margin = float(rule.minimum_margin if rule else 0.15)
+    recalculated = []
+    for product in products:
+        competitor_prices = [row.competitor_price for row in CompetitorPrice.query.filter_by(product_id=product.id).all() if row.competitor_price]
+        average_competitor = sum(competitor_prices) / len(competitor_prices) if competitor_prices else float(product.current_price)
+        margin_floor = float(product.cost_price or 0) / max(1 - minimum_margin, 0.01)
+        recommended_price = round(max(margin_floor, average_competitor * 0.99), 2)
+        if product.current_price:
+            recommended_price = round(max(recommended_price, float(product.current_price) * 0.90), 2)
+        confidence = round(min(0.99, 0.72 + min(len(competitor_prices), 10) * 0.02), 2)
+        recommendation = PricingRecommendation.query.filter_by(product_id=product.id, organization_id=current_user.organization_id, status=RecommendationStatus.PENDING).first()
+        if recommendation:
+            recommendation.recommended_price = recommended_price
+            recommendation.confidence_score = confidence
+            recommendation.rationale = "Recalculated from the latest normalized competitor prices and organization margin guardrail."
+            recommendation.ai_summary = "Market signal recalculation completed."
+        else:
+            recommendation = PricingRecommendation(product_id=product.id, recommended_price=recommended_price, confidence_score=confidence, rationale="Recalculated from the latest normalized competitor prices and organization margin guardrail.", status=RecommendationStatus.PENDING, ai_summary="Market signal recalculation completed.", created_by_agent="PricingRecalculationEngine", organization_id=current_user.organization_id)
+            db.session.add(recommendation)
+        product.recommendation_status = RecommendationStatus.PENDING
+        recalculated.append({"product_id": product.id, "current_price": product.current_price, "recommended_price": recommended_price, "competitor_count": len(competitor_prices), "confidence": confidence})
+    db.session.commit()
+    return {"success": True, "count": len(recalculated), "recommendations": recalculated}, 200
 
 
 # =====================================
