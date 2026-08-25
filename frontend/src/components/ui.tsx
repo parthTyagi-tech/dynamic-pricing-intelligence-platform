@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { Check, CircleAlert, Info, Loader2, X } from "lucide-react";
-import { useEffect, useState, type ButtonHTMLAttributes, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ButtonHTMLAttributes, type ReactNode } from "react";
 import { cn } from "../lib/utils";
 
 export function GlassCard({ children, className, glow = false }: { children: ReactNode; className?: string; glow?: boolean }) {
@@ -30,8 +30,9 @@ export function ToastStack({ toasts, dismiss }: { toasts: Toast[]; dismiss: (id:
 
 export function useToasts() {
   const [toasts, setToasts] = useState<Toast[]>([]);
-  const push = (message: string, tone: Toast["tone"] = "success") => { const id = Date.now(); setToasts((items) => [...items, { id, tone, message }]); window.setTimeout(() => setToasts((items) => items.filter((item) => item.id !== id)), 4200); };
-  return { toasts, push, dismiss: (id: number) => setToasts((items) => items.filter((item) => item.id !== id)) };
+  const push = useCallback((message: string, tone: Toast["tone"] = "success") => { const id = Date.now(); setToasts((items) => [...items, { id, tone, message }]); window.setTimeout(() => setToasts((items) => items.filter((item) => item.id !== id)), 4200); }, []);
+  const dismiss = useCallback((id: number) => setToasts((items) => items.filter((item) => item.id !== id)), []);
+  return { toasts, push, dismiss };
 }
 
 export function EmptyState({ title, description, action }: { title: string; description: string; action?: ReactNode }) { return <div className="empty-state"><div className="empty-icon"><Info size={18} /></div><h3>{title}</h3><p>{description}</p>{action}</div>; }
