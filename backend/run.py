@@ -61,8 +61,12 @@ if os.environ.get("VERCEL") != "1":
     from app.services.task_worker import init_worker
     init_worker(app)
 
-with app.app_context():
-    db.create_all()
+# Supabase schema is managed through migrations. Creating tables during import
+# opens a database connection on every Vercel cold start and can crash the
+# serverless function before it can serve health or API responses.
+if os.environ.get("VERCEL") != "1":
+    with app.app_context():
+        db.create_all()
 
 # =====================================
 # CLEAN JSON ERROR HANDLERS
@@ -153,6 +157,16 @@ def home():
     return {
         "success": True,
         "message": "Backend running"
+    }
+
+
+@app.route("/health")
+def health():
+    """Lightweight liveness probe that does not require a database round trip."""
+    return {
+        "success": True,
+        "status": "healthy",
+        "database_configured": bool(app.config.get("SQLALCHEMY_DATABASE_URI")),
     }
 
 
