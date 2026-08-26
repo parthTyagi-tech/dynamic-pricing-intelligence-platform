@@ -21,7 +21,7 @@ gcloud artifacts repositories describe klypup --location="$LOCATION" >/dev/null 
 gcloud tasks queues describe "$QUEUE" --location="$LOCATION" >/dev/null 2>&1 || \
   gcloud tasks queues create "$QUEUE" --location="$LOCATION"
 
-gcloud builds submit . --tag "$IMAGE" --file Dockerfile.worker
+gcloud builds submit . --config=cloudbuild.worker.yaml --substitutions="_IMAGE=$IMAGE"
 
 gcloud run deploy "$SERVICE" \
   --image "$IMAGE" \
