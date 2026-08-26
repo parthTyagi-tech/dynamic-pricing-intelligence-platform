@@ -6,8 +6,8 @@ def create_pricing_recommendation_task(recommendation_id: str, product_id: str, 
     Falls back to synchronous or log warning if GCP environment variables are not set.
     """
     project = os.environ.get("GCP_PROJECT_ID")
-    location = os.environ.get("GCP_LOCATION", "us-central1")
-    queue = os.environ.get("GCP_QUEUE_NAME", "pricing-queue")
+    location = os.environ.get("GCP_LOCATION", "asia-south1")
+    queue = os.environ.get("GCP_QUEUE_NAME", "parthdynamic")
     backend_url = os.environ.get("BACKEND_PUBLIC_URL")
 
     if not project or not backend_url:
