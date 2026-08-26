@@ -1,6 +1,6 @@
-from flask import Flask, jsonify
 import os
 
+from flask import Flask, jsonify
 from werkzeug.exceptions import HTTPException
 from sqlalchemy.exc import OperationalError
 
