@@ -25,6 +25,8 @@ dependencies = [
   "supabase",
   "stripe",
   "openpyxl",
+  "google-cloud-tasks",
+  "google-auth",
 ]
 
 [tool.vercel]

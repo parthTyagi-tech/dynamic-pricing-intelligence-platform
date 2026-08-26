@@ -16,7 +16,15 @@ def create_pricing_recommendation_task(recommendation_id: str, product_id: str, 
 
     try:
         from google.cloud import tasks_v2
-        client = tasks_v2.CloudTasksClient()
+        credentials = None
+        service_account_json = os.environ.get("GCP_SERVICE_ACCOUNT_JSON")
+        if service_account_json:
+            from google.oauth2 import service_account
+            credentials = service_account.Credentials.from_service_account_info(
+                json.loads(service_account_json),
+                scopes=["https://www.googleapis.com/auth/cloud-platform"],
+            )
+        client = tasks_v2.CloudTasksClient(credentials=credentials) if credentials else tasks_v2.CloudTasksClient()
         parent = client.queue_path(project, location, queue)
 
         url = f"{backend_url.rstrip('/')}/api/recommendations/process-task"
