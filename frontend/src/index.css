@@ -548,3 +548,36 @@ body { background: #ffffff; }
 .theme-dark .loading-orb { border-color: #3f3f46; border-top-color: #ffffff; }
 .theme-dark .spin { color: #ffffff; }
 .theme-dark .skeleton { background: #27272a; }
+
+/* Login theme control and page-level theme synchronization */
+.auth-theme-toggle { position: absolute; top: 24px; right: 28px; z-index: 3; display: inline-flex; align-items: center; gap: 7px; width: auto; padding: 0 10px; color: #09090b; background: #ffffff; border-color: #d4d4d8; }
+.auth-theme-toggle span { font-size: 10px; font-weight: 700; }
+.auth-form-side { position: relative; }
+.auth-page.theme-dark, .auth-page.theme-dark .auth-visual, .auth-page.theme-dark .auth-form-side { background: #09090b; color: #fafafa; }
+.auth-page.theme-dark .auth-grid { opacity: .3; background-image: linear-gradient(#27272a 1px, transparent 1px), linear-gradient(90deg, #27272a 1px, transparent 1px); }
+.auth-page.theme-dark .auth-visual-copy h1, .auth-page.theme-dark .auth-heading h2 { color: #fafafa; }
+.auth-page.theme-dark .auth-visual-copy h1 em, .auth-page.theme-dark .eyebrow { color: #ffffff; }
+.auth-page.theme-dark .auth-visual-copy p, .auth-page.theme-dark .auth-quote, .auth-page.theme-dark .auth-heading > p:last-child, .auth-page.theme-dark .auth-legal { color: #a1a1aa; }
+.auth-page.theme-dark .auth-brand strong, .auth-page.theme-dark .mobile-auth-brand strong, .auth-page.theme-dark .auth-signal-grid, .auth-page.theme-dark .auth-quote { color: #fafafa; }
+.auth-page.theme-dark .auth-brand small { color: #a1a1aa; }
+.auth-page.theme-dark .auth-quote { border-color: #fafafa; }
+.auth-page.theme-dark .auth-orb { border-color: #71717a; }
+.auth-page.theme-dark .auth-tabs { background: #18181b; border-color: #3f3f46; }
+.auth-page.theme-dark .auth-tabs button { color: #a1a1aa; }
+.auth-page.theme-dark .auth-tabs button.active { background: #fafafa; color: #09090b; }
+.auth-page.theme-dark .field > span { color: #d4d4d8; }
+.auth-page.theme-dark .field-input { background: #111113; border-color: #3f3f46; color: #a1a1aa; }
+.auth-page.theme-dark .field-input input { color: #fafafa; }
+.auth-page.theme-dark .field-input input::placeholder { color: #71717a; }
+.auth-page.theme-dark .field-input:focus-within { border-color: #fafafa; box-shadow: 0 0 0 3px rgba(250,250,250,.08); }
+.auth-page.theme-dark .remember, .auth-page.theme-dark .text-button, .auth-page.theme-dark .auth-legal { color: #d4d4d8; }
+.auth-page.theme-dark .text-button:hover { color: #ffffff; }
+.auth-page.theme-dark .auth-submit, .auth-page.theme-dark .button-primary { background: #fafafa; color: #09090b; }
+.auth-page.theme-dark .auth-submit:hover, .auth-page.theme-dark .button-primary:hover { background: #d4d4d8; color: #09090b; }
+.auth-page.theme-dark .button-secondary { background: #111113; border-color: #3f3f46; color: #fafafa; }
+.auth-page.theme-dark .button-secondary:hover { background: #18181b; border-color: #fafafa; }
+.auth-page.theme-dark .auth-theme-toggle { background: #111113; border-color: #3f3f46; color: #fafafa; }
+.auth-page.theme-dark .auth-theme-toggle:hover { background: #18181b; border-color: #fafafa; }
+html.theme-dark, body.theme-dark, body.theme-dark #root { background: #09090b; color: #fafafa; }
+html.theme-light, body.theme-light, body.theme-light #root { background: #ffffff; color: #09090b; }
+@media (max-width: 780px) { .auth-theme-toggle { top: 16px; right: 16px; } }

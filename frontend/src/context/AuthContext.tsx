@@ -21,7 +21,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const token = localStorage.getItem("klypup_token");
     if (!token) { setLoading(false); return; }
     if (token === "demo-token") {
-      setUser({ id: "demo", name: "Demo Analyst", email: "demo@klypup.ai", organization: "Klypup Enterprise", role: "admin" });
+      localStorage.removeItem("klypup_token");
       setLoading(false);
       return;
     }
@@ -35,25 +35,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
-    try {
-      const result = await loginRequest(email, password);
-      localStorage.setItem("klypup_token", result.token || "demo-token");
-      setUser(result.user);
-    } catch {
-      localStorage.setItem("klypup_token", "demo-token");
-      setUser({ id: "demo", name: email.split("@")[0] || "Demo Analyst", email, organization: "Klypup Enterprise", role: "admin" });
-    }
+    const result = await loginRequest(email, password);
+    if (!result.token) throw new Error("The server did not return a sign-in token.");
+    localStorage.setItem("klypup_token", result.token);
+    setUser(result.user);
   }, []);
 
   const signup = useCallback(async (payload: { name: string; email: string; password: string; organization: string }) => {
-    try {
-      const result = await signupRequest(payload);
-      localStorage.setItem("klypup_token", result.token || "demo-token");
-      setUser(result.user);
-    } catch {
-      localStorage.setItem("klypup_token", "demo-token");
-      setUser({ id: "demo", name: payload.name, email: payload.email, organization: payload.organization, role: "admin" });
-    }
+    const result = await signupRequest(payload);
+    if (!result.token) throw new Error("The server did not return an account token.");
+    localStorage.setItem("klypup_token", result.token);
+    setUser(result.user);
   }, []);
 
   const logout = useCallback(() => { localStorage.removeItem("klypup_token"); setUser(null); }, []);

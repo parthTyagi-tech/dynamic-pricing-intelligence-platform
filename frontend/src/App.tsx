@@ -10,6 +10,7 @@ import PricingPage from "./pages/PricingPage";
 import SecondaryPage from "./pages/SecondaryPage";
 import SettingsPage from "./pages/SettingsPage";
 import ScraperHubPage from "./pages/ScraperHubPage";
+import { ThemeProvider } from "./context/ThemeContext";
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
   state = { hasError: false };
@@ -34,4 +35,4 @@ function AppRoutes() {
   return <><Routes><Route path="/login" element={<AuthPage />} /><Route path="/signup" element={<AuthPage />} /><Route element={<ProtectedLayout onToast={(message) => push(message)} />}><Route index element={<Navigate to="/dashboard" replace />} /><Route path="/dashboard" element={<DashboardPage />} /><Route path="/catalog" element={<SecondaryPage kind="catalog" />} /><Route path="/approvals" element={<SecondaryPage kind="approvals" />} /><Route path="/agents" element={<SecondaryPage kind="agents" />} /><Route path="/pricing" element={<PricingPage />} /><Route path="/competitors" element={<CompetitorsPage />} /><Route path="/scrapers" element={<ScraperHubPage />} /><Route path="/settings" element={<SettingsPage />} /><Route path="*" element={<Navigate to="/dashboard" replace />} /></Route></Routes><ToastStack toasts={toasts} dismiss={dismiss} /></>;
 }
 
-export default function App() { return <ErrorBoundary><AuthProvider><BrowserRouter><AppRoutes /></BrowserRouter></AuthProvider></ErrorBoundary>; }
+export default function App() { return <ErrorBoundary><ThemeProvider><AuthProvider><BrowserRouter><AppRoutes /></BrowserRouter></AuthProvider></ThemeProvider></ErrorBoundary>; }

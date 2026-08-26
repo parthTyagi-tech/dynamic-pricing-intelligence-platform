@@ -2,6 +2,7 @@ from flask import Flask, jsonify
 import os
 
 from werkzeug.exceptions import HTTPException
+from sqlalchemy.exc import OperationalError
 
 from app.config.settings import get_config
 
@@ -74,6 +75,12 @@ if os.environ.get("VERCEL") != "1":
 @app.errorhandler(HTTPException)
 def handle_http_error(error):
     return jsonify({"success": False, "message": error.description}), error.code
+
+
+@app.errorhandler(OperationalError)
+def handle_database_error(error):
+    app.logger.error("Database connection unavailable for request: %s", error.__class__.__name__)
+    return jsonify({"success": False, "message": "Database temporarily unavailable. Please retry shortly."}), 503
 
 
 @app.errorhandler(Exception)

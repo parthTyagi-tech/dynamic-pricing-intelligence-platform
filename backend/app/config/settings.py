@@ -3,6 +3,7 @@ load_dotenv()
 import os
 import secrets
 from datetime import timedelta
+from urllib.parse import quote, unquote, urlsplit, urlunsplit
 from dotenv import load_dotenv
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
@@ -74,19 +75,48 @@ class DevelopmentConfig(BaseConfig):
     SQLALCHEMY_ECHO = False
 
 
+def _normalize_database_url(raw_url: str | None) -> str | None:
+    """Normalize hosted PostgreSQL URLs for short-lived Vercel functions.
+
+    Supabase's direct `db.<project>.supabase.co` hostname can resolve only to
+    IPv6 in some regions. Vercel functions need the IPv4-compatible pooler.
+    The password remains entirely in the URL and is never logged.
+    """
+    if not raw_url:
+        return raw_url
+    url = raw_url.replace("postgres://", "postgresql://", 1)
+    url = url.replace("?pgbouncer=true", "").replace("&pgbouncer=true", "")
+    parsed = urlsplit(url)
+    host = parsed.hostname or ""
+    if host.startswith("db.") and host.endswith(".supabase.co"):
+        project_ref = host[3:].split(".", 1)[0]
+        region = os.environ.get("SUPABASE_POOLER_REGION", "ap-southeast-2")
+        pooler_host = os.environ.get("SUPABASE_POOLER_HOST", f"aws-0-{region}.pooler.supabase.com")
+        pooler_port = int(os.environ.get("SUPABASE_POOLER_PORT", "6543"))
+        username = parsed.username or "postgres"
+        if username == "postgres":
+            username = f"postgres.{project_ref}"
+        password = unquote(parsed.password or "")
+        auth = quote(username, safe="")
+        if password:
+            auth = f"{auth}:{quote(password, safe='')}"
+        netloc = f"{auth}@{pooler_host}:{pooler_port}"
+        return urlunsplit((parsed.scheme, netloc, parsed.path or "/postgres", parsed.query, parsed.fragment))
+    return url
+
+
 class ProductionConfig(BaseConfig):
     DEBUG = False
     SECRET_KEY = _secret_value("SECRET_KEY")
     JWT_SECRET_KEY = _secret_value("JWT_SECRET_KEY")
-    
-    _db_url = os.environ.get("DATABASE_URL")
-    if _db_url:
-        if _db_url.startswith("postgres://"):
-            _db_url = _db_url.replace("postgres://", "postgresql://", 1)
-        _db_url = _db_url.replace("?pgbouncer=true", "")
-        _db_url = _db_url.replace("&pgbouncer=true", "")
-        
-    SQLALCHEMY_DATABASE_URI = _db_url
+    SQLALCHEMY_DATABASE_URI = _normalize_database_url(os.environ.get("DATABASE_URL"))
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        **BaseConfig.SQLALCHEMY_ENGINE_OPTIONS,
+        "pool_size": 1,
+        "max_overflow": 0,
+        "pool_timeout": 5,
+        "connect_args": {"sslmode": "require"},
+    }
     SQLALCHEMY_ECHO = False
 
 
