@@ -3,7 +3,9 @@ from __future__ import annotations
 import logging
 import os
 import socket
+import threading
 import time
+from werkzeug.serving import make_server
 from datetime import datetime, timezone
 
 # Importing the Flask app must not start the development in-memory worker.
@@ -103,7 +105,15 @@ def process_job(job_id: str) -> None:
             logger.exception("Recommendation job %s failed", job_id)
 
 
+def serve_health() -> None:
+    port = int(os.environ.get("PORT", "8080"))
+    server = make_server("0.0.0.0", port, app)
+    logger.info("Worker health listener started on port %s", port)
+    server.serve_forever()
+
+
 def main() -> None:
+    threading.Thread(target=serve_health, name="worker-health", daemon=True).start()
     logger.info("Durable Klypup worker started as %s", WORKER_ID)
     last_reclaim = 0.0
     while True:
