@@ -21,3 +21,4 @@ requests
 SQLAlchemy
 supabase
 stripe
+openpyxl
