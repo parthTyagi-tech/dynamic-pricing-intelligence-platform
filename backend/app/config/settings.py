@@ -112,9 +112,12 @@ class ProductionConfig(BaseConfig):
     SQLALCHEMY_DATABASE_URI = _normalize_database_url(os.environ.get("DATABASE_URL"))
     SQLALCHEMY_ENGINE_OPTIONS = {
         **BaseConfig.SQLALCHEMY_ENGINE_OPTIONS,
-        "pool_size": 1,
-        "max_overflow": 0,
-        "pool_timeout": 5,
+        # Vercel may overlap status polling, task callbacks, and auth queries
+        # within one warm instance. A single connection with no overflow causes
+        # QueuePool timeout errors during normal asynchronous polling.
+        "pool_size": int(os.environ.get("DB_POOL_SIZE", "2")),
+        "max_overflow": int(os.environ.get("DB_MAX_OVERFLOW", "4")),
+        "pool_timeout": int(os.environ.get("DB_POOL_TIMEOUT", "30")),
         "connect_args": {"sslmode": "require"},
     }
     SQLALCHEMY_ECHO = False
