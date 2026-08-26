@@ -10,6 +10,8 @@ IMAGE="${LOCATION}-docker.pkg.dev/${PROJECT_ID}/klypup/${SERVICE}:latest"
 : "${BACKEND_PUBLIC_URL:=https://dynamic-pricing-intelligence-api.vercel.app}"
 : "${DATABASE_SECRET_NAME:?Set DATABASE_SECRET_NAME to an existing Secret Manager secret name}"
 : "${WORKER_CALLBACK_SECRET_NAME:?Set WORKER_CALLBACK_SECRET_NAME to an existing Secret Manager secret name}"
+: "${FLASK_SECRET_KEY_NAME:=klypup-flask-secret-key}"
+: "${JWT_SECRET_KEY_NAME:=klypup-jwt-secret-key}"
 
 command -v gcloud >/dev/null || { echo "gcloud CLI is required" >&2; exit 1; }
 gcloud config set project "$PROJECT_ID" >/dev/null
@@ -29,7 +31,7 @@ gcloud run deploy "$SERVICE" \
   --no-allow-unauthenticated \
   --min-instances=1 \
   --set-env-vars="GCP_PROJECT_ID=$PROJECT_ID,GCP_LOCATION=$LOCATION,GCP_QUEUE_NAME=$QUEUE,BACKEND_PUBLIC_URL=$BACKEND_PUBLIC_URL,FLASK_ENV=production" \
-  --set-secrets="DATABASE_URL=${DATABASE_SECRET_NAME}:latest,WORKER_CALLBACK_SECRET=${WORKER_CALLBACK_SECRET_NAME}:latest"
+  --set-secrets="DATABASE_URL=${DATABASE_SECRET_NAME}:latest,WORKER_CALLBACK_SECRET=${WORKER_CALLBACK_SECRET_NAME}:latest,SECRET_KEY=${FLASK_SECRET_KEY_NAME}:latest,JWT_SECRET_KEY=${JWT_SECRET_KEY_NAME}:latest"
 
 echo "Worker deployed: $SERVICE"
 echo "Queue ready: projects/$PROJECT_ID/locations/$LOCATION/queues/$QUEUE"
