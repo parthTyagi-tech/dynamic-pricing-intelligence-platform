@@ -108,6 +108,21 @@ export async function updateIntegration(platform: string, connected: boolean, st
   return response.data.integration;
 }
 
+export async function importCatalog(file: File): Promise<{ importedCount: number }> {
+  const body = new FormData();
+  body.append("file", file);
+  const response = await apiClient.post<{ imported_count?: number }>("/products/import-csv", body);
+  return { importedCount: Number(response.data.imported_count || 0) };
+}
+
+export async function connectIntegration(platform: "shopify" | "woocommerce" | "amazon", domain: string): Promise<void> {
+  await apiClient.post("/auth/connect-integration", { platform, domain });
+}
+
+export async function completeOnboarding(): Promise<void> {
+  await apiClient.post("/auth/complete-onboarding", {});
+}
+
 export async function getCompetitorMatrix(): Promise<{ rows: CompetitorMatrixRow[]; marketplaces: string[] }> {
   const response = await apiClient.get<{ rows?: CompetitorMatrixRow[]; marketplaces?: string[] }>("/dashboard/competitors");
   return { rows: response.data.rows || [], marketplaces: response.data.marketplaces || [] };

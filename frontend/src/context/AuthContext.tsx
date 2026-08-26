@@ -6,8 +6,8 @@ interface AuthContextValue {
   user: User | null;
   loading: boolean;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  signup: (payload: { name: string; email: string; password: string; organization: string }) => Promise<void>;
+  login: (email: string, password: string) => Promise<User>;
+  signup: (payload: { name: string; email: string; password: string; organization: string }) => Promise<User>;
   logout: () => void;
 }
 
@@ -39,6 +39,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!result.token) throw new Error("The server did not return a sign-in token.");
     localStorage.setItem("klypup_token", result.token);
     setUser(result.user);
+    return result.user;
   }, []);
 
   const signup = useCallback(async (payload: { name: string; email: string; password: string; organization: string }) => {
@@ -46,6 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!result.token) throw new Error("The server did not return an account token.");
     localStorage.setItem("klypup_token", result.token);
     setUser(result.user);
+    return result.user;
   }, []);
 
   const logout = useCallback(() => { localStorage.removeItem("klypup_token"); setUser(null); }, []);

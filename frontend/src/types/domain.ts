@@ -9,6 +9,9 @@ export interface User {
   email: string;
   organization: string;
   role: "admin" | "analyst" | "viewer";
+  onboarding_completed?: boolean;
+  store_platform?: string | null;
+  store_domain?: string | null;
   avatar?: string;
 }
 

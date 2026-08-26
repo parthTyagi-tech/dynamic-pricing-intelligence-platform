@@ -286,24 +286,34 @@ def import_csv():
             "message": "No file selected"
         }, 400
 
-    if not file.filename.endswith(".csv"):
+    if not file.filename.lower().endswith((".csv", ".xlsx")):
         return {
             "success": False,
-            "message": "File format must be CSV"
+            "message": "File format must be CSV or XLSX"
         }, 400
 
     try:
         import io
         import csv
         import uuid
-        
-        # Read the file stream with utf-8-sig to strip byte order mark (BOM) if present
-        stream = io.StringIO(file.stream.read().decode("utf-8-sig"), newline=None)
-        reader = csv.DictReader(stream)
+
+        if file.filename.lower().endswith(".xlsx"):
+            from openpyxl import load_workbook
+            workbook = load_workbook(io.BytesIO(file.stream.read()), read_only=True, data_only=True)
+            worksheet = workbook.active
+            rows = worksheet.iter_rows(values_only=True)
+            header_row = next(rows, ())
+            headers = [str(value or "").strip().lower() for value in header_row]
+            reader = (dict(zip(headers, values)) for values in rows)
+        else:
+            # Read the file stream with utf-8-sig to strip byte order mark (BOM) if present
+            stream = io.StringIO(file.stream.read().decode("utf-8-sig"), newline=None)
+            csv_reader = csv.DictReader(stream)
+            headers = [str(header or "").strip().lower() for header in (csv_reader.fieldnames or [])]
+            reader = csv_reader
 
         # Validate headers
         required_headers = ["name", "current_price"]
-        headers = [h.strip().lower() for h in (reader.fieldnames or []) if h]
         
         for req in required_headers:
             if req not in headers:
@@ -319,7 +329,7 @@ def import_csv():
         # Read row-by-row
         for row in reader:
             # Map headers case-insensitively
-            row_clean = {k.strip().lower(): v.strip() for k, v in row.items() if k}
+            row_clean = {str(k).strip().lower(): str(v).strip() if v is not None else "" for k, v in row.items() if k}
             
             name = row_clean.get("name")
             current_price_str = row_clean.get("current_price")
