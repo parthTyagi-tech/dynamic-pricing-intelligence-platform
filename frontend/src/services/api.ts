@@ -2,7 +2,9 @@ import axios, { AxiosError, type AxiosInstance, type AxiosRequestConfig } from "
 import type { ActivityItem, ApprovalAuditEvent, DashboardSnapshot, PriceDropAlert, Product, User } from "../types/domain";
 
 const configuredBaseUrl = import.meta.env.VITE_API_URL as string | undefined;
-const baseURL = configuredBaseUrl || (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" ? "http://localhost:5000/api" : "/api");
+const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+const productionApiBaseUrl = "https://dynamic-pricing-intelligence-api.vercel.app/api";
+const baseURL = configuredBaseUrl || (isLocalhost ? "http://localhost:5000/api" : productionApiBaseUrl);
 export const apiClient: AxiosInstance = axios.create({ baseURL, timeout: 6500, headers: { "Content-Type": "application/json" } });
 
 apiClient.interceptors.request.use((config) => {
