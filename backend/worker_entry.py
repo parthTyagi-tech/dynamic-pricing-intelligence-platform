@@ -85,7 +85,7 @@ def process_job(job_id: str) -> None:
             with app.test_request_context(
                 "/api/recommendations/process-task",
                 method="POST",
-                headers={"X-Klypup-Worker-Secret": os.environ.get("WORKER_CALLBACK_SECRET", "")},
+                headers={"X-Klypup-Worker-Secret": os.environ.get("WORKER_CALLBACK_SECRET", "").strip()},
                 json={"recommendation_id": recommendation.id, "product_id": job.product_id, "job_id": job.id},
             ):
                 response = process_task()

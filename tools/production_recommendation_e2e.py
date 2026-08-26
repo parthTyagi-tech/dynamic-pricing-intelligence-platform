@@ -58,9 +58,9 @@ def main() -> None:
         status = check(response, 200, "recommendation status")
         job = status.get("job") or {}
         for event in job.get("events", []):
-            seen_agents.add(event.get("agent", ""))
+            seen_agents.add(event.get("agent_name", ""))
         state = str(job.get("status") or status.get("status") or "").lower()
-        print(f"INFO state={state} progress={job.get('progress_percent')} agent={job.get('current_agent')}")
+        print(f"INFO state={state} progress={job.get('progress')} agent={job.get('current_agent')}")
         if state in {"succeeded", "completed", "approved", "rejected", "failed"}:
             final = status
             break

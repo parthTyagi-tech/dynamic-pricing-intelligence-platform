@@ -40,7 +40,7 @@ def create_pricing_recommendation_task(recommendation_id: str, product_id: str, 
                 "url": url,
                 "headers": {
                     "Content-Type": "application/json",
-                    **({"X-Klypup-Worker-Secret": os.environ["WORKER_CALLBACK_SECRET"]} if os.environ.get("WORKER_CALLBACK_SECRET") else {}),
+                    **({"X-Klypup-Worker-Secret": os.environ["WORKER_CALLBACK_SECRET"].strip()} if os.environ.get("WORKER_CALLBACK_SECRET") else {}),
                 },
                 "body": json.dumps(payload).encode("utf-8")
             }

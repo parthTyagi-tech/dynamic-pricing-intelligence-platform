@@ -412,6 +412,8 @@ def approve_recommendation(recommendation_id):
 )
 def process_task():
     worker_secret = os.environ.get("WORKER_CALLBACK_SECRET")
+    if worker_secret:
+        worker_secret = worker_secret.strip()
     if worker_secret and request.headers.get("X-Klypup-Worker-Secret") != worker_secret:
         return {"success": False, "message": "Unauthorized worker callback"}, 401
     payload = request.get_json(silent=True) or {}
