@@ -24,6 +24,7 @@ dependencies = [
   "SQLAlchemy==2.0.31",
   "supabase",
   "stripe",
+  "openpyxl",
 ]
 
 [tool.vercel]
