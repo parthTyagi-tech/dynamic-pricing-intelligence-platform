@@ -58,7 +58,7 @@ app.config.from_object(
 # =====================================
 
 init_extensions(app)
-if os.environ.get("VERCEL") != "1":
+if os.environ.get("VERCEL") != "1" or os.environ.get("FLASK_ENV") == "testing":
     from app.services.task_worker import init_worker
     init_worker(app)
 

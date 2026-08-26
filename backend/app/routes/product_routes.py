@@ -1,4 +1,6 @@
-from flask import Blueprint, request
+import csv
+import io
+from flask import Blueprint, request, send_file
 from flask_jwt_extended import (
     jwt_required,
     get_jwt_identity
@@ -431,3 +433,54 @@ def import_csv():
             "success": False,
             "message": f"Failed to process CSV file: {str(e)}"
         }, 500
+
+
+# =====================================
+# EXPORT STORED CATALOG WITH CURRENT PRICES
+# =====================================
+
+@product_bp.route("/export-csv", methods=["GET"])
+@jwt_required()
+def export_catalog():
+    current_user = User.query.get(get_jwt_identity())
+    if not current_user:
+        return {"success": False, "message": "User not found"}, 404
+
+    file_format = (request.args.get("format") or request.args.get("file_type") or "csv").lower()
+    if file_format not in {"csv", "xlsx"}:
+        return {"success": False, "message": "format must be csv or xlsx"}, 400
+
+    products = Product.query.filter_by(organization_id=current_user.organization_id).order_by(Product.sku.asc()).all()
+    headers = ["sku", "name", "brand", "barcode", "category", "description", "current_price", "cost_price", "inventory_quantity", "min_margin_percentage", "recommendation_status"]
+    rows = [[
+        product.sku,
+        product.name,
+        product.brand or "",
+        product.barcode or "",
+        product.category,
+        product.description or "",
+        product.current_price,
+        product.cost_price,
+        product.inventory_quantity,
+        product.min_margin_percentage,
+        product.recommendation_status,
+    ] for product in products]
+
+    if file_format == "xlsx":
+        from openpyxl import Workbook
+        workbook = Workbook()
+        sheet = workbook.active
+        sheet.title = "Catalog"
+        sheet.append(headers)
+        for row in rows:
+            sheet.append(row)
+        output = io.BytesIO()
+        workbook.save(output)
+        output.seek(0)
+        return send_file(output, as_attachment=True, download_name="klypup-catalog-updated.xlsx", mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(headers)
+    writer.writerows(rows)
+    return send_file(io.BytesIO(output.getvalue().encode("utf-8-sig")), as_attachment=True, download_name="klypup-catalog-updated.csv", mimetype="text/csv")

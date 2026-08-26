@@ -137,3 +137,58 @@ export interface Integration {
   connected: boolean;
   color: string;
 }
+
+
+export type RecommendationJobStatus = "queued" | "running" | "succeeded" | "failed" | "canceled";
+export type AgentEventStatus = "pending" | "running" | "succeeded" | "failed" | "skipped";
+
+export interface RecommendationAgentEvent {
+  id: string;
+  agent_name: string;
+  status: AgentEventStatus;
+  progress: number;
+  message: string;
+  payload: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface MarketplaceOffer {
+  id: string;
+  job_id: string;
+  product_id: string;
+  platform: string;
+  title?: string | null;
+  brand?: string | null;
+  variant?: string | null;
+  current_price?: number | null;
+  mrp?: number | null;
+  availability?: string | null;
+  in_stock?: boolean | null;
+  specifications?: Record<string, unknown>;
+  images?: string[];
+  rating?: number | null;
+  review_count?: number | null;
+  offers?: Array<Record<string, unknown>>;
+  product_url?: string | null;
+  match_confidence?: string | null;
+  source_type?: string | null;
+  fetched_at: string;
+}
+
+export interface RecommendationJob {
+  id: string;
+  recommendation_id: string;
+  product_id: string;
+  status: RecommendationJobStatus;
+  progress: number;
+  current_agent?: string | null;
+  requested_platforms: string[];
+  attempts: number;
+  error_message?: string | null;
+  created_at: string;
+  started_at?: string | null;
+  completed_at?: string | null;
+  updated_at: string;
+  events: RecommendationAgentEvent[];
+  offers: MarketplaceOffer[];
+}

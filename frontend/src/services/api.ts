@@ -1,5 +1,5 @@
 import axios, { AxiosError, type AxiosInstance, type AxiosRequestConfig } from "axios";
-import type { ActivityItem, ApprovalAuditEvent, DashboardSnapshot, PriceDropAlert, Product, User } from "../types/domain";
+import type { ActivityItem, ApprovalAuditEvent, DashboardSnapshot, MarketplaceOffer, PriceDropAlert, Product, RecommendationAgentEvent, RecommendationJob, User } from "../types/domain";
 
 const configuredBaseUrl = import.meta.env.VITE_API_URL as string | undefined;
 const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
@@ -74,7 +74,46 @@ export async function getPriceDropAlerts(status: "open" | "acknowledged" | "all"
 export async function scanPriceDropAlerts(payload: { productId: string; previousPrices: Record<string, number>; observations: Record<string, number>; thresholdPct?: number; minDropInr?: number }): Promise<PriceDropAlert[]> { const response = await apiClient.post<{ alerts?: BackendPriceDropAlert[] }>("/alerts/scan", { product_id: payload.productId, previous_prices: payload.previousPrices, observations: payload.observations, threshold_pct: payload.thresholdPct, min_drop_inr: payload.minDropInr }); return (response.data.alerts || []).map(toPriceDropAlert); }
 export async function acknowledgePriceDropAlert(id: string): Promise<PriceDropAlert> { const response = await apiClient.patch<{ alert: BackendPriceDropAlert }>(`/alerts/${id}/acknowledge`); return toPriceDropAlert(response.data.alert); }
 
+export interface RecommendationLaunch { jobId: string; recommendationId: string; job: RecommendationJob; }
+
+interface BackendRecommendationJob {
+  id: string;
+  recommendation_id: string;
+  product_id: string;
+  status: RecommendationJob["status"];
+  progress: number;
+  current_agent?: string | null;
+  requested_platforms?: string[];
+  attempts: number;
+  error_message?: string | null;
+  created_at: string;
+  started_at?: string | null;
+  completed_at?: string | null;
+  updated_at: string;
+  events?: RecommendationAgentEvent[];
+  offers?: MarketplaceOffer[];
+}
+
+const toRecommendationJob = (job: BackendRecommendationJob): RecommendationJob => ({
+  ...job,
+  requested_platforms: job.requested_platforms || [],
+  events: job.events || [],
+  offers: job.offers || [],
+});
+
+export async function startRecommendation(productId: string): Promise<RecommendationLaunch> {
+  const response = await apiClient.post<{ job_id: string; recommendation: { id: string }; job: BackendRecommendationJob }>(`/recommendations/generate/${productId}`, {});
+  return { jobId: response.data.job_id, recommendationId: response.data.recommendation.id, job: toRecommendationJob(response.data.job) };
+}
+
+export async function getRecommendationStatus(recommendationId: string): Promise<{ status: string; job: RecommendationJob | null }> {
+  const response = await apiClient.get<{ status: string; job?: BackendRecommendationJob | null }>(`/recommendations/status/${recommendationId}`);
+  return { status: response.data.status, job: response.data.job ? toRecommendationJob(response.data.job) : null };
+}
+
 export async function approveRecommendation(recommendationId: string): Promise<void> { await apiClient.post(`/approvals/approve/${recommendationId}`, {}); }
+export async function rejectRecommendation(recommendationId: string, reason: string): Promise<void> { await apiClient.post(`/approvals/reject/${recommendationId}`, { rejection_reason: reason }); }
+export async function rollbackApproval(actionId: string): Promise<void> { await apiClient.post(`/approvals/rollback/${actionId}`, {}); }
 
 export async function getApprovalHistory(): Promise<ApprovalAuditEvent[]> { const response = await apiClient.get<{ history?: Array<Record<string, unknown>> }>("/approvals/history"); return (response.data.history || []).map((item) => ({ id: String(item.id), recommendationId: String(item.recommendation_id), actionType: String(item.action_type) as ApprovalAuditEvent["actionType"], sku: String(item.sku || item.product && (item.product as Record<string, unknown>).sku || "N/A"), productName: String(item.product && (item.product as Record<string, unknown>).name || "Unknown product"), previousPrice: Number(item.previous_price || 0), executedPrice: Number(item.executed_price || 0), llmStatement: String(item.llm_statement || item.rejection_reason || "No rationale recorded."), userEmail: String(item.user_email || "Unknown user"), emailSentStatus: String(item.email_sent_status || "pending") as ApprovalAuditEvent["emailSentStatus"], timestamp: String(item.timestamp || ""), rolledBack: Boolean(item.rolled_back) })); }
 
@@ -139,3 +178,17 @@ export async function getScraperStatus(): Promise<ScraperStatus[]> {
 }
 
 export default apiClient;
+
+
+export async function exportCatalog(format: "csv" | "xlsx" = "xlsx"): Promise<void> {
+  const response = await apiClient.get(`/products/export-csv?format=${format}`, { responseType: "blob" });
+  const blob = new Blob([response.data], { type: format === "xlsx" ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" : "text/csv" });
+  const url = window.URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `klypup-catalog-updated.${format}`;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.URL.revokeObjectURL(url);
+}

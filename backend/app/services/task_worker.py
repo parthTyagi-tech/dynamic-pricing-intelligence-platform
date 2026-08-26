@@ -14,6 +14,8 @@ from app.models.recommendation import (
     ApprovalAction,
     ApprovalActionType
 )
+from app.models.recommendation_job import AgentRunStatus, MarketplaceOffer, RecommendationJob, RecommendationJobStatus
+from app.services.recommendation_job_service import emit_event, mark_job_failed, mark_job_succeeded
 from app.services.email_service import send_recommendation_action_email
 from app.services.whatsapp_service import send_whatsapp_recommendation_action
 from app.models.user import User
@@ -76,6 +78,15 @@ def _process_pricing_job(recommendation_id: str, product_id: str):
     if not recommendation or not product:
         logger.error(f"[task_worker] Could not find recommendation {recommendation_id} or product {product_id} in DB.")
         return
+    job = RecommendationJob.query.filter_by(recommendation_id=recommendation.id).first()
+    if job:
+        job.status = RecommendationJobStatus.RUNNING
+        job.worker_id = "in-process-testing-worker"
+        job.attempts = int(job.attempts or 0) + 1
+        job.started_at = job.started_at or datetime.now(timezone.utc)
+        job.last_heartbeat_at = datetime.now(timezone.utc)
+        emit_event(job, "orchestrator", AgentRunStatus.RUNNING, 5, "Local worker claimed the recommendation job.")
+        emit_event(job, "scraper", AgentRunStatus.RUNNING, 15, "Scraper agents are searching category-specific marketplaces.")
         
     try:
         # Always run real-time scraper to fetch fresh competitor prices
@@ -109,23 +120,42 @@ def _process_pricing_job(recommendation_id: str, product_id: str):
 
         # Clear existing competitor prices to avoid duplicates/outdated data
         CompetitorPrice.query.filter_by(product_id=product.id).delete()
-        
+        if job:
+            MarketplaceOffer.query.filter_by(job_id=job.id).delete()
         for comp_name, comp_data in scraped_prices.items():
-            price_val = comp_data["price"] if isinstance(comp_data, dict) else comp_data
-            if not price_val or price_val <= 0:
+            value = comp_data if isinstance(comp_data, dict) else {"price": comp_data}
+            price_val = float(value.get("price", value.get("price_inr", 0)) or 0)
+            if price_val <= 0:
                 continue
             cp = CompetitorPrice(
                 competitor_name=comp_name,
                 competitor_price=price_val,
-                in_stock=comp_data.get("in_stock", True) if isinstance(comp_data, dict) else True,
-                product_url=comp_data.get("url", "") if isinstance(comp_data, dict) else "",
+                in_stock=value.get("in_stock", True),
+                product_url=value.get("url", ""),
                 product_id=product.id,
                 organization_id=product.organization_id
             )
             db.session.add(cp)
+            if job:
+                db.session.add(MarketplaceOffer(
+                    job_id=job.id,
+                    product_id=product.id,
+                    organization_id=product.organization_id,
+                    platform=comp_name,
+                    title=value.get("title") or value.get("product_title"),
+                    current_price=price_val,
+                    availability="in_stock" if value.get("in_stock", True) else "out_of_stock",
+                    in_stock=value.get("in_stock", True),
+                    product_url=value.get("url", ""),
+                    match_confidence=value.get("match_confidence") or "medium",
+                    source_type=value.get("fetch_method") or value.get("extraction_strategy") or "live_scrape",
+                ))
         db.session.commit()
+        if job:
+            emit_event(job, "scraper", AgentRunStatus.SUCCEEDED, 50, f"Scraper agents found {len(scraped_prices)} marketplace result(s).", {"marketplaces": list(scraped_prices)})
 
         # Trigger persistent in-app alerts for meaningful marketplace drops.
+
         from app.services.price_alert_service import detect_and_create_alerts
         current_prices = {
             comp_name: float(comp_data.get("price", 0) if isinstance(comp_data, dict) else comp_data)
@@ -137,6 +167,8 @@ def _process_pricing_job(recommendation_id: str, product_id: str):
             logger.info("[task_worker] Created %s competitor drop alert(s) for %s", len(drop_alerts), product.sku)
 
         # Run AI Pricing strategy orchestrator
+        if job:
+            emit_event(job, "market", AgentRunStatus.RUNNING, 60, "Market agent is comparing verified marketplace evidence.")
         ai_result = PricingStrategyAgent.generate(product)
         
         market_data = ai_result["agent_analysis"]["market_agent"]
@@ -178,6 +210,10 @@ def _process_pricing_job(recommendation_id: str, product_id: str):
             "fallback_used": ai_result.get("fallback_used", False)
         }
         recommendation.status = RecommendationStatus.PENDING
+        if job:
+            emit_event(job, "market", AgentRunStatus.SUCCEEDED, 70, "Market agent completed competitor-price analysis.")
+            emit_event(job, "inventory", AgentRunStatus.SUCCEEDED, 85, "Inventory agent completed margin and stock analysis.")
+            emit_event(job, "orchestrator", AgentRunStatus.RUNNING, 90, "Orchestrator synthesized the final price recommendation.")
 
         # Auto-execute checking
         if ai_result.get("execution_route") == "auto_execute":
@@ -232,6 +268,9 @@ def _process_pricing_job(recommendation_id: str, product_id: str):
                 logger.error(f"[task_worker] Failed to send auto-execute notification: {e}")
         
         db.session.commit()
+        if job:
+            mark_job_succeeded(job)
+            emit_event(job, "orchestrator", AgentRunStatus.SUCCEEDED, 100, "All agents completed; recommendation is ready for review.")
         logger.info(f"[task_worker] Successfully completed pricing generation for recommendation {recommendation_id}")
         
     except Exception as e:
@@ -241,3 +280,5 @@ def _process_pricing_job(recommendation_id: str, product_id: str):
         recommendation.status = RecommendationStatus.FAILED
         recommendation.rationale = f"Generation failed: {str(e)}"
         db.session.commit()
+        if job:
+            mark_job_failed(job, str(e))

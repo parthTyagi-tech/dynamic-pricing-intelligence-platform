@@ -161,6 +161,13 @@ class Product(db.Model):
         cascade="all, delete-orphan"
     )
 
+    recommendation_jobs = db.relationship(
+        "RecommendationJob",
+        back_populates="product",
+        lazy="dynamic",
+        cascade="all, delete-orphan"
+    )
+
     competitor_prices = db.relationship(
         "CompetitorPrice",
         back_populates="product",

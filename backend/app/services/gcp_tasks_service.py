@@ -1,6 +1,6 @@
 import os
 import json
-def create_pricing_recommendation_task(recommendation_id: str, product_id: str):
+def create_pricing_recommendation_task(recommendation_id: str, product_id: str, job_id: str | None = None):
     """
     Dispatches a task to Google Cloud Tasks to process a pricing recommendation asynchronously.
     Falls back to synchronous or log warning if GCP environment variables are not set.
@@ -22,14 +22,18 @@ def create_pricing_recommendation_task(recommendation_id: str, product_id: str):
         url = f"{backend_url.rstrip('/')}/api/recommendations/process-task"
         payload = {
             "recommendation_id": recommendation_id,
-            "product_id": product_id
+            "product_id": product_id,
+            "job_id": job_id,
         }
 
         task = {
             "http_request": {
                 "http_method": tasks_v2.HttpMethod.POST,
                 "url": url,
-                "headers": {"Content-Type": "application/json"},
+                "headers": {
+                    "Content-Type": "application/json",
+                    **({"X-Klypup-Worker-Secret": os.environ["WORKER_CALLBACK_SECRET"]} if os.environ.get("WORKER_CALLBACK_SECRET") else {}),
+                },
                 "body": json.dumps(payload).encode("utf-8")
             }
         }

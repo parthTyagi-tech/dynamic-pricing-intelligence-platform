@@ -6,3 +6,4 @@ from .market_data import *
 from .audit_loging import *
 from .ai_call_log import *
 from .price_alert import *
+from .recommendation_job import *

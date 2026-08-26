@@ -256,6 +256,9 @@ def reject_recommendation(recommendation_id):
         recommendation.product_id
     )
 
+    payload = request.get_json(silent=True) or {}
+    rejection_reason = str(payload.get("rejection_reason") or payload.get("reason") or "Rejected by admin").strip()[:2000]
+
     # =====================================
     # UPDATE STATUS
     # =====================================
@@ -278,7 +281,7 @@ def reject_recommendation(recommendation_id):
 
         approved_by=current_user.id,
 
-        rejection_reason="Rejected by admin"
+        rejection_reason=rejection_reason
     )
 
     db.session.add(rejection_action)

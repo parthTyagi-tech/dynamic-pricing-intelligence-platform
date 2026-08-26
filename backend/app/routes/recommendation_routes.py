@@ -1,5 +1,6 @@
 
 from datetime import datetime, timezone, timedelta
+import os
 from flask import Blueprint, request
 
 from flask_jwt_extended import (
@@ -24,6 +25,18 @@ from app.models.recommendation import (
     RecommendationStatus,
     ApprovalAction,
     ApprovalActionType
+)
+from app.models.recommendation_job import (
+    AgentRunStatus,
+    MarketplaceOffer,
+    RecommendationJob,
+    RecommendationJobStatus,
+)
+from app.services.recommendation_job_service import (
+    create_recommendation_job,
+    emit_event,
+    mark_job_failed,
+    mark_job_succeeded,
 )
 
 from app.services.ai_pricing_service import (
@@ -138,33 +151,28 @@ def generate_recommendation(product_id):
         if not product.attributes:
             product.attributes = {"brand": product.brand or "", "category": product.category}
 
-        # Create a pending recommendation with status = 'processing'
-        recommendation = PricingRecommendation(
-            product_id=product.id,
-            recommended_price=product.current_price,
-            confidence_score=0.0,
-            rationale="Initializing pricing analysis...",
-            ai_summary="Asynchronous pricing analysis initiated.",
-            status="processing",
-            organization_id=current_user.organization_id
-        )
-        db.session.add(recommendation)
-        db.session.commit()
+        recommendation, job = create_recommendation_job(product, current_user.organization_id)
 
-        # Dispatch background GCP Cloud Task
+        # Dispatch a durable Cloud Task. Local development keeps the existing
+        # worker fallback, but production never depends on an in-memory queue.
         from app.services.gcp_tasks_service import create_pricing_recommendation_task
-        task_name = create_pricing_recommendation_task(recommendation.id, product.id)
-
-        # Fallback to local in-memory worker queue if GCP Tasks is not configured (local dev)
-        if not task_name:
-            print("[recommendation_bp] Fallback to local task worker queue.")
+        task_name = create_pricing_recommendation_task(recommendation.id, product.id, job.id)
+        if not task_name and (os.environ.get("VERCEL") != "1" or os.environ.get("FLASK_ENV") == "testing"):
             from app.services.task_worker import enqueue_pricing_recommendation
             enqueue_pricing_recommendation(recommendation.id, product.id)
+        elif not task_name:
+            job.status = RecommendationJobStatus.FAILED
+            job.error_message = "Durable worker queue is not configured."
+            emit_event(job, "orchestrator", "failed", 0, "Durable worker queue is not configured.")
+            db.session.commit()
+            return {"success": False, "message": "Recommendation worker is not configured. Please contact your administrator."}, 503
 
         return {
             "success": True,
-            "message": "Pricing task queued successfully via GCP Tasks" if task_name else "Pricing task queued locally in background worker",
+            "message": "Pricing task queued for durable processing",
+            "job_id": job.id,
             "recommendation": recommendation.to_dict(),
+            "job": job.to_dict(),
             "normalized_product": normalize_product_record(product.to_dict())
         }, 202
 
@@ -403,9 +411,13 @@ def approve_recommendation(recommendation_id):
     methods=["POST"]
 )
 def process_task():
+    worker_secret = os.environ.get("WORKER_CALLBACK_SECRET")
+    if worker_secret and request.headers.get("X-Klypup-Worker-Secret") != worker_secret:
+        return {"success": False, "message": "Unauthorized worker callback"}, 401
     payload = request.get_json(silent=True) or {}
     recommendation_id = payload.get("recommendation_id")
     product_id = payload.get("product_id")
+    job_id = payload.get("job_id")
 
     if not recommendation_id or not product_id:
         return {
@@ -422,15 +434,23 @@ def process_task():
             "message": "Recommendation or Product not found"
         }, 404
 
-    # Double check if already processed
-    if recommendation.status != "processing":
-        return {
-            "success": True,
-            "message": "Task already processed or status is not processing"
-        }, 200
+    job = RecommendationJob.query.filter_by(id=job_id).first() if job_id else RecommendationJob.query.filter_by(recommendation_id=recommendation.id).first()
+
+    # Double check if already processed. A retry of a completed task is safe.
+    if recommendation.status != "processing" or (job and job.status == RecommendationJobStatus.SUCCEEDED):
+        return {"success": True, "message": "Task already processed or status is not processing"}, 200
+
+    if job:
+        job.status = RecommendationJobStatus.RUNNING
+        job.attempts = int(job.attempts or 0) + 1
+        job.started_at = job.started_at or datetime.now(timezone.utc)
+        job.last_heartbeat_at = datetime.now(timezone.utc)
+        emit_event(job, "orchestrator", AgentRunStatus.RUNNING, 5, "Orchestrator claimed the durable recommendation job.")
 
     try:
         # Check if this is a product with zero competitor prices (e.g. newly created)
+        if job:
+            emit_event(job, "scraper", AgentRunStatus.RUNNING, 15, "Scraper agents are searching category-specific marketplaces.")
         has_competitors = CompetitorPrice.query.filter_by(product_id=product.id).first() is not None
         if not has_competitors:
             import asyncio
@@ -450,22 +470,50 @@ def process_task():
                     baseline_price_inr=product.current_price,
                     barcode=product.barcode or "",
                     description=product.description or "",
-                    product_id=product.id
+                    product_id=product.id,
+                    platforms=job.requested_platforms if job else None,
                 )
             )
             
+            if job:
+                MarketplaceOffer.query.filter_by(job_id=job.id).delete()
             for comp_name, comp_data in scraped_prices.items():
+                value = comp_data if isinstance(comp_data, dict) else {"price": comp_data}
+                price = float(value.get("price", value.get("price_inr", 0)) or 0)
+                if price <= 0:
+                    continue
                 cp = CompetitorPrice(
                     competitor_name=comp_name,
-                    competitor_price=comp_data["price"] if isinstance(comp_data, dict) else comp_data,
-                    in_stock=comp_data.get("in_stock", True) if isinstance(comp_data, dict) else True,
+                    competitor_price=price,
+                    in_stock=value.get("in_stock", True),
+                    product_url=value.get("url", ""),
                     product_id=product.id,
                     organization_id=product.organization_id
                 )
                 db.session.add(cp)
+                if job:
+                    db.session.add(MarketplaceOffer(
+                        job_id=job.id,
+                        product_id=product.id,
+                        organization_id=product.organization_id,
+                        platform=comp_name,
+                        title=value.get("title") or value.get("product_title"),
+                        current_price=price,
+                        availability="in_stock" if value.get("in_stock", True) else "out_of_stock",
+                        in_stock=value.get("in_stock", True),
+                        product_url=value.get("url", ""),
+                        match_confidence=value.get("match_confidence") or "medium",
+                        source_type=value.get("fetch_method") or value.get("extraction_strategy") or "live_scrape",
+                    ))
             db.session.commit()
+            if job:
+                emit_event(job, "scraper", AgentRunStatus.SUCCEEDED, 50, f"Scraper agents found {len(scraped_prices)} marketplace result(s).", {"marketplaces": list(scraped_prices)})
+        elif job:
+            emit_event(job, "scraper", AgentRunStatus.SUCCEEDED, 50, "Existing marketplace evidence was reused for this retry.")
 
         # Run agent strategy logic
+        if job:
+            emit_event(job, "market", AgentRunStatus.RUNNING, 60, "Market agent is comparing verified marketplace evidence.")
         ai_result = PricingStrategyAgent.generate(product)
 
         market_data = ai_result["agent_analysis"]["market_agent"]
@@ -494,6 +542,12 @@ def process_task():
 
         db.session.add(competitor_data)
         db.session.add(demand_signal)
+
+        if job:
+            emit_event(job, "market", AgentRunStatus.SUCCEEDED, 70, "Market agent completed competitor-price analysis.")
+            emit_event(job, "inventory", AgentRunStatus.RUNNING, 75, "Inventory agent is applying stock and margin constraints.")
+            emit_event(job, "inventory", AgentRunStatus.SUCCEEDED, 85, "Inventory agent completed margin and stock analysis.")
+            emit_event(job, "orchestrator", AgentRunStatus.RUNNING, 90, "Orchestrator is synthesizing the final price recommendation.")
 
         # Update recommendation parameters
         recommendation.recommended_price = ai_result["recommended_price"]
@@ -528,16 +582,18 @@ def process_task():
             recommendation.ai_summary += " (AUTOPILOT: Automatically executed due to high confidence)"
 
         db.session.commit()
-        return {
-            "success": True,
-            "message": "Task processed successfully"
-        }, 200
+        if job:
+            mark_job_succeeded(job)
+            emit_event(job, "orchestrator", AgentRunStatus.SUCCEEDED, 100, "All agents completed; recommendation is ready for review.")
+        return {"success": True, "message": "Task processed successfully", "job_id": job.id if job else None}, 200
 
     except Exception as e:
         db.session.rollback()
         recommendation.status = RecommendationStatus.FAILED
         recommendation.rationale = f"Processing error: {str(e)}"
         db.session.commit()
+        if job:
+            mark_job_failed(job, str(e))
         print(f"[recommendation_bp] Task processing error: {e}")
         return {
             "success": False,
@@ -577,12 +633,17 @@ def get_recommendation_status(recommendation_id):
     fallback_used = False
     if recommendation.agent_analysis and isinstance(recommendation.agent_analysis, dict):
         fallback_used = recommendation.agent_analysis.get("fallback_used", False)
+    job = RecommendationJob.query.filter_by(
+        recommendation_id=recommendation.id,
+        organization_id=current_user.organization_id,
+    ).first()
 
     return {
         "success": True,
         "status": recommendation.status,
         "fallback_used": fallback_used,
-        "recommendation": recommendation.to_dict()
+        "recommendation": recommendation.to_dict(),
+        "job": job.to_dict() if job else None,
     }, 200
 
 # =====================================
@@ -643,6 +704,7 @@ def get_recommendation_details(recommendation_id):
     return {
         "success": True,
         "recommendation": recommendation.to_dict(),
+        "job": recommendation.job.to_dict() if recommendation.job else None,
         "product": product.to_dict(),
         "competitors": [c.to_dict() for c in competitors],
         "demand_signals": [s.to_dict() for s in signals],

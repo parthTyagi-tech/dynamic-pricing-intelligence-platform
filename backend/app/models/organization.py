@@ -69,6 +69,13 @@ class Organization(db.Model):
         lazy="dynamic"
     )
 
+    recommendation_jobs = db.relationship(
+        "RecommendationJob",
+        back_populates="organization",
+        lazy="dynamic",
+        cascade="all, delete-orphan"
+    )
+
     audit_logs = db.relationship(
         "AuditLog",
         back_populates="organization",

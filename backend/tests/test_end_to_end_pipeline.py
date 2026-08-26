@@ -17,6 +17,7 @@ from app.models.product import Product
 from app.models.recommendation import PricingRecommendation, RecommendationStatus
 from app.models.market_data import CompetitorPrice
 from app.models.price_alert import PriceAlert
+from app.models.recommendation_job import RecommendationAgentEvent, RecommendationJob, RecommendationJobStatus
 from app.models.user import User, UserRole
 from app.services import task_worker
 from run import app
@@ -67,14 +68,27 @@ def test_authenticated_pricing_pipeline_end_to_end(monkeypatch):
             "fallback_used": False,
         })
 
+        if task_worker.flask_app_ref is None:
+            task_worker.init_worker(app)
         queued = client.post(f"/api/recommendations/generate/{product.id}", headers=headers)
         assert queued.status_code == 202, queued.get_json()
         recommendation_id = queued.get_json()["recommendation"]["id"]
+        job_id = queued.get_json()["job_id"]
+        assert queued.get_json()["job"]["requested_platforms"] == ["Amazon", "Flipkart", "Croma", "Reliance Digital"]
         task_worker.task_queue.join()
         status = client.get(f"/api/recommendations/status/{recommendation_id}", headers=headers)
         assert status.status_code == 200, status.get_json()
         assert status.get_json()["status"] == RecommendationStatus.PENDING
         assert status.get_json()["fallback_used"] is False
+        assert status.get_json()["job"]["id"] == job_id
+        assert status.get_json()["job"]["status"] == RecommendationJobStatus.SUCCEEDED
+        assert status.get_json()["job"]["progress"] == 100
+        assert {event["agent_name"] for event in status.get_json()["job"]["events"]} >= {"scraper", "market", "inventory", "orchestrator"}
+        assert status.get_json()["job"]["offers"][0]["platform"] == "Amazon"
+
+        exported = client.get("/api/products/export-csv?format=xlsx", headers=headers)
+        assert exported.status_code == 200
+        assert exported.mimetype == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
         for endpoint in [
             "/api/dashboard/metrics", "/api/dashboard/revenue", "/api/dashboard/pricing-trends",

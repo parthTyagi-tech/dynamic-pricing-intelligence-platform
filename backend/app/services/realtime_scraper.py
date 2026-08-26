@@ -582,7 +582,8 @@ async def stream_multi_platform_prices(
     baseline_price_inr: float = 0,
     barcode: str = "",
     description: str = "",
-    product_id: str = None
+    product_id: str = None,
+    platforms: list[str] | None = None,
 ):
     """
     Scrapes DuckDuckGo HTML results for the product across multiple storefront sites
@@ -609,6 +610,9 @@ async def stream_multi_platform_prices(
         "Reliance Digital": {"icon": "RD", "color": "#A78BFA", "domains": ["reliancedigital.in"]},
         "Tata CLiQ": {"icon": "TC", "color": "#C084FC", "domains": ["tatacliq.com"]}
     }
+    if platforms:
+        requested = {name.strip() for name in platforms}
+        pconfigs = {name: config for name, config in pconfigs.items() if name in requested}
     
     extracted = {}
     platforms_to_search = []
@@ -947,6 +951,7 @@ async def fetch_multi_platform_prices(
     barcode: str = "",
     description: str = "",
     product_id: str = None,
+    platforms: list[str] | None = None,
     **kwargs
 ) -> dict:
     """Non-streaming wrapper over stream_multi_platform_prices for backwards compatibility."""
@@ -961,7 +966,8 @@ async def fetch_multi_platform_prices(
         baseline_price_inr=price,
         barcode=barcode,
         description=description,
-        product_id=product_id
+        product_id=product_id,
+        platforms=platforms,
     ):
         if not chunk.startswith("data: "):
             continue

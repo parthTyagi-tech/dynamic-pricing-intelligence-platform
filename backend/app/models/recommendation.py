@@ -154,6 +154,13 @@ class PricingRecommendation(db.Model):
         back_populates="recommendations"
     )
 
+    job = db.relationship(
+        "RecommendationJob",
+        back_populates="recommendation",
+        uselist=False,
+        cascade="all, delete-orphan"
+    )
+
     approval_actions = db.relationship(
         "ApprovalAction",
         back_populates="recommendation",
