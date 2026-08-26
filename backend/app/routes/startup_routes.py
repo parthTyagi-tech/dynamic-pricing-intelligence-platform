@@ -1,4 +1,4 @@
-import random
+import os
 from datetime import datetime, timezone
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
@@ -10,22 +10,7 @@ from app.services.realtime_scraper import fetch_multi_platform_prices
 
 startup_bp = Blueprint("startup", __name__)
 
-# In-memory storage for mock integrations configurations
-INTEGRATIONS_STORE = {
-    "shopify": {
-        "connected": True,
-        "store_url": "acme-wear.myshopify.com",
-        "api_version": "2024-04",
-        "last_sync": "2026-07-01T18:30:00Z"
-    },
-    "woocommerce": {
-        "connected": False,
-        "store_url": "",
-        "api_version": "",
-        "last_sync": None
-    }
-}
-
+SUPPORTED_INTEGRATIONS = {"shopify", "woocommerce", "amazon"}
 
 @startup_bp.route("/matcher", methods=["POST"])
 @jwt_required()
@@ -91,10 +76,10 @@ def get_billing_summary():
     if not current_user:
         return {"success": False, "message": "User not found"}, 404
 
-    # Calculate dynamic mock invoice values based on actual DB product counts
+    # Billing data is unavailable until a persisted billing provider is configured.
     product_count = Product.query.filter_by(organization_id=current_user.organization_id).count()
     # Assume AI generates an average of ₹1,18,286 (approx $1,420) lift per managed product
-    revenue_lift = float(product_count * 1420.00) if product_count > 0 else 45210.00
+    revenue_lift = 0.0
     
     commission_rate = 0.005 # 0.5%
     commission_charge = round(revenue_lift * commission_rate, 2)
@@ -104,23 +89,19 @@ def get_billing_summary():
     return {
         "success": True,
         "subscription": {
-            "tier": "Pro Growth Plan",
-            "price_monthly": plan_fee,
-            "billing_cycle": "Monthly",
-            "next_billing_date": "2026-07-28"
+            "tier": None,
+            "price_monthly": 0.0,
+            "billing_cycle": None,
+            "next_billing_date": None
         },
         "usage_metrics": {
             "ai_assisted_revenue_lift": revenue_lift,
             "commission_rate_pct": commission_rate * 100,
             "commission_due": commission_charge,
-            "subscription_due": plan_fee,
-            "total_invoice_due": total_due
+            "subscription_due": 0.0,
+            "total_invoice_due": 0.0
         },
-        "billing_history": [
-            {"invoice_id": "INV-2026-06", "date": "2026-06-28", "amount": 349.50, "status": "paid"},
-            {"invoice_id": "INV-2026-05", "date": "2026-05-28", "amount": 298.12, "status": "paid"},
-            {"invoice_id": "INV-2026-04", "date": "2026-04-28", "amount": 149.00, "status": "paid"}
-        ]
+        "billing_history": []
     }, 200
 
 
@@ -140,7 +121,7 @@ def create_checkout_session():
 
     # Calculate same amount as get_billing_summary
     product_count = Product.query.filter_by(organization_id=current_user.organization_id).count()
-    revenue_lift = float(product_count * 1420.00) if product_count > 0 else 45210.00
+    revenue_lift = 0.0
     commission_rate = 0.005
     commission_charge = round(revenue_lift * commission_rate, 2)
     plan_fee = 149.00
@@ -176,55 +157,32 @@ def handle_integrations():
     if not current_user:
         return {"success": False, "message": "User not found"}, 404
 
+    organization = current_user.organization
+    if not organization:
+        return {"success": False, "message": "Organization not found"}, 404
+
     if request.method == "POST":
         data = request.get_json() or {}
-        platform = data.get("platform")
+        platform = str(data.get("platform", "")).strip().lower()
         connected = bool(data.get("connected", False))
-        store_url = data.get("store_url", "")
-
-        if platform not in INTEGRATIONS_STORE:
+        store_url = str(data.get("store_url", "")).strip()
+        if platform not in SUPPORTED_INTEGRATIONS:
             return {"success": False, "message": f"Platform '{platform}' is not supported"}, 400
+        if connected and not store_url:
+            return {"success": False, "message": "store_url is required when connecting an integration"}, 400
+        organization.store_platform = platform if connected else None
+        organization.store_domain = store_url if connected else None
+        db.session.commit()
 
-        INTEGRATIONS_STORE[platform]["connected"] = connected
-        INTEGRATIONS_STORE[platform]["store_url"] = store_url if connected else ""
-        INTEGRATIONS_STORE[platform]["last_sync"] = datetime.now(timezone.utc).isoformat() if connected else None
-
-        return {
-            "success": True,
-            "message": f"{platform.capitalize()} integration updated successfully",
-            "integration": INTEGRATIONS_STORE[platform]
-        }, 200
-
-    # GET returns current status and mock webhook logs list
-    webhook_logs = [
-        {
-            "event": "orders/create",
-            "topic": "Order Placed",
-            "payload_id": "shopify-ord-82918",
-            "timestamp": "2026-07-01T19:22:15Z",
-            "status": "processed",
-            "ai_adjusted": True
-        },
-        {
-            "event": "products/update",
-            "topic": "Catalog Sync",
-            "payload_id": "shopify-prod-10928",
-            "timestamp": "2026-07-01T18:45:00Z",
-            "status": "processed",
-            "ai_adjusted": False
-        },
-        {
-            "event": "orders/create",
-            "topic": "Order Placed",
-            "payload_id": "shopify-ord-82909",
-            "timestamp": "2026-07-01T17:10:04Z",
-            "status": "processed",
-            "ai_adjusted": True
+    current_platform = organization.store_platform
+    current_domain = organization.store_domain
+    integrations = {
+        platform: {
+            "connected": platform == current_platform and bool(current_domain),
+            "store_url": current_domain if platform == current_platform else "",
+            "api_version": "",
+            "last_sync": None,
         }
-    ]
-
-    return {
-        "success": True,
-        "integrations": INTEGRATIONS_STORE,
-        "webhook_logs": webhook_logs
-    }, 200
+        for platform in sorted(SUPPORTED_INTEGRATIONS)
+    }
+    return {"success": True, "integrations": integrations, "webhook_logs": []}, 200

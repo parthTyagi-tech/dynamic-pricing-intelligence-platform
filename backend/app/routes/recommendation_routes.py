@@ -1,5 +1,5 @@
-import random
 
+from datetime import datetime, timezone, timedelta
 from flask import Blueprint, request
 
 from flask_jwt_extended import (
@@ -479,10 +479,15 @@ def process_task():
             organization_id=product.organization_id
         )
 
+        latest_sales = db.session.query(db.func.coalesce(db.func.sum(Sale.quantity), 0)).filter(
+            Sale.product_id == product.id,
+            Sale.organization_id == product.organization_id,
+            Sale.timestamp >= datetime.now(timezone.utc) - timedelta(days=14)
+        ).scalar() or 0
         demand_signal = DemandSignal(
             trend_score=demand_data["demand_score"] / 100,
-            seasonal_factor=1.1,
-            sku_velocity=random.uniform(10, 100),
+            seasonal_factor=demand_data.get("seasonal_factor", 1.0),
+            sku_velocity=float(latest_sales) / 14.0,
             product_id=product.id,
             organization_id=product.organization_id
         )

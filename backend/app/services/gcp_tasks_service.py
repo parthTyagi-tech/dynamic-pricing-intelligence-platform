@@ -1,7 +1,5 @@
 import os
 import json
-from google.cloud import tasks_v2
-
 def create_pricing_recommendation_task(recommendation_id: str, product_id: str):
     """
     Dispatches a task to Google Cloud Tasks to process a pricing recommendation asynchronously.
@@ -17,6 +15,7 @@ def create_pricing_recommendation_task(recommendation_id: str, product_id: str):
         return None
 
     try:
+        from google.cloud import tasks_v2
         client = tasks_v2.CloudTasksClient()
         parent = client.queue_path(project, location, queue)
 

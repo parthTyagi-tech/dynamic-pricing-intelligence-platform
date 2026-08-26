@@ -31,6 +31,7 @@ export interface ChartPoint {
 
 export interface Product {
   id: string;
+  recommendationId?: string;
   sku: string;
   name: string;
   category: string;

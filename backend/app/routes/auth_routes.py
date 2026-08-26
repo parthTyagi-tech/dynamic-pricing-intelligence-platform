@@ -5,6 +5,7 @@ import uuid
 
 from app.extensions import db
 from app.models.user import User
+from app.models.product import Product
 from app.models.organization import Organization
 from app.services.email_service import send_login_email
 from app.services.whatsapp_service import send_whatsapp_welcome
@@ -276,122 +277,38 @@ def complete_onboarding():
     }, 200
 
 # =====================================
-# CONNECT STORE INTEGRATION & SEED CATALOG
+# CONNECT STORE INTEGRATION
 # =====================================
-@auth_bp.route(
-    "/connect-integration",
-    methods=["POST"]
-)
+@auth_bp.route("/connect-integration", methods=["POST"])
 @jwt_required()
 def connect_integration():
     current_user_id = get_jwt_identity()
     user = User.query.get(current_user_id)
-
     if not user:
-        return {
-            "success": False,
-            "message": "User not found"
-        }, 404
+        return {"success": False, "message": "User not found"}, 404
 
     org = user.organization
     if not org:
-        return {
-            "success": False,
-            "message": "Organization not found"
-        }, 404
+        return {"success": False, "message": "Organization not found"}, 404
 
     data = request.get_json() or {}
-    platform = data.get("platform")
-    domain = data.get("domain")
+    platform = str(data.get("platform", "")).strip().lower()
+    domain = str(data.get("domain", "")).strip()
+    if platform not in {"shopify", "woocommerce", "amazon"}:
+        return {"success": False, "message": "Supported platforms are shopify, woocommerce, and amazon"}, 400
+    if not domain or len(domain) > 255 or any(char.isspace() for char in domain):
+        return {"success": False, "message": "A valid store domain is required"}, 400
 
-    if not platform:
-        return {
-            "success": False,
-            "message": "Platform identifier is required"
-        }, 400
-
-    # Save to organization
-    org.store_platform = platform.lower()
-    org.store_domain = domain or f"{platform.lower()}-store-{org.id[:6]}"
-    
-    # Seed Products & Competitor Price Matrices
-    from app.models.product import Product
-    from app.models.market_data import CompetitorPrice, DemandSignal
-    from datetime import datetime, timezone, timedelta
-
-    # Delete any existing products for this org to prevent clutter during testing
-    Product.query.filter_by(organization_id=org.id).delete()
-    
-    products_to_seed = []
-    if platform.lower() == "shopify":
-        products_to_seed = [
-            {"sku": "SKU-SHPF-001", "name": "Shopify Tech Zip Hoodie", "category": "Apparel", "current_price": 65.00, "cost_price": 20.00, "inventory_quantity": 120, "description": "Premium dual-knit Shopify logo hoodie."},
-            {"sku": "SKU-SHPF-002", "name": "Shopify Ergonomic Mousepad", "category": "Accessories", "current_price": 25.00, "cost_price": 8.00, "inventory_quantity": 300, "description": "Memory foam wrist-rest desk mat."},
-            {"sku": "SKU-SHPF-003", "name": "Shopify Ceramic Travel Mug", "category": "Accessories", "current_price": 18.50, "cost_price": 5.00, "inventory_quantity": 450, "description": "Double-walled travel mug for hot beverages."},
-            {"sku": "SKU-SHPF-004", "name": "Shopify Pro Snapback Hat", "category": "Apparel", "current_price": 30.00, "cost_price": 10.00, "inventory_quantity": 180, "description": "Structured flat brim snapback cap."}
-        ]
-    elif platform.lower() == "walmart":
-        products_to_seed = [
-            {"sku": "SKU-WMRT-001", "name": "Walmart Great Value Pack", "category": "Groceries", "current_price": 12.99, "cost_price": 4.00, "inventory_quantity": 800, "description": "Premium bulk pantry staples variety bundle."},
-            {"sku": "SKU-WMRT-002", "name": "Walmart Equate Daily Care Kit", "category": "Accessories", "current_price": 15.50, "cost_price": 6.00, "inventory_quantity": 600, "description": "Daily hygiene and essential wellness kit."},
-            {"sku": "SKU-WMRT-003", "name": "Walmart Mainstays Bed Pillow", "category": "General", "current_price": 19.99, "cost_price": 7.50, "inventory_quantity": 400, "description": "Hypoallergenic supportive microfiber bed pillow."},
-            {"sku": "SKU-WMRT-004", "name": "Walmart Athletic crew socks", "category": "Apparel", "current_price": 9.99, "cost_price": 3.00, "inventory_quantity": 1000, "description": "Pack of 6 cushioned running socks."}
-        ]
-    else:
-        products_to_seed = [
-            {"sku": "SKU-GLB-001", "name": f"{platform.capitalize()} Pro Wireless Headphones", "category": "Electronics", "current_price": 120.00, "cost_price": 45.00, "inventory_quantity": 100, "description": "Active noise-cancelling over-ear headphones."},
-            {"sku": "SKU-GLB-002", "name": f"{platform.capitalize()} Fast Wireless Charger", "category": "Electronics", "current_price": 35.00, "cost_price": 12.00, "inventory_quantity": 250, "description": "Qi-certified 15W rapid wireless charging pad."},
-            {"sku": "SKU-GLB-003", "name": f"{platform.capitalize()} Stainless Steel Flask", "category": "Fitness", "current_price": 25.00, "cost_price": 7.00, "inventory_quantity": 500, "description": "Double-walled vacuum insulated flask."},
-            {"sku": "SKU-GLB-004", "name": f"{platform.capitalize()} Sleep Orthopedic Pillow", "category": "General", "current_price": 45.00, "cost_price": 15.00, "inventory_quantity": 150, "description": "Contour memory foam sleep support pillow."}
-        ]
-
-    now = datetime.now(timezone.utc)
-    
-    for item in products_to_seed:
-        prod = Product(
-            sku=item["sku"],
-            name=item["name"],
-            category=item["category"],
-            current_price=item["current_price"],
-            cost_price=item["cost_price"],
-            inventory_quantity=item["inventory_quantity"],
-            description=item["description"],
-            organization_id=org.id
-        )
-        db.session.add(prod)
-        db.session.flush()
-
-        # Add competitor price records
-        competitors = [
-            ("Amazon", 0.96),
-            ("Flipkart", 1.02),
-            ("Walmart" if platform.lower() != "walmart" else "Target", 0.98)
-        ]
-        for comp_name, variance in competitors:
-            cp = CompetitorPrice(
-                competitor_name=comp_name,
-                competitor_price=round(prod.current_price * variance, 2),
-                product_id=prod.id,
-                organization_id=org.id,
-                checked_at=now - timedelta(hours=2)
-            )
-            db.session.add(cp)
-
-        # Add initial demand signals
-        ds = DemandSignal(
-            trend_score=0.75,
-            seasonal_factor=1.05,
-            sku_velocity=15.0,
-            product_id=prod.id,
-            organization_id=org.id,
-            created_at=now - timedelta(hours=1)
-        )
-        db.session.add(ds)
-
+    # Store metadata is persisted for the authenticated organization. Catalog data
+    # must come from the CSV importer or a verified provider adapter; this route
+    # intentionally never invents products, prices, demand, or competitor records.
+    org.store_platform = platform
+    org.store_domain = domain
     db.session.commit()
 
     return {
         "success": True,
-        "message": f"Successfully connected to {platform} and seeded store catalog.",
-        "user": user.to_dict()
+        "message": f"{platform.capitalize()} connection saved. Import or sync the verified catalog to continue.",
+        "user": user.to_dict(),
+        "catalog_count": Product.query.filter_by(organization_id=org.id).count(),
     }, 200

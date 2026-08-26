@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { getDashboardSnapshot } from "../services/api";
-import { mockDashboard } from "../lib/mockData";
 import type { DashboardSnapshot } from "../types/domain";
 
 export function usePricingData() {
-  const [data, setData] = useState<DashboardSnapshot>(mockDashboard);
+  const emptySnapshot: DashboardSnapshot = { kpis: [], chart: [], products: [], activity: [], systemHealth: "offline", updatedAt: "" };
+  const [data, setData] = useState<DashboardSnapshot>(emptySnapshot);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const refresh = useCallback(async () => {

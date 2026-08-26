@@ -1,12 +1,13 @@
 import queue
 import threading
+from datetime import datetime, timezone, timedelta
 import time
 import logging
 from flask import Flask
 from app.extensions import db
 from app.models.product import Product
 from app.models.audit_loging import PricingRule
-from app.models.market_data import CompetitorPrice, DemandSignal
+from app.models.market_data import CompetitorPrice, DemandSignal, Sale
 from app.models.recommendation import (
     PricingRecommendation,
     RecommendationStatus,
@@ -17,7 +18,6 @@ from app.services.email_service import send_recommendation_action_email
 from app.services.whatsapp_service import send_whatsapp_recommendation_action
 from app.models.user import User
 from app.services.ai_pricing_service import PricingStrategyAgent
-import random
 
 logger = logging.getLogger(__name__)
 
@@ -149,10 +149,15 @@ def _process_pricing_job(recommendation_id: str, product_id: str):
             product_id=product.id,
             organization_id=product.organization_id
         )
+        sales_14d = db.session.query(db.func.coalesce(db.func.sum(Sale.quantity), 0)).filter(
+            Sale.product_id == product.id,
+            Sale.organization_id == product.organization_id,
+            Sale.timestamp >= datetime.now(timezone.utc) - timedelta(days=14)
+        ).scalar() or 0
         demand_signal = DemandSignal(
             trend_score=demand_data["demand_score"] / 100,
-            seasonal_factor=1.1,
-            sku_velocity=random.uniform(10, 100),
+            seasonal_factor=demand_data.get("seasonal_factor", 1.0),
+            sku_velocity=float(sales_14d) / 14.0,
             product_id=product.id,
             organization_id=product.organization_id
         )
