@@ -511,7 +511,34 @@ def process_task():
             if job:
                 emit_event(job, "scraper", AgentRunStatus.SUCCEEDED, 50, f"Scraper agents found {len(scraped_prices)} marketplace result(s).", {"marketplaces": list(scraped_prices)})
         elif job:
-            emit_event(job, "scraper", AgentRunStatus.SUCCEEDED, 50, "Existing marketplace evidence was reused for this retry.")
+            # Rehydrate job-scoped offers from previously verified competitor evidence.
+            # This keeps retry/reuse jobs visible in the catalog UI with the same
+            # marketplace URL that the user can open for independent verification.
+            existing_offers = MarketplaceOffer.query.filter_by(job_id=job.id).count()
+            if not existing_offers:
+                cached_competitors = CompetitorPrice.query.filter(
+                    CompetitorPrice.product_id == product.id,
+                    CompetitorPrice.competitor_name != "AI Market Agent",
+                    CompetitorPrice.competitor_price > 0,
+                    CompetitorPrice.product_url.isnot(None),
+                    CompetitorPrice.product_url != "",
+                ).all()
+                for competitor in cached_competitors:
+                    db.session.add(MarketplaceOffer(
+                        job_id=job.id,
+                        product_id=product.id,
+                        organization_id=product.organization_id,
+                        platform=competitor.competitor_name,
+                        title=product.name,
+                        current_price=float(competitor.competitor_price),
+                        availability="in_stock" if competitor.in_stock is not False else "out_of_stock",
+                        in_stock=competitor.in_stock,
+                        product_url=competitor.product_url,
+                        match_confidence="medium",
+                        source_type="verified_cache",
+                    ))
+                db.session.commit()
+            emit_event(job, "scraper", AgentRunStatus.SUCCEEDED, 50, f"Verified marketplace evidence reused ({MarketplaceOffer.query.filter_by(job_id=job.id).count()} offer(s)).")
 
         # Run agent strategy logic
         if job:
