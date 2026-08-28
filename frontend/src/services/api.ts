@@ -141,7 +141,12 @@ export async function getCatalogProducts(): Promise<Product[]> {
 
 export async function getAgentObservability(): Promise<AgentObservability[]> {
   const response = await apiClient.get<{ agents?: AgentObservability[] }>("/observability/stats");
-  return response.data.agents || [];
+  return (response.data.agents || []).map((agent) => ({
+    name: String(agent.name || "Unknown agent"),
+    calls: Number(agent.calls) || 0,
+    avg_latency: Number(agent.avg_latency) || 0,
+    cost: Number(agent.cost) || 0,
+  }));
 }
 
 export async function getIntegrationState(): Promise<Record<string, IntegrationState>> {
