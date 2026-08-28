@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 import { ArrowRight, Bot, Check, ChevronRight, CircleAlert, Clock3, Database, ExternalLink, Filter, Gauge, MailCheck, Package, Search, Sparkles, Target } from "lucide-react";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { approveRecommendation, exportCatalog, getAgentObservability, getApprovalHistory, getRecommendationStatus, rejectRecommendation, startRecommendation, type AgentObservability } from "../services/api";
+import { approveRecommendation, exportCatalog, getAgentObservability, getApprovalHistory, getCatalogProducts, getRecommendationStatus, rejectRecommendation, startRecommendation, type AgentObservability } from "../services/api";
 import { usePricingData } from "../hooks/usePricingData";
 import type { ApprovalAuditEvent, Product, RecommendationJob } from "../types/domain";
 import { cn, money } from "../lib/utils";
@@ -13,7 +13,10 @@ type SecondaryKind = "catalog" | "approvals" | "agents";
 export default function SecondaryPage({ kind }: { kind: SecondaryKind }) {
   const navigate = useNavigate();
   const { toasts, push, dismiss } = useToasts();
-  const { data, loading: catalogLoading, error: catalogError, refresh: refreshCatalog } = usePricingData();
+  const { data, loading: snapshotLoading, error: snapshotError, refresh: refreshSnapshot } = usePricingData();
+  const [catalogProducts, setCatalogProducts] = useState<Product[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState(true);
+  const [catalogError, setCatalogError] = useState(false);
   const [query, setQuery] = useState("");
   const [approved, setApproved] = useState<string[]>([]);
   const [history, setHistory] = useState<ApprovalAuditEvent[]>([]);
@@ -24,14 +27,21 @@ export default function SecondaryPage({ kind }: { kind: SecondaryKind }) {
   const [startingProductId, setStartingProductId] = useState<string | null>(null);
   const title = kind === "catalog" ? "Catalog intelligence" : kind === "approvals" ? "Approval workspace" : "AI pricing agents";
   const subtitle = kind === "catalog" ? "Explore every item, signal, and price movement in one searchable layer." : kind === "approvals" ? "Make fast, explainable decisions on the recommendations that matter." : "Watch autonomous agents learn, reason, and execute pricing strategies.";
-  const products = useMemo(() => data.products.filter((product) => `${product.name} ${product.sku} ${product.category}`.toLowerCase().includes(query.toLowerCase())), [data.products, query]);
-  const pendingCount = data.products.filter((product) => product.status === "recommended").length;
+  const products = useMemo(() => (kind === "catalog" ? catalogProducts : data.products).filter((product) => `${product.name} ${product.sku} ${product.category}`.toLowerCase().includes(query.toLowerCase())), [catalogProducts, data.products, kind, query]);
+  const pendingCount = (kind === "catalog" ? catalogProducts : data.products).filter((product) => product.status === "recommended").length;
   const avgConfidence = data.products.length ? data.products.reduce((sum, product) => sum + product.confidence, 0) / data.products.length : 0;
   const metrics = kind === "agents"
     ? [{ label: "Observed agents", value: String(agentStats.length), icon: Bot }, { label: "Logged calls", value: String(agentStats.reduce((sum, agent) => sum + agent.calls, 0)), icon: Sparkles }, { label: "Avg. confidence", value: `${avgConfidence.toFixed(1)}%`, icon: Gauge }]
     : kind === "approvals"
       ? [{ label: "Audit events", value: String(history.length), icon: Package }, { label: "Pending recommendations", value: String(pendingCount), icon: CircleAlert }, { label: "Approved actions", value: String(history.filter((event) => event.actionType === "approve" || event.actionType === "auto_execute").length), icon: Target }]
       : [{ label: "Items in view", value: String(products.length), icon: Package }, { label: "Need attention", value: String(pendingCount), icon: CircleAlert }, { label: "Catalog units", value: data.products.reduce((sum, product) => sum + product.inventory, 0).toLocaleString(), icon: Target }];
+
+  useEffect(() => {
+    if (kind !== "catalog") return undefined;
+    setCatalogLoading(true);
+    void getCatalogProducts().then(setCatalogProducts).catch(() => setCatalogError(true)).finally(() => setCatalogLoading(false));
+    return undefined;
+  }, [kind]);
 
   useEffect(() => {
     if (kind === "approvals") {
@@ -62,6 +72,7 @@ export default function SecondaryPage({ kind }: { kind: SecondaryKind }) {
   }, [jobs]);
 
   const refreshHistory = () => { setHistoryLoading(true); void getApprovalHistory().then(setHistory).catch(() => push("Audit history could not be refreshed.", "error")).finally(() => setHistoryLoading(false)); };
+  const refreshCatalog = () => { setCatalogLoading(true); void getCatalogProducts().then((items) => { setCatalogProducts(items); setCatalogError(false); }).catch(() => { setCatalogError(true); push("Catalog could not be refreshed.", "error"); }).finally(() => setCatalogLoading(false)); };
   const onExport = async () => { try { await exportCatalog("xlsx"); push("Updated catalog export downloaded.", "success"); } catch { push("Catalog export could not be generated.", "error"); } };
   const onRecommend = async (product: Product) => {
     setStartingProductId(product.id);
@@ -88,7 +99,7 @@ export default function SecondaryPage({ kind }: { kind: SecondaryKind }) {
     try { await rejectRecommendation(recommendationId, reason); push(`${product.name} was rejected and audited.`, "info"); await refreshCatalog(); } catch { push(`${product.name} could not be rejected.`, "error"); }
   };
 
-  return <div className="page-stack"><ToastStack toasts={toasts} dismiss={dismiss} /><header className="page-header compact-header"><div><p className="eyebrow">Workspace module</p><h1>{title}, <em>made legible.</em></h1><p className="page-lede">{subtitle}</p></div><Button onClick={() => void onExport()}>Export updated catalog <ArrowRight size={15} /></Button></header><section className="secondary-metrics">{metrics.map((metric) => <GlassCard key={metric.label}><metric.icon size={18} className="text-indigo" /><span><strong>{metric.value}</strong><small>{metric.label}</small></span></GlassCard>)}</section>{catalogError && kind === "catalog" && <EmptyState title="Catalog service unavailable" description="The catalog could not be loaded from the backend. Retry after checking the API connection." action={<Button onClick={() => void refreshCatalog()}>Retry catalog</Button>} />}{kind === "agents" ? <AgentConsole agents={agentStats} loading={agentLoading} onToast={push} /> : kind === "approvals" ? <ApprovalAuditPanel history={history} loading={historyLoading} onRefresh={refreshHistory} /> : <CatalogTable products={products} loading={catalogLoading} query={query} setQuery={setQuery} approved={approved} jobs={jobs} startingProductId={startingProductId} onRecommend={onRecommend} onApprove={onApprove} onReject={onReject} navigate={navigate} />}</div>;
+  return <div className="page-stack"><ToastStack toasts={toasts} dismiss={dismiss} /><header className="page-header compact-header"><div><p className="eyebrow">Workspace module</p><h1>{title}, <em>made legible.</em></h1><p className="page-lede">{subtitle}</p></div><Button onClick={() => void onExport()}>Export updated catalog <ArrowRight size={15} /></Button></header><section className="secondary-metrics">{metrics.map((metric) => <GlassCard key={metric.label}><metric.icon size={18} className="text-indigo" /><span><strong>{metric.value}</strong><small>{metric.label}</small></span></GlassCard>)}</section>{catalogError && kind === "catalog" && <EmptyState title="Catalog service unavailable" description="The catalog could not be loaded from the backend. Retry after checking the API connection." action={<Button onClick={() => refreshCatalog()}>Retry catalog</Button>} />}{kind === "agents" ? <AgentConsole agents={agentStats} loading={agentLoading} onToast={push} /> : kind === "approvals" ? <ApprovalAuditPanel history={history} loading={historyLoading} onRefresh={refreshHistory} /> : <CatalogTable products={products} loading={catalogLoading} query={query} setQuery={setQuery} approved={approved} jobs={jobs} startingProductId={startingProductId} onRecommend={onRecommend} onApprove={onApprove} onReject={onReject} navigate={navigate} />}</div>;
 }
 
 function CatalogTable({ products, loading, query, setQuery, approved, jobs, startingProductId, onRecommend, onApprove, onReject, navigate }: { products: Product[]; loading: boolean; query: string; setQuery: (value: string) => void; approved: string[]; jobs: Record<string, RecommendationJob>; startingProductId: string | null; onRecommend: (product: Product) => Promise<void>; onApprove: (product: Product) => Promise<void>; onReject: (product: Product) => Promise<void>; navigate: ReturnType<typeof useNavigate> }) {
