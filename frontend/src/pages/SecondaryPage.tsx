@@ -13,7 +13,7 @@ type SecondaryKind = "catalog" | "approvals" | "agents";
 export default function SecondaryPage({ kind }: { kind: SecondaryKind }) {
   const navigate = useNavigate();
   const { toasts, push, dismiss } = useToasts();
-  const { data, loading: snapshotLoading, error: snapshotError, refresh: refreshSnapshot } = usePricingData();
+  const { data } = usePricingData(kind !== "catalog");
   const [catalogProducts, setCatalogProducts] = useState<Product[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [catalogError, setCatalogError] = useState(false);
