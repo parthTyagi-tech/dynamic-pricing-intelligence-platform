@@ -90,12 +90,14 @@ interface BackendRecommendationJob {
   started_at?: string | null;
   completed_at?: string | null;
   updated_at: string;
+  recommendation?: { status?: string | null } | null;
   events?: RecommendationAgentEvent[];
   offers?: MarketplaceOffer[];
 }
 
 const toRecommendationJob = (job: BackendRecommendationJob): RecommendationJob => ({
   ...job,
+  recommendation: job.recommendation || null,
   requested_platforms: job.requested_platforms || [],
   events: job.events || [],
   offers: job.offers || [],
