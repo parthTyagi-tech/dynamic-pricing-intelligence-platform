@@ -160,18 +160,28 @@ def generate_recommendation(product_id):
         if not task_name and (os.environ.get("VERCEL") != "1" or os.environ.get("FLASK_ENV") == "testing"):
             from app.services.task_worker import enqueue_pricing_recommendation
             enqueue_pricing_recommendation(recommendation.id, product.id)
-        elif not task_name:
-            # Keep the durable job queued for the Cloud Run poller. A transient
-            # Cloud Tasks credential/configuration failure must not convert a
-            # valid user action into a terminal recommendation failure.
-            job.error_message = "Cloud Tasks dispatch unavailable; waiting for durable worker polling."
-            emit_event(job, "orchestrator", AgentRunStatus.PENDING, 0, "Cloud Tasks dispatch unavailable; durable worker polling will process this job.")
-            db.session.commit()
+        local_fallback_queued = not task_name and (os.environ.get("VERCEL") != "1" or os.environ.get("FLASK_ENV") == "testing")
+        dispatch_mode = "cloud_tasks" if task_name else ("in_memory_worker" if local_fallback_queued else "inline_fallback")
+        if not task_name and not local_fallback_queued:
+            # Cloud Tasks requires billing. For no-billing deployments, execute
+            # the same callback inline so the job remains durable and the
+            # frontend still receives the normal job/status contract.
+            from flask import current_app
+            with current_app.test_request_context(
+                "/api/recommendations/process-task",
+                method="POST",
+                headers={"X-Klypup-Worker-Secret": os.environ.get("WORKER_CALLBACK_SECRET", "").strip()},
+                json={"recommendation_id": recommendation.id, "product_id": product.id, "job_id": job.id},
+            ):
+                inline_response = process_task()
+            inline_status = inline_response[1] if isinstance(inline_response, tuple) and len(inline_response) > 1 else 200
+            if inline_status >= 400:
+                raise RuntimeError(f"Inline recommendation fallback returned HTTP {inline_status}")
 
         return {
             "success": True,
-            "message": "Pricing task queued for durable processing",
-            "dispatch": "cloud_tasks" if task_name else "durable_worker_polling",
+            "message": "Pricing task queued for durable processing" if task_name else "Pricing recommendation processed inline without Cloud Tasks",
+            "dispatch": dispatch_mode,
             "job_id": job.id,
             "recommendation": recommendation.to_dict(),
             "job": job.to_dict(),
