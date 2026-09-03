@@ -1,7 +1,10 @@
 import re
+import json
 import os
 import random
+import re
 import requests
+from datetime import datetime, timezone
 from urllib.parse import quote_plus
 from app.services.ai.client import async_structured_json_completion
 
@@ -591,7 +594,6 @@ async def stream_multi_platform_prices(
     Integrates cached direct URL checks and meta tag/JSON-LD verification to guarantee
     accuracy, freshness, and speed while minimizing search engine rate limit hits.
     """
-    import json
     import requests
     import urllib.parse
     from bs4 import BeautifulSoup
@@ -613,7 +615,34 @@ async def stream_multi_platform_prices(
     if platforms:
         requested = {name.strip() for name in platforms}
         pconfigs = {name: config for name, config in pconfigs.items() if name in requested}
-    
+
+    # Deterministic demo mode: return clearly labelled sample evidence without
+    # pretending it was fetched from a live marketplace.
+    if os.environ.get("MOCK_SCRAPER", "false").lower() == "true":
+        now = datetime.now(timezone.utc).isoformat()
+        search_urls = build_platform_urls(product_name, brand)
+        for index, (pname, pconfig) in enumerate(pconfigs.items()):
+            yield f"data: {json.dumps({'status': 'started', 'platform': pname, 'message': f'Mock scraper started for {pname}.'})}\n\n"
+            factor = 0.96 + ((index % 3) * 0.02)
+            price = round(float(baseline_price_inr or 0) * factor, 2)
+            result = {
+                "platform_name": pname,
+                "platform_icon": pconfig["icon"],
+                "platform_color": pconfig["color"],
+                "price": price,
+                "currency": "INR",
+                "price_usd": round(price / INR_TO_USD, 2) if price else 0,
+                "price_gap_pct": round(((price - baseline_price_inr) / baseline_price_inr) * 100, 1) if baseline_price_inr else 0.0,
+                "in_stock": True,
+                "available": price > 0,
+                "url": search_urls.get(pname, ""),
+                "fetch_method": "Mock fixture",
+                "scraped_at": now,
+            }
+            yield f"data: {json.dumps({'status': 'success', 'platform': pname, 'data': result})}\n\n"
+        yield f"data: {json.dumps({'status': 'completed', 'mock': True, 'scraped_at': now})}\n\n"
+        return
+
     extracted = {}
     platforms_to_search = []
     
@@ -934,7 +963,8 @@ Search Listings:
             "in_stock": pdata.get("in_stock", True),
             "available": True,
             "url": url,
-            "fetch_method": method
+            "fetch_method": method,
+            "scraped_at": datetime.now(timezone.utc).isoformat()
         }
         
         # Yield SSE format

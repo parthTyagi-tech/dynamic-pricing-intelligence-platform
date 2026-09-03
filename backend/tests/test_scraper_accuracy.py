@@ -56,3 +56,40 @@ def test_brevo_service_is_safe_without_credentials(tmp_path, monkeypatch):
     )
     assert result["status"] == "mocked"
     assert result["provider"] in {"brevo", "local_archive"}
+
+
+def test_mock_scraper_emits_structured_selected_platform_results(monkeypatch):
+    import asyncio
+    import json
+    from app.services.realtime_scraper import stream_multi_platform_prices
+
+    monkeypatch.setenv("MOCK_SCRAPER", "true")
+
+    async def collect():
+        return [chunk async for chunk in stream_multi_platform_prices(
+            search_query="iPhone 15",
+            brand="Apple",
+            category="electronics",
+            baseline_price_inr=79900,
+            platforms=["Amazon", "Flipkart"],
+        )]
+
+    chunks = asyncio.run(collect())
+    events = [json.loads(chunk[6:].strip()) for chunk in chunks if chunk.startswith("data: ")]
+    results = [event["data"] for event in events if event.get("status") == "success"]
+
+    assert {result["platform_name"] for result in results} == {"Amazon", "Flipkart"}
+    assert all(result["price"] > 0 for result in results)
+    assert all(result["fetch_method"] == "Mock fixture" for result in results)
+    assert all(result["url"].startswith("https://") for result in results)
+    assert all(result["scraped_at"] for result in results)
+    assert events[-1]["status"] == "completed"
+    assert events[-1]["mock"] is True
+
+
+def test_normalize_price_handles_currency_and_thousands_separator():
+    from app.services.realtime_scraper import normalize_price
+
+    assert normalize_price("₹79,900", "INR") == 79900.0
+    assert normalize_price("$100", "USD") == 8330.0
+    assert normalize_price("€100", "EUR") == 9000.0
