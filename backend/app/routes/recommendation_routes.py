@@ -156,7 +156,8 @@ def generate_recommendation(product_id):
         # Dispatch a durable Cloud Task. Local development keeps the existing
         # worker fallback, but production never depends on an in-memory queue.
         from app.services.gcp_tasks_service import create_pricing_recommendation_task
-        task_name = create_pricing_recommendation_task(recommendation.id, product.id, job.id)
+        cloud_tasks_enabled = os.environ.get("ENABLE_CLOUD_TASKS", "false").strip().lower() in {"1", "true", "yes", "on"}
+        task_name = create_pricing_recommendation_task(recommendation.id, product.id, job.id) if cloud_tasks_enabled else None
         if not task_name and (os.environ.get("VERCEL") != "1" or os.environ.get("FLASK_ENV") == "testing"):
             from app.services.task_worker import enqueue_pricing_recommendation
             enqueue_pricing_recommendation(recommendation.id, product.id)
