@@ -161,15 +161,17 @@ def generate_recommendation(product_id):
             from app.services.task_worker import enqueue_pricing_recommendation
             enqueue_pricing_recommendation(recommendation.id, product.id)
         elif not task_name:
-            job.status = RecommendationJobStatus.FAILED
-            job.error_message = "Durable worker queue is not configured."
-            emit_event(job, "orchestrator", "failed", 0, "Durable worker queue is not configured.")
+            # Keep the durable job queued for the Cloud Run poller. A transient
+            # Cloud Tasks credential/configuration failure must not convert a
+            # valid user action into a terminal recommendation failure.
+            job.error_message = "Cloud Tasks dispatch unavailable; waiting for durable worker polling."
+            emit_event(job, "orchestrator", AgentRunStatus.PENDING, 0, "Cloud Tasks dispatch unavailable; durable worker polling will process this job.")
             db.session.commit()
-            return {"success": False, "message": "Recommendation worker is not configured. Please contact your administrator."}, 503
 
         return {
             "success": True,
             "message": "Pricing task queued for durable processing",
+            "dispatch": "cloud_tasks" if task_name else "durable_worker_polling",
             "job_id": job.id,
             "recommendation": recommendation.to_dict(),
             "job": job.to_dict(),
