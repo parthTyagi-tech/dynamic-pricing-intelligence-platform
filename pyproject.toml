@@ -1,2 +1,36 @@
+[project]
+name = "dynamic-pricing-intelligence-platform"
+version = "0.1.0"
+description = "Dynamic Pricing Intelligence Platform API"
+requires-python = ">=3.11"
+dependencies = [
+  "Flask==3.0.3",
+  "Flask-Cors==4.0.1",
+  "Flask-JWT-Extended==4.6.0",
+  "Flask-Migrate==4.0.7",
+  "Flask-SQLAlchemy==3.1.1",
+  "beautifulsoup4",
+  "aiohttp",
+  "alembic==1.13.2",
+  "bcrypt==4.1.3",
+  "cryptography==42.0.8",
+  "marshmallow==3.21.3",
+  "openai==1.35.0",
+  "groq==0.9.0",
+  "pydantic>=2.7.4",
+  "psycopg2-binary==2.9.9",
+  "python-dotenv==1.0.1",
+  "requests==2.32.3",
+  "SQLAlchemy==2.0.31",
+  "supabase",
+  "stripe",
+  "openpyxl",
+  "google-cloud-tasks",
+  "google-auth",
+  "Jinja2",
+  "MarkupSafe",
+  "itsdangerous",
+]
+
 [tool.vercel]
 entrypoint = "index:app"
