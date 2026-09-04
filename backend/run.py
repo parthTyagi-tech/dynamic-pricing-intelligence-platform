@@ -63,12 +63,18 @@ if os.environ.get("VERCEL") != "1" or os.environ.get("FLASK_ENV") == "testing":
     from app.services.task_worker import init_worker
     init_worker(app)
 
-# Supabase schema is managed through migrations. Creating tables during import
-# opens a database connection on every Vercel cold start and can crash the
-# serverless function before it can serve health or API responses.
+from app.services.db_schema_sync import auto_patch_database_schema
+
 if os.environ.get("VERCEL") != "1":
     with app.app_context():
-        db.create_all()
+        auto_patch_database_schema(db)
+
+@app.before_request
+def ensure_db_schema_ready():
+    from flask import request
+    if request.path in ("/health", "/"):
+        return
+    auto_patch_database_schema(db)
 
 # =====================================
 # CLEAN JSON ERROR HANDLERS
@@ -179,6 +185,18 @@ def health():
         "success": True,
         "status": "healthy",
         "database_configured": bool(app.config.get("SQLALCHEMY_DATABASE_URI")),
+    }
+
+
+@app.route("/api/system/sync-schema", methods=["GET", "POST"])
+def sync_schema_endpoint():
+    """Explicit endpoint to force database schema patch across all tables."""
+    import app.services.db_schema_sync as sync_mod
+    sync_mod._SCHEMA_PATCHED = False
+    auto_patch_database_schema(db)
+    return {
+        "success": True,
+        "message": "Database schema verified and patched successfully."
     }
 
 
