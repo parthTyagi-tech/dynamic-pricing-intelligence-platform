@@ -1,6 +1,4 @@
-<div align="center">
 
-![Klypup Header Banner](./screenshots/klypup_banner.png)
 
 # 🧠 Dynamic Pricing Intelligence Platform (v2)
 ### *Fully Agentic Multi-Platform Live Price Recommendation & Governance System*
