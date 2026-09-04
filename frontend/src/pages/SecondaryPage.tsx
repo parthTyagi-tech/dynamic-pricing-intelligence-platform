@@ -2,11 +2,12 @@ import { motion } from "framer-motion";
 import { ArrowRight, Bot, Check, ChevronRight, CircleAlert, Clock3, Database, ExternalLink, Filter, Gauge, MailCheck, Package, Search, Sparkles, Target } from "lucide-react";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { approveRecommendation, exportCatalog, getAgentObservability, getApprovalHistory, getCatalogProducts, getRecommendationStatus, rejectRecommendation, startRecommendation, type AgentObservability } from "../services/api";
+import { approveRecommendation, exportCatalog, getAgentObservability, getApprovalHistory, getCatalogProducts, getRecommendationStatus, rejectRecommendation, startRecommendation, startAgenticRecommendation, getAgenticTaskState, approveAgenticRecommendation, rejectAgenticRecommendation, uploadAgenticCatalogCsv, type AgenticTaskState, type AgentObservability } from "../services/api";
 import { usePricingData } from "../hooks/usePricingData";
 import type { ApprovalAuditEvent, Product, RecommendationJob } from "../types/domain";
 import { cn, money } from "../lib/utils";
 import { Badge, Button, EmptyState, GlassCard, IconMark, SectionTitle, useToasts, ToastStack } from "../components/ui";
+import { AgenticDecisionTrace } from "../components/AgenticDecisionTrace";
 
 type SecondaryKind = "catalog" | "approvals" | "agents";
 
@@ -24,6 +25,7 @@ export default function SecondaryPage({ kind }: { kind: SecondaryKind }) {
   const [agentStats, setAgentStats] = useState<AgentObservability[]>([]);
   const [agentLoading, setAgentLoading] = useState(false);
   const [jobs, setJobs] = useState<Record<string, RecommendationJob>>({});
+  const [agenticTasks, setAgenticTasks] = useState<Record<string, AgenticTaskState>>({});
   const [startingProductId, setStartingProductId] = useState<string | null>(null);
   const title = kind === "catalog" ? "Catalog intelligence" : kind === "approvals" ? "Approval workspace" : "AI pricing agents";
   const subtitle = kind === "catalog" ? "Explore every item, signal, and price movement in one searchable layer." : kind === "approvals" ? "Make fast, explainable decisions on the recommendations that matter." : "Watch autonomous agents learn, reason, and execute pricing strategies.";
@@ -74,36 +76,92 @@ export default function SecondaryPage({ kind }: { kind: SecondaryKind }) {
   const refreshHistory = () => { setHistoryLoading(true); void getApprovalHistory().then(setHistory).catch(() => push("Audit history could not be refreshed.", "error")).finally(() => setHistoryLoading(false)); };
   const refreshCatalog = () => { setCatalogLoading(true); void getCatalogProducts().then((items) => { setCatalogProducts(items); setCatalogError(false); }).catch(() => { setCatalogError(true); push("Catalog could not be refreshed.", "error"); }).finally(() => setCatalogLoading(false)); };
   const onExport = async () => { try { await exportCatalog("xlsx"); push("Updated catalog export downloaded.", "success"); } catch { push("Catalog export could not be generated.", "error"); } };
+  
   const onRecommend = async (product: Product) => {
     setStartingProductId(product.id);
     try {
-      const launch = await startRecommendation(product.id);
-      setJobs((current) => ({ ...current, [product.id]: launch.job }));
-      push(`${product.name}: scraper and pricing agents started.`, "success");
+      // 1. Trigger agentic multi-agent workflow
+      const launch = await startAgenticRecommendation(product.id);
+      push(`${product.name}: Autonomous supervisor & category scraper agents initiated.`, "success");
+      
+      // 2. Poll Agentic Task State
+      const pollTimer = window.setInterval(async () => {
+        try {
+          const taskState = await getAgenticTaskState(launch.task_id);
+          setAgenticTasks((prev) => ({ ...prev, [product.id]: taskState }));
+          if (taskState.status === "succeeded" || taskState.status === "failed" || taskState.status === "approved") {
+            window.clearInterval(pollTimer);
+            if (taskState.status === "succeeded") {
+              push(`${product.name}: Multi-agent recommendation ready for review!`, "success");
+            }
+          }
+        } catch {
+          window.clearInterval(pollTimer);
+        }
+      }, 1500);
     } catch {
-      push(`${product.name} could not be queued. Check that the durable worker is online.`, "error");
+      push(`${product.name} could not be queued.`, "error");
     } finally {
       setStartingProductId(null);
     }
   };
+
   const onApprove = async (product: Product) => {
+    const agenticTask = agenticTasks[product.id];
+    if (agenticTask) {
+      try {
+        await approveAgenticRecommendation(agenticTask.task_id);
+        setApproved((items) => [...items, product.id]);
+        push(`${product.name} approved and price history updated!`, "success");
+        await refreshCatalog();
+        return;
+      } catch {
+        push(`${product.name} could not be approved.`, "error");
+        return;
+      }
+    }
     const recommendationId = jobs[product.id]?.recommendation_id || product.recommendationId;
     if (!recommendationId) { push("Run a recommendation before approving this catalog item.", "error"); return; }
     try { await approveRecommendation(recommendationId); setApproved((items) => [...items, product.id]); push(`${product.name} approved and synced.`, "success"); await refreshCatalog(); } catch { push(`${product.name} could not be approved.`, "error"); }
   };
+
   const onReject = async (product: Product) => {
-    const recommendationId = jobs[product.id]?.recommendation_id || product.recommendationId;
-    if (!recommendationId) return;
     const reason = window.prompt("Why are you rejecting this recommendation?", "Price evidence does not meet my business requirements.");
     if (!reason) return;
+    const agenticTask = agenticTasks[product.id];
+    if (agenticTask) {
+      try {
+        await rejectAgenticRecommendation(agenticTask.task_id, reason);
+        push(`${product.name} recommendation was rejected and audited.`, "info");
+        await refreshCatalog();
+        return;
+      } catch {
+        push(`${product.name} could not be rejected.`, "error");
+        return;
+      }
+    }
+    const recommendationId = jobs[product.id]?.recommendation_id || product.recommendationId;
+    if (!recommendationId) return;
     try { await rejectRecommendation(recommendationId, reason); push(`${product.name} was rejected and audited.`, "info"); await refreshCatalog(); } catch { push(`${product.name} could not be rejected.`, "error"); }
   };
 
-  return <div className="page-stack"><ToastStack toasts={toasts} dismiss={dismiss} /><header className="page-header compact-header"><div><p className="eyebrow">Workspace module</p><h1>{title}, <em>made legible.</em></h1><p className="page-lede">{subtitle}</p></div><Button onClick={() => void onExport()}>Export updated catalog <ArrowRight size={15} /></Button></header><section className="secondary-metrics">{metrics.map((metric) => <GlassCard key={metric.label}><metric.icon size={18} className="text-indigo" /><span><strong>{metric.value}</strong><small>{metric.label}</small></span></GlassCard>)}</section>{catalogError && kind === "catalog" && <EmptyState title="Catalog service unavailable" description="The catalog could not be loaded from the backend. Retry after checking the API connection." action={<Button onClick={() => refreshCatalog()}>Retry catalog</Button>} />}{kind === "agents" ? <AgentConsole agents={agentStats} loading={agentLoading} onToast={push} /> : kind === "approvals" ? <ApprovalAuditPanel history={history} loading={historyLoading} onRefresh={refreshHistory} /> : <CatalogTable products={products} loading={catalogLoading} query={query} setQuery={setQuery} approved={approved} jobs={jobs} startingProductId={startingProductId} onRecommend={onRecommend} onApprove={onApprove} onReject={onReject} navigate={navigate} />}</div>;
+  const onUploadCsv = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const res = await uploadAgenticCatalogCsv(file);
+      push(res.message || "Catalog CSV uploaded and sanitized (SEC-4).", "success");
+      await refreshCatalog();
+    } catch (err: any) {
+      push(err.response?.data?.message || "Failed to upload CSV.", "error");
+    }
+  };
+
+  return <div className="page-stack"><ToastStack toasts={toasts} dismiss={dismiss} /><header className="page-header compact-header"><div><p className="eyebrow">Workspace module</p><h1>{title}, <em>made legible.</em></h1><p className="page-lede">{subtitle}</p></div><div className="flex gap-2"><label className="btn-secondary text-xs px-3 py-1.5 rounded cursor-pointer border border-white/10 hover:border-white/20 flex items-center gap-1.5"><Package size={14} /> Upload Catalog CSV <input type="file" accept=".csv" onChange={onUploadCsv} className="hidden" /></label><Button onClick={() => void onExport()}>Export updated catalog <ArrowRight size={15} /></Button></div></header><section className="secondary-metrics">{metrics.map((metric) => <GlassCard key={metric.label}><metric.icon size={18} className="text-indigo" /><span><strong>{metric.value}</strong><small>{metric.label}</small></span></GlassCard>)}</section>{catalogError && kind === "catalog" && <EmptyState title="Catalog service unavailable" description="The catalog could not be loaded from the backend. Retry after checking the API connection." action={<Button onClick={() => refreshCatalog()}>Retry catalog</Button>} />}{kind === "agents" ? <AgentConsole agents={agentStats} loading={agentLoading} onToast={push} /> : kind === "approvals" ? <ApprovalAuditPanel history={history} loading={historyLoading} onRefresh={refreshHistory} /> : <CatalogTable products={products} loading={catalogLoading} query={query} setQuery={setQuery} approved={approved} jobs={jobs} agenticTasks={agenticTasks} startingProductId={startingProductId} onRecommend={onRecommend} onApprove={onApprove} onReject={onReject} navigate={navigate} />}</div>;
 }
 
-function CatalogTable({ products, loading, query, setQuery, approved, jobs, startingProductId, onRecommend, onApprove, onReject, navigate }: { products: Product[]; loading: boolean; query: string; setQuery: (value: string) => void; approved: string[]; jobs: Record<string, RecommendationJob>; startingProductId: string | null; onRecommend: (product: Product) => Promise<void>; onApprove: (product: Product) => Promise<void>; onReject: (product: Product) => Promise<void>; navigate: ReturnType<typeof useNavigate> }) {
-  return <GlassCard className="table-card"><div className="card-heading table-heading"><SectionTitle eyebrow="Live catalog" title="All catalog items" description="Search, inspect, and ask Klypup to research any offline-catalog product." /><div className="table-actions"><div className="search-field"><Search size={14} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search by product or SKU" /></div><Button variant="secondary" onClick={() => setQuery("")}><Filter size={14} /> Clear</Button></div></div><div className="table-scroll"><table className="data-table"><thead><tr><th>Product</th><th>Current</th><th>AI target</th><th>Margin</th><th>Status</th><th>Action</th></tr></thead><tbody>{products.map((product) => { const job = jobs[product.id]; const ready = job?.status === "succeeded"; const hasRecommendation = Boolean(job?.recommendation_id || product.recommendationId); const isSynced = approved.includes(product.id) || job?.recommendation?.status === "approved"; return <Fragment key={product.id}><tr><td><div className="product-cell"><IconMark initials={product.initials} color={product.image} /><span><strong>{product.name}</strong><small>{product.sku} · {product.category}</small></span></div></td><td className="mono">{money(product.currentPrice)}</td><td className="mono target-price">{money(product.targetPrice)}</td><td className="mono">{product.margin.toFixed(1)}%</td><td><Badge tone={job?.status === "failed" ? "rose" : ready || product.status === "recommended" ? "violet" : product.status === "approved" ? "emerald" : "amber"} dot>{approved.includes(product.id) ? "Approved" : job?.status || product.status}</Badge></td><td className="catalog-actions"><Button className="table-button" variant="secondary" disabled={startingProductId === product.id || job?.status === "queued" || job?.status === "running"} onClick={() => void onRecommend(product)}>{startingProductId === product.id ? "Queueing…" : job?.status === "queued" || job?.status === "running" ? "Researching…" : "Recommend"}</Button>{ready && hasRecommendation && (isSynced ? <Button className="table-button" variant="secondary" disabled><Check size={13} /> Synced</Button> : <><Button className="table-button" variant="primary" onClick={() => void onApprove(product)}>Approve</Button><Button className="table-button" variant="secondary" onClick={() => void onReject(product)}>Reject</Button></>)}</td></tr>{job && <tr className="recommendation-detail-row"><td colSpan={6}><RecommendationJobPanel job={job} /></td></tr>}</Fragment>; })}</tbody></table>{loading && <EmptyState title="Loading live catalog" description="Reading products and recommendations from the database." />}{!loading && !products.length && <EmptyState title="No catalog records" description="Import a catalog or connect a verified store to begin pricing intelligence." />}</div><div className="table-footer"><span>Showing {products.length} live records</span><button className="text-button" onClick={() => navigate("/dashboard")}>Back to command center <ChevronRight size={14} /></button></div></GlassCard>;
+function CatalogTable({ products, loading, query, setQuery, approved, jobs, agenticTasks, startingProductId, onRecommend, onApprove, onReject, navigate }: { products: Product[]; loading: boolean; query: string; setQuery: (value: string) => void; approved: string[]; jobs: Record<string, RecommendationJob>; agenticTasks: Record<string, AgenticTaskState>; startingProductId: string | null; onRecommend: (product: Product) => Promise<void>; onApprove: (product: Product) => Promise<void>; onReject: (product: Product) => Promise<void>; navigate: ReturnType<typeof useNavigate> }) {
+  return <GlassCard className="table-card"><div className="card-heading table-heading"><SectionTitle eyebrow="Live catalog" title="All catalog items" description="Search, inspect, and ask Klypup to research any offline-catalog product." /><div className="table-actions"><div className="search-field"><Search size={14} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search by product or SKU" /></div><Button variant="secondary" onClick={() => setQuery("")}><Filter size={14} /> Clear</Button></div></div><div className="table-scroll"><table className="data-table"><thead><tr><th>Product</th><th>Current</th><th>AI target</th><th>Margin</th><th>Status</th><th>Action</th></tr></thead><tbody>{products.map((product) => { const job = jobs[product.id]; const agenticTask = agenticTasks[product.id]; const ready = agenticTask?.status === "succeeded" || job?.status === "succeeded"; const hasRecommendation = Boolean(agenticTask?.recommendation || job?.recommendation_id || product.recommendationId); const isSynced = approved.includes(product.id) || agenticTask?.status === "approved" || job?.recommendation?.status === "approved"; return <Fragment key={product.id}><tr><td><div className="product-cell"><IconMark initials={product.initials} color={product.image} /><span><strong>{product.name}</strong><small>{product.sku} · {product.category}</small></span></div></td><td className="mono">{money(product.currentPrice)}</td><td className="mono target-price">{money(agenticTask?.recommendation?.recommended_price ?? product.targetPrice)}</td><td className="mono">{product.margin.toFixed(1)}%</td><td><Badge tone={agenticTask?.status === "failed" || job?.status === "failed" ? "rose" : ready || product.status === "recommended" ? "violet" : product.status === "approved" || isSynced ? "emerald" : "amber"} dot>{isSynced ? "Approved" : agenticTask?.status || job?.status || product.status}</Badge></td><td className="catalog-actions"><Button className="table-button" variant="secondary" disabled={startingProductId === product.id || agenticTask?.status === "running" || job?.status === "queued" || job?.status === "running"} onClick={() => void onRecommend(product)}>{startingProductId === product.id ? "Queueing…" : agenticTask?.status === "running" || job?.status === "running" ? "Reasoning…" : "Recommend"}</Button>{ready && hasRecommendation && (isSynced ? <Button className="table-button" variant="secondary" disabled><Check size={13} /> Synced</Button> : <><Button className="table-button" variant="primary" onClick={() => void onApprove(product)}>Approve</Button><Button className="table-button" variant="secondary" onClick={() => void onReject(product)}>Reject</Button></>)}</td></tr>{agenticTask && <tr className="recommendation-detail-row"><td colSpan={6}><AgenticDecisionTrace task={agenticTask} onApprove={() => void onApprove(product)} onReject={(reason) => void onReject(product)} /></td></tr>}{!agenticTask && job && <tr className="recommendation-detail-row"><td colSpan={6}><RecommendationJobPanel job={job} /></td></tr>}</Fragment>; })}</tbody></table>{loading && <EmptyState title="Loading live catalog" description="Reading products and recommendations from the database." />}{!loading && !products.length && <EmptyState title="No catalog records" description="Import a catalog or connect a verified store to begin pricing intelligence." />}</div><div className="table-footer"><span>Showing {products.length} live records</span><button className="text-button" onClick={() => navigate("/dashboard")}>Back to command center <ChevronRight size={14} /></button></div></GlassCard>;
 }
 
 function RecommendationJobPanel({ job }: { job: RecommendationJob }) {

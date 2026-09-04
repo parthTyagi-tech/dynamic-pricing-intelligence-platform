@@ -182,6 +182,14 @@ class Product(db.Model):
         cascade="all, delete-orphan"
     )
 
+    price_histories = db.relationship(
+        "PriceHistory",
+        back_populates="product",
+        lazy="dynamic",
+        cascade="all, delete-orphan",
+        order_by="PriceHistory.created_at.desc()"
+    )
+
     # =====================================
     # Utility Methods
     # =====================================

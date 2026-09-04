@@ -36,8 +36,26 @@ class AuditLog(db.Model):
     action = db.Column(db.String(255), nullable=False)
     entity_type = db.Column(db.String(128), nullable=True)
     entity_id = db.Column(db.String(36), nullable=True)
+    before_value = db.Column(db.JSON, nullable=True)
+    after_value = db.Column(db.JSON, nullable=True)
     extra_metadata = db.Column(db.JSON, nullable=True)
     timestamp = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+
+    @property
+    def actor_user_id(self):
+        return self.user_id
+
+    @actor_user_id.setter
+    def actor_user_id(self, val):
+        self.user_id = val
+
+    @property
+    def metadata_json(self):
+        return self.extra_metadata
+
+    @metadata_json.setter
+    def metadata_json(self, val):
+        self.extra_metadata = val
 
     # Relationships
     user = db.relationship("User", back_populates="audit_logs")

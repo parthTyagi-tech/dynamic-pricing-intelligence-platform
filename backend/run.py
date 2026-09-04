@@ -36,6 +36,7 @@ from app.routes.simulation_routes import simulation_bp
 from app.routes.startup_routes import startup_bp
 from app.routes.webhook_routes import webhook_bp
 from app.routes.ab_test_routes import ab_test_bp
+from app.routes.agentic_routes import agentic_bp
 
 # =====================================
 # CREATE FLASK APP
@@ -151,6 +152,10 @@ app.register_blueprint(
 app.register_blueprint(
     ab_test_bp,
     url_prefix="/api/ab-test"
+)
+
+app.register_blueprint(
+    agentic_bp
 )
 
 

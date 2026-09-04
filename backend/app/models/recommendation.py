@@ -140,6 +140,47 @@ class PricingRecommendation(db.Model):
         default=lambda: datetime.now(timezone.utc)
     )
 
+    task_id = db.Column(db.String(64), nullable=True, index=True)
+    platform_prices_snapshot = db.Column(db.JSON, nullable=True, default=dict)
+    margin_floor_applied = db.Column(db.Boolean, nullable=False, default=False)
+    margin_floor_value = db.Column(db.Float, nullable=True)
+    sanity_bound_flagged = db.Column(db.Boolean, nullable=False, default=False)
+    decided_at = db.Column(db.DateTime, nullable=True)
+    decided_by = db.Column(db.String(36), db.ForeignKey("users.id"), nullable=True)
+
+    @property
+    def reasoning_text(self):
+        return self.rationale or self.ai_summary or ""
+
+    @reasoning_text.setter
+    def reasoning_text(self, val):
+        self.rationale = val
+        self.ai_summary = val
+
+    @property
+    def confidence(self):
+        if isinstance(self.confidence_score, (int, float)):
+            if self.confidence_score >= 0.85 or self.confidence_score >= 85:
+                return "high"
+            elif self.confidence_score >= 0.60 or self.confidence_score >= 60:
+                return "medium"
+            return "low"
+        return str(self.confidence_score or "high")
+
+    @confidence.setter
+    def confidence(self, val):
+        if str(val).lower() == "high":
+            self.confidence_score = 0.95
+        elif str(val).lower() == "medium":
+            self.confidence_score = 0.75
+        elif str(val).lower() == "low":
+            self.confidence_score = 0.40
+        else:
+            try:
+                self.confidence_score = float(val)
+            except Exception:
+                self.confidence_score = 0.80
+
     # =====================================
     # RELATIONSHIPS
     # =====================================
@@ -159,6 +200,12 @@ class PricingRecommendation(db.Model):
         back_populates="recommendation",
         uselist=False,
         cascade="all, delete-orphan"
+    )
+
+    price_history = db.relationship(
+        "PriceHistory",
+        back_populates="recommendation",
+        uselist=False
     )
 
     approval_actions = db.relationship(

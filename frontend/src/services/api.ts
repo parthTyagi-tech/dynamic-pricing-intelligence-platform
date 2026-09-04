@@ -199,3 +199,95 @@ export async function exportCatalog(format: "csv" | "xlsx" = "xlsx"): Promise<vo
   anchor.remove();
   window.URL.revokeObjectURL(url);
 }
+
+// =====================================
+// AGENTIC MULTI-AGENT API (v2)
+// =====================================
+
+export interface AgenticDecisionTraceItem {
+  agent: string;
+  decision_point: string;
+  rationale: string;
+  action_taken: string;
+  timestamp: string;
+}
+
+export interface AgenticTaskEvent {
+  agent: string;
+  event_type: string;
+  message: string;
+  payload: Record<string, any>;
+  timestamp: string;
+}
+
+export interface AgenticRecommendationData {
+  id: string;
+  product_id: string;
+  recommended_price: number;
+  confidence: "high" | "medium" | "low";
+  reasoning_text: string;
+  platform_prices_snapshot: Record<string, any>;
+  margin_floor_applied: boolean;
+  margin_floor_value: number | null;
+  sanity_bound_flagged: boolean;
+  status: "pending" | "approved" | "rejected" | "expired";
+}
+
+export interface AgenticTaskState {
+  task_id: string;
+  product_id: string;
+  organization_id: string;
+  status: "queued" | "running" | "succeeded" | "failed" | "rejected" | "approved";
+  dispatched_platforms: string[];
+  events: AgenticTaskEvent[];
+  decision_traces: AgenticDecisionTraceItem[];
+  recommendation: AgenticRecommendationData | null;
+  confidence: "high" | "medium" | "low";
+  created_at: string;
+  updated_at: string;
+}
+
+export async function startAgenticRecommendation(
+  productId: string,
+  options?: { forceRefresh?: boolean; simulateFailurePlatform?: string }
+): Promise<{ task_id: string; message: string }> {
+  const response = await apiClient.post<{ success: boolean; task_id: string; message: string }>(
+    `/agentic/recommend/${productId}`,
+    {
+      force_refresh: options?.forceRefresh ?? false,
+      simulate_failure_platform: options?.simulateFailurePlatform,
+    }
+  );
+  return { task_id: response.data.task_id, message: response.data.message };
+}
+
+export async function getAgenticTaskState(taskId: string): Promise<AgenticTaskState> {
+  const response = await apiClient.get<{ success: boolean; task: AgenticTaskState }>(
+    `/agentic/task/${taskId}/state`
+  );
+  return response.data.task;
+}
+
+export async function approveAgenticRecommendation(taskId: string): Promise<any> {
+  const response = await apiClient.post(`/agentic/task/${taskId}/approve`);
+  return response.data;
+}
+
+export async function rejectAgenticRecommendation(taskId: string, reason?: string): Promise<any> {
+  const response = await apiClient.post(`/agentic/task/${taskId}/reject`, { reason });
+  return response.data;
+}
+
+export async function getAgenticPriceHistory(productId: string): Promise<any[]> {
+  const response = await apiClient.get<{ success: boolean; history: any[] }>(
+    `/agentic/product/${productId}/price-history`
+  );
+  return response.data.history || [];
+}
+
+export async function uploadAgenticCatalogCsv(file: File): Promise<any> {
+  const formData = new FormData();
+  formData.append("file", file);
+  const response = await apiClient.post("/agentic/catalog/upload", formData);
+  return response.data;
+}
