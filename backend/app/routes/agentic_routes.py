@@ -111,6 +111,116 @@ def start_recommendation(product_id: str):
     }), 202
 
 
+@agentic_bp.route("/scraper/<platform_name>/run-single", methods=["POST"])
+@jwt_required()
+def run_single_scraper(platform_name: str):
+    """
+    Part 2: Auth + org-scoped (SEC-1/SEC-2), rate-limited (SEC-6).
+    Dispatches a single-platform Supervisor task for manual on-demand triggers.
+    """
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({"success": False, "message": "User not found"}), 404
+
+    # SEC-6: Rate limit check (5/min/user)
+    if not check_rate_limit(f"{user.id}:scraper_single", limit=5, window_sec=60):
+        return jsonify({
+            "success": False,
+            "message": "Rate limit exceeded for manual scraper runs. Maximum 5 requests per minute."
+        }), 429
+
+    # Validate platform
+    try:
+        get_scraper_for_platform(platform_name)
+    except Exception as err:
+        return jsonify({
+            "success": False,
+            "message": f"Unsupported platform: {platform_name}. {err}"
+        }), 400
+
+    payload = request.get_json(silent=True) or {}
+    product_id = payload.get("product_id")
+
+    if product_id:
+        product = Product.query.filter_by(id=product_id, organization_id=user.organization_id).first()
+    else:
+        product = Product.query.filter_by(organization_id=user.organization_id).first()
+
+    if not product:
+        return jsonify({"success": False, "message": "No catalog product available to scrape."}), 404
+
+    task_id = str(uuid.uuid4())
+    task_mgr = get_task_manager()
+    task_mgr.create_task(
+        task_id=task_id,
+        product_id=product.id,
+        organization_id=user.organization_id,
+        user_id=user.id,
+        category=product.category or "general"
+    )
+
+    def run_single_task():
+        from flask import current_app
+        with current_app.app_context():
+            supervisor = SupervisorAgent()
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                loop.run_until_complete(
+                    supervisor.execute(
+                        task_id=task_id,
+                        product_id=product.id,
+                        organization_id=user.organization_id,
+                        user_id=user.id,
+                        force_refresh=True,
+                        target_platforms=[platform_name]
+                    )
+                )
+            except Exception as e:
+                logger.error(f"[agentic_routes] Single scraper error: {e}", exc_info=True)
+                task_mgr.update_status(task_id, "failed", error_message=str(e))
+            finally:
+                loop.close()
+
+    from threading import Thread
+    thread = Thread(target=run_single_task, daemon=True)
+    thread.start()
+
+    return jsonify({
+        "success": True,
+        "task_id": task_id,
+        "platform": platform_name,
+        "product_id": product.id,
+        "message": f"Single-platform agentic task started for {platform_name}."
+    }), 202
+
+
+@agentic_bp.route("/scraper/health-check", methods=["POST"])
+@jwt_required()
+def trigger_canary_health_checks():
+    """
+    Problem 5: Canary health check runner.
+    """
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({"success": False, "message": "User not found"}), 404
+
+    from app.services.agentic.health_check_scheduler import run_all_canary_health_checks
+
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        results = loop.run_until_complete(run_all_canary_health_checks(organization_id=user.organization_id))
+        return jsonify({"success": True, "results": results}), 200
+    except Exception as e:
+        logger.error(f"[agentic_routes] Health check error: {e}", exc_info=True)
+        return jsonify({"success": False, "message": str(e)}), 500
+    finally:
+        loop.close()
+
+
 @agentic_bp.route("/task/<task_id>/state", methods=["GET"])
 @jwt_required()
 def get_task_state(task_id: str):

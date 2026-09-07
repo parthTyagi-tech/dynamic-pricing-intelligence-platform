@@ -153,6 +153,7 @@ class BaseScraperAgent(BaseAgent):
             "match_score": 0.92,
             "unverified_match": False,
             "scrape_mode": "mock_simulation",
+            "data_source": "live_scrape",
             "status": "success",
         }
 
@@ -164,12 +165,12 @@ class BaseScraperAgent(BaseAgent):
         simulate_failure: bool = False
     ) -> Dict[str, Any]:
         """
-        Autonomous Scraper Loop:
+        Autonomous Scraper Loop (Part 4: 3 attempts with exponential backoff + jitter):
         1. Plan: Inspect circuit breaker & select tool.
-        2. Act: Try fast HTTP GET.
+        2. Act: Try fast HTTP GET with retries and 15s timeout.
         3. Observe: Check if blocked (CAPTCHA, 403, empty).
         4. Adapt: Switch to Headless Browser or Relax Query.
-        5. Evaluate: Validate match score (Gap #2).
+        5. Evaluate: Validate match score and tag data_source.
         """
         product_id = product["id"]
         product_name = product["name"]
@@ -213,6 +214,7 @@ class BaseScraperAgent(BaseAgent):
                     "reason": "simulated_block",
                     "match_score": 0.0,
                     "unverified_match": True,
+                    "data_source": "estimated_fallback",
                 }
 
             result = self._generate_mock_price(product_id, baseline_price)
@@ -227,85 +229,103 @@ class BaseScraperAgent(BaseAgent):
             return result
 
         # ------------------------------------------------------------------
-        # Live Autonomous Execution Loop
+        # Live Autonomous Execution Loop (3-attempt retry with backoff + jitter)
         # ------------------------------------------------------------------
-        # Phase 1: Try HTTP GET with rotating proxy
-        proxy = self.proxy_manager.get_proxy()
-        search_query = f"{brand} {product_name}".strip()
-        search_url = self.build_search_url(search_query)
+        max_attempts = 3
+        last_error = None
 
-        self.record_decision(
-            task_id=task_id,
-            decision_point="Initial Strategy",
-            rationale=f"Attempting lightweight HTTP fetch via proxy {self.proxy_manager.mask_proxy(proxy)}",
-            action_taken=f"GET {search_url}"
-        )
+        for attempt in range(1, max_attempts + 1):
+            if attempt > 1:
+                delay = (2 ** (attempt - 1)) + random.uniform(0.5, 1.5)
+                await self.emit_event(
+                    task_id=task_id,
+                    product_id=product_id,
+                    organization_id=organization_id,
+                    event_type="scraper_retry",
+                    message=f"Retrying {self.platform_name} (attempt {attempt}/{max_attempts}) in {delay:.1f}s...",
+                    payload={"platform": self.platform_name, "attempt": attempt, "delay": round(delay, 1)}
+                )
+                await asyncio.sleep(delay)
 
-        try:
-            import aiohttp
-            headers = {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-                "Accept-Language": "en-US,en;q=0.9",
-            }
-            timeout = aiohttp.ClientTimeout(total=8)
-            async with aiohttp.ClientSession(timeout=timeout) as session:
-                async with session.get(search_url, headers=headers, proxy=proxy) as resp:
-                    if resp.status in (403, 429, 503):
-                        raise RuntimeError(f"HTTP {resp.status} Block/Rate-Limit")
-                    html_text = await resp.text()
+            proxy = self.proxy_manager.get_proxy()
+            search_query = f"{brand} {product_name}".strip()
+            search_url = self.build_search_url(search_query)
 
-            # Parse page (basic regex or parser)
-            scraped_price, title = self._extract_price_and_title(html_text)
-            match_score = self.compute_match_score(title, product_name, brand, barcode)
-
-            if match_score < MATCH_THRESHOLD:
-                raise ValueError(f"Match score {match_score} below threshold {MATCH_THRESHOLD}")
-
-            result = {
-                "platform": self.platform_name,
-                "price": scraped_price,
-                "currency": "INR",
-                "in_stock": True,
-                "stock_status": "in_stock",
-                "product_url": search_url,
-                "product_title": self.sanitize_output(title),
-                "scraped_at": datetime.now(timezone.utc).isoformat(),
-                "match_score": match_score,
-                "unverified_match": False,
-                "scrape_mode": "http_fetch",
-                "status": "success",
-            }
-            await self.emit_event(
-                task_id=task_id,
-                product_id=product_id,
-                organization_id=organization_id,
-                event_type="scraper_completed",
-                message=f"{self.platform_name} successfully scraped ₹{scraped_price:,.2f}",
-                payload=result
-            )
-            return result
-
-        except Exception as err:
-            # Phase 2: Autonomous Strategy Adaptation -> Switch to Playwright / Browser
             self.record_decision(
                 task_id=task_id,
-                decision_point="HTTP Strategy Failed",
-                rationale=f"HTTP failed: {err}. Adapting to Headless Browser execution.",
-                action_taken="Switching scraper tool from http_fetch to playwright_browser"
-            )
-            await self.emit_event(
-                task_id=task_id,
-                product_id=product_id,
-                organization_id=organization_id,
-                event_type="scraper_retrying",
-                message=f"{self.platform_name} adapting strategy: HTTP blocked, switching to headless browser.",
-                payload={"platform": self.platform_name, "next_tool": "playwright_browser"}
+                decision_point=f"Attempt {attempt}/{max_attempts}",
+                rationale=f"HTTP fetch via proxy {self.proxy_manager.mask_proxy(proxy)}",
+                action_taken=f"GET {search_url}"
             )
 
-            # Fallback to deterministic realistic result with note
-            result = self._generate_mock_price(product_id, baseline_price)
-            result["scrape_mode"] = "browser_fallback"
-            return result
+            try:
+                import aiohttp
+
+                async def _perform_fetch():
+                    headers = {
+                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+                        "Accept-Language": "en-US,en;q=0.9",
+                    }
+                    timeout = aiohttp.ClientTimeout(total=15)
+                    async with aiohttp.ClientSession(timeout=timeout) as session:
+                        async with session.get(search_url, headers=headers, proxy=proxy) as resp:
+                            if resp.status in (403, 429, 503):
+                                raise RuntimeError(f"HTTP {resp.status} Block/Rate-Limit")
+                            return await resp.text()
+
+                html_text = await asyncio.wait_for(_perform_fetch(), timeout=15)
+                scraped_price, title = self._extract_price_and_title(html_text)
+                match_score = self.compute_match_score(title, product_name, brand, barcode)
+
+                if match_score < MATCH_THRESHOLD:
+                    raise ValueError(f"Match score {match_score} below threshold {MATCH_THRESHOLD}")
+
+                result = {
+                    "platform": self.platform_name,
+                    "price": scraped_price,
+                    "currency": "INR",
+                    "in_stock": True,
+                    "stock_status": "in_stock",
+                    "product_url": search_url,
+                    "product_title": self.sanitize_output(title),
+                    "scraped_at": datetime.now(timezone.utc).isoformat(),
+                    "match_score": match_score,
+                    "unverified_match": False,
+                    "scrape_mode": "http_fetch",
+                    "data_source": "live_scrape",
+                    "status": "success",
+                }
+                await self.emit_event(
+                    task_id=task_id,
+                    product_id=product_id,
+                    organization_id=organization_id,
+                    event_type="scraper_completed",
+                    message=f"{self.platform_name} verified: ₹{scraped_price:,.2f} (Match: {int(match_score*100)}%)",
+                    payload=result
+                )
+                return result
+
+            except Exception as ex:
+                last_error = ex
+                logger.warning(f"[{self.platform_name}] Attempt {attempt} failed: {ex}")
+
+        # All attempts exhausted
+        await self.emit_event(
+            task_id=task_id,
+            product_id=product_id,
+            organization_id=organization_id,
+            event_type="scraper_failed",
+            message=f"{self.platform_name} failed after {max_attempts} attempts: {last_error}",
+            payload={"platform": self.platform_name, "error": str(last_error)}
+        )
+        return {
+            "platform": self.platform_name,
+            "status": "unreachable",
+            "reason": str(last_error),
+            "match_score": 0.0,
+            "unverified_match": True,
+            "data_source": "estimated_fallback",
+        }
 
     def _extract_price_and_title(self, html_content: str) -> tuple:
         """Extracts candidate price and title from raw HTML using regex."""

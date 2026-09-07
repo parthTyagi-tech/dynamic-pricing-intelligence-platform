@@ -16,7 +16,10 @@ from app.models.recommendation import (
     ApprovalActionType
 )
 from app.extensions import db
-from app.models.market_data import CompetitorPrice, DemandSignal, Sale
+from app.models.market_data import DemandSignal, Sale
+from app.models.price_history import PriceHistory
+from app.models.scraper_reliability import ScraperReliability
+from app.services.agentic.scrapers.platform_scrapers import PLATFORM_SCRAPERS
 from sqlalchemy import func
 
 dashboard_bp = Blueprint(
@@ -134,20 +137,22 @@ def get_metrics():
         ai_confidence = 97.0
         pricing_accuracy = 94.0
 
-    # Competitor updates count
-    competitor_changes = CompetitorPrice.query.filter_by(
+    # Competitor updates count from PriceHistory
+    competitor_changes = PriceHistory.query.filter_by(
         organization_id=current_user.organization_id
     ).count()
 
-    # Volatility
-    comp_prices = CompetitorPrice.query.filter_by(
-        organization_id=current_user.organization_id
-    ).all()
+    # Volatility from recommendations snapshot
+    comp_prices = []
+    for r in recommendations:
+        if r.platform_prices_snapshot and isinstance(r.platform_prices_snapshot, dict):
+            for pdata in r.platform_prices_snapshot.values():
+                if isinstance(pdata, dict) and pdata.get("price", 0) > 0:
+                    comp_prices.append(float(pdata["price"]))
     if comp_prices:
-        vals = [p.competitor_price for p in comp_prices]
-        avg = sum(vals) / len(vals)
+        avg = sum(comp_prices) / len(comp_prices)
         if avg > 0:
-            variance = sum((x - avg) ** 2 for x in vals) / len(vals)
+            variance = sum((x - avg) ** 2 for x in comp_prices) / len(comp_prices)
             std_dev = variance ** 0.5
             market_volatility = round((std_dev / avg) * 100, 1)
         else:
@@ -182,9 +187,7 @@ def get_metrics():
     ).count()
 
     # Dynamic AI Signal Strength index
-    competitor_checks_coverage = CompetitorPrice.query.filter_by(
-        organization_id=current_user.organization_id
-    ).count()
+    competitor_checks_coverage = len(comp_prices)
     ai_signals_strength = min(max(int(competitor_checks_coverage / 4 + 88), 88), 99)
 
     return {
@@ -231,17 +234,25 @@ def get_pricing_trends():
     current_user = User.query.get(get_jwt_identity())
     if not current_user:
         return {"success": False, "message": "User not found"}, 404
-    observations = CompetitorPrice.query.filter_by(
+    recs = PricingRecommendation.query.filter_by(
         organization_id=current_user.organization_id
-    ).join(Product).order_by(CompetitorPrice.checked_at.asc()).limit(365).all()
-    return [{
-        "time": observation.checked_at.isoformat(),
-        "aiPrice": round(float(observation.product.current_price), 2),
-        "competitorPrice": round(float(observation.competitor_price), 2),
-        "marketAverage": round(float(observation.competitor_price), 2),
-        "marketplace": observation.competitor_name,
-        "productId": observation.product_id,
-    } for observation in observations], 200
+    ).join(Product).order_by(PricingRecommendation.created_at.asc()).limit(365).all()
+    observations = []
+    for r in recs:
+        snapshot = r.platform_prices_snapshot or {}
+        if isinstance(snapshot, dict):
+            for plat, pdata in snapshot.items():
+                if isinstance(pdata, dict) and pdata.get("price", 0) > 0:
+                    c_price = float(pdata["price"])
+                    observations.append({
+                        "time": r.created_at.isoformat() if r.created_at else "",
+                        "aiPrice": round(float(r.product.current_price), 2) if r.product else 0.0,
+                        "competitorPrice": round(c_price, 2),
+                        "marketAverage": round(c_price, 2),
+                        "marketplace": plat,
+                        "productId": r.product_id,
+                    })
+    return observations, 200
 
 
 # =====================================
@@ -403,12 +414,12 @@ def get_live_activity():
     if not current_user:
         return {"success": False, "message": "User not found"}, 404
 
-    # Fetch latest 10 competitor price updates
-    comp_prices = CompetitorPrice.query.filter_by(
+    # Fetch latest 5 recommendations for competitor price checks
+    recent_recs = PricingRecommendation.query.filter_by(
         organization_id=current_user.organization_id
     ).order_by(
-        CompetitorPrice.checked_at.desc()
-    ).limit(10).all()
+        PricingRecommendation.created_at.desc()
+    ).limit(5).all()
 
     # Fetch latest 5 approved/rejected actions
     approval_actions = ApprovalAction.query.join(
@@ -428,13 +439,17 @@ def get_live_activity():
 
     feed = []
 
-    # Map competitor prices to activity items
-    for cp in comp_prices:
-        feed.append({
-            "type": "competitor_check",
-            "timestamp": cp.checked_at.isoformat(),
-            "message": f"Competitor check: {cp.competitor_name} priced {cp.product.name if cp.product else 'SKU'} at ₹{cp.competitor_price:.2f}"
-        })
+    # Map competitor prices from recent recommendations to activity items
+    for r in recent_recs:
+        snapshot = r.platform_prices_snapshot or {}
+        if isinstance(snapshot, dict):
+            for plat, pdata in snapshot.items():
+                if isinstance(pdata, dict) and pdata.get("price", 0) > 0:
+                    feed.append({
+                        "type": "competitor_check",
+                        "timestamp": (r.created_at.isoformat() if r.created_at else datetime.now(timezone.utc).isoformat()),
+                        "message": f"Competitor check: {plat} priced {r.product.name if r.product else 'SKU'} at ₹{float(pdata['price']):.2f}"
+                    })
 
     # Map actions to activity items
     for action in approval_actions:
@@ -501,30 +516,68 @@ def get_scraper_status():
 
     organization_id = current_user.organization_id
     total_products = Product.query.filter_by(organization_id=organization_id).count()
-    grouped = db.session.query(
-        CompetitorPrice.competitor_name,
-        func.max(CompetitorPrice.checked_at).label("last_scraped"),
-        func.count(CompetitorPrice.id).label("checks"),
-        func.count(func.distinct(CompetitorPrice.product_id)).label("covered_products"),
-    ).filter(
-        CompetitorPrice.organization_id == organization_id
-    ).group_by(CompetitorPrice.competitor_name).order_by(CompetitorPrice.competitor_name.asc()).all()
 
-    now = datetime.now(timezone.utc)
+    all_platforms = list(PLATFORM_SCRAPERS.keys())
+    reliabilities = {
+        r.platform: r
+        for r in ScraperReliability.query.filter(
+            ScraperReliability.platform.in_(all_platforms)
+        ).all()
+    }
+
+    # Fetch recent recommendations to find latest price samples per platform
+    recent_recs = PricingRecommendation.query.filter_by(
+        organization_id=organization_id
+    ).order_by(PricingRecommendation.created_at.desc()).limit(20).all()
+
+    latest_samples = {}
+    for r in recent_recs:
+        snapshot = r.platform_prices_snapshot or {}
+        if isinstance(snapshot, dict):
+            for plat, pdata in snapshot.items():
+                if plat not in latest_samples and isinstance(pdata, dict) and pdata.get("price", 0) > 0:
+                    latest_samples[plat] = {
+                        "price": float(pdata.get("price", 0)),
+                        "product_title": pdata.get("product_title") or pdata.get("title") or (r.product.name if r.product else "Sample Product"),
+                        "product_url": pdata.get("product_url", ""),
+                        "match_score": float(pdata.get("match_score", 1.0)),
+                        "scraped_at": pdata.get("scraped_at") or (r.created_at.isoformat() if r.created_at else None),
+                        "data_source": pdata.get("data_source", "live_scrape")
+                    }
+
     scrapers = []
-    for marketplace, last_scraped, checks, covered_products in grouped:
-        timestamp = last_scraped
-        if timestamp is not None and timestamp.tzinfo is None:
-            timestamp = timestamp.replace(tzinfo=timezone.utc)
-        age_minutes = ((now - timestamp).total_seconds() / 60) if timestamp else None
-        health = "offline" if timestamp is None or age_minutes is None or age_minutes > 60 else "attention" if age_minutes > 15 else "healthy"
-        coverage = round((covered_products / total_products) * 100, 1) if total_products else 0.0
+    for marketplace in sorted(all_platforms):
+        rel = reliabilities.get(marketplace)
+        circuit_state = rel.circuit_state if rel else "closed"
+        failures = rel.failure_count_last_hour if rel else 0
+        total_checks = failures
+        backoff_minutes = rel.backoff_minutes if rel else 15
+        circuit_opened_at = rel.circuit_opened_at.isoformat() if (rel and rel.circuit_opened_at) else None
+        last_success = rel.last_successful_scrape_at if (rel and rel.last_successful_scrape_at) else None
+
+        if circuit_state == "open":
+            health = "offline"
+        elif circuit_state == "half_open" or failures > 0:
+            health = "attention"
+        else:
+            health = "healthy"
+
+        sample = latest_samples.get(marketplace)
+        last_scraped = sample["scraped_at"] if sample else (last_success.isoformat() if last_success else None)
+
         scrapers.append({
             "marketplace": marketplace,
-            "last_scraped": timestamp.isoformat() if timestamp else None,
-            "coverage": coverage,
+            "platform_name": marketplace,
+            "circuit_state": circuit_state,
+            "failure_count_last_hour": failures,
+            "backoff_minutes": backoff_minutes,
+            "circuit_opened_at": circuit_opened_at,
+            "last_successful_scrape_at": last_success.isoformat() if last_success else None,
+            "last_scraped": last_scraped,
             "health": health,
-            "checks": int(checks or 0),
+            "checks": total_checks,
+            "coverage": 100.0 if total_products > 0 and sample else 0.0,
+            "latest_sample": sample,
         })
 
     return {"success": True, "scrapers": scrapers, "observed_marketplaces": len(scrapers)}, 200
@@ -541,26 +594,34 @@ def get_competitor_matrix():
     products = Product.query.filter_by(organization_id=current_user.organization_id).all()
     rows = []
     marketplaces = set()
+
     for product in products:
-        observations = CompetitorPrice.query.filter_by(
-            organization_id=current_user.organization_id,
-            product_id=product.id,
-        ).order_by(CompetitorPrice.checked_at.desc()).all()
-        latest = {}
-        for observation in observations:
-            latest.setdefault(observation.competitor_name, observation)
-        marketplace_prices = {name: float(item.competitor_price) for name, item in latest.items()}
-        marketplaces.update(marketplace_prices.keys())
-        target = product.current_price
         recommendation = PricingRecommendation.query.filter_by(
             organization_id=current_user.organization_id,
             product_id=product.id,
         ).order_by(PricingRecommendation.created_at.desc()).first()
-        if recommendation:
-            target = recommendation.recommended_price
+
+        marketplace_prices = {}
+        last_checked = None
+        if recommendation and recommendation.platform_prices_snapshot:
+            snapshot = recommendation.platform_prices_snapshot
+            if isinstance(snapshot, dict):
+                for plat, pdata in snapshot.items():
+                    if isinstance(pdata, dict):
+                        price = float(pdata.get("price", 0) or 0)
+                        if price > 0 and pdata.get("data_source") != "estimated_fallback":
+                            marketplace_prices[plat] = price
+                            marketplaces.add(plat)
+                            scraped_str = pdata.get("scraped_at")
+                            if scraped_str:
+                                last_checked = scraped_str
+            if not last_checked and recommendation.created_at:
+                last_checked = recommendation.created_at.isoformat()
+
+        target = recommendation.recommended_price if recommendation else product.current_price
         lowest = min(marketplace_prices.values()) if marketplace_prices else product.current_price
         flag = "cheaper" if lowest < product.current_price else "premium" if lowest > product.current_price else "matched"
-        last_checked = max((item.checked_at for item in latest.values()), default=None)
+
         rows.append({
             "id": product.id,
             "product": product.name,
@@ -570,7 +631,7 @@ def get_competitor_matrix():
             "marketplaces": marketplace_prices,
             "target": float(target),
             "flag": flag,
-            "scraped": last_checked.isoformat() if last_checked else None,
+            "scraped": last_checked,
         })
 
     return {"success": True, "rows": rows, "marketplaces": sorted(marketplaces)}, 200

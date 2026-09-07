@@ -11,7 +11,7 @@ Migrate hosting away from Vercel (Frontend) and Render (Backend) into a self-hos
 
 ### 2. Infrastructure Consolidation
 *   **Action:** Stop deploying the frontend and backend to separate cloud providers.
-*   **Change:** Use Coolify to deploy the React Frontend, the Flask Backend, the Supabase instance, the Langflow container, and the Crawl4AI worker all onto the same VPS instance. 
+*   **Change:** Use Coolify to deploy the React Frontend, the Flask Backend, the Supabase instance, the Langflow container, and the Agentic Scraper worker all onto the same VPS instance. 
 *   **Benefit:** Zero internal latency between the API and the database, and massive cost savings compared to paying multiple cloud providers.
 
 ## Expected Outcome

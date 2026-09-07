@@ -220,15 +220,21 @@ class PricingRecommendation(db.Model):
     # =====================================
 
     def to_dict(self):
-        from app.models.market_data import CompetitorPrice, Sale
+        from app.models.market_data import Sale
         
         competitors = []
         sales_history = []
+        if self.platform_prices_snapshot and isinstance(self.platform_prices_snapshot, dict):
+            for plat, cdata in self.platform_prices_snapshot.items():
+                if isinstance(cdata, dict) and cdata.get("price", 0) > 0:
+                    competitors.append({
+                        "competitor_name": plat,
+                        "competitor_price": float(cdata.get("price", 0)),
+                        "product_url": cdata.get("product_url", ""),
+                        "match_score": float(cdata.get("match_score", 1.0)),
+                        "data_source": cdata.get("data_source", "live_scrape")
+                    })
         if self.product:
-            competitors = CompetitorPrice.query.filter_by(
-                product_id=self.product_id,
-                organization_id=self.organization_id
-            ).all()
             sales_history = Sale.query.filter_by(
                 product_id=self.product_id,
                 organization_id=self.organization_id

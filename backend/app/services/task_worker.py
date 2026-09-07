@@ -7,7 +7,7 @@ from flask import Flask
 from app.extensions import db
 from app.models.product import Product
 from app.models.audit_loging import PricingRule
-from app.models.market_data import CompetitorPrice, DemandSignal, Sale
+from app.models.market_data import DemandSignal, Sale
 from app.models.recommendation import (
     PricingRecommendation,
     RecommendationStatus,
@@ -89,9 +89,10 @@ def _process_pricing_job(recommendation_id: str, product_id: str):
         emit_event(job, "scraper", AgentRunStatus.RUNNING, 15, "Scraper agents are searching category-specific marketplaces.")
         
     try:
-        # Always run real-time scraper to fetch fresh competitor prices
+        # Always run agentic scraper pipeline to fetch fresh competitor prices
         import asyncio
-        from app.services.realtime_scraper import fetch_multi_platform_prices
+        import uuid
+        from app.services.agentic.supervisor_agent import SupervisorAgent
         
         try:
             loop = asyncio.get_event_loop()
@@ -99,72 +100,44 @@ def _process_pricing_job(recommendation_id: str, product_id: str):
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             
-        scraped_prices = loop.run_until_complete(
-            fetch_multi_platform_prices(
-                search_query=product.name,
-                brand=product.brand,
-                category=product.category,
-                baseline_price_inr=product.current_price,
-                barcode=product.barcode or "",
-                description=product.description or "",
-                product_id=product.id
+        supervisor = SupervisorAgent()
+        platforms = job.requested_platforms if (job and job.requested_platforms) else supervisor.resolve_platforms(product.category or "general")
+        task_id = str(uuid.uuid4())
+        res = loop.run_until_complete(
+            supervisor.execute(
+                task_id=task_id,
+                product_id=product.id,
+                organization_id=product.organization_id,
+                force_refresh=True,
+                target_platforms=platforms
             )
         )
         
-        # Capture the last snapshot before replacement so sudden drops can trigger alerts.
-        previous_prices = {
-            row.competitor_name: float(row.competitor_price)
-            for row in CompetitorPrice.query.filter_by(product_id=product.id).all()
-            if row.competitor_price
-        }
-
-        # Clear existing competitor prices to avoid duplicates/outdated data
-        CompetitorPrice.query.filter_by(product_id=product.id).delete()
+        rec_dict = res.get("recommendation") or {}
+        snapshot = rec_dict.get("platform_prices_snapshot") or {}
+        
         if job:
             MarketplaceOffer.query.filter_by(job_id=job.id).delete()
-        for comp_name, comp_data in scraped_prices.items():
-            value = comp_data if isinstance(comp_data, dict) else {"price": comp_data}
-            price_val = float(value.get("price", value.get("price_inr", 0)) or 0)
-            if price_val <= 0:
-                continue
-            cp = CompetitorPrice(
-                competitor_name=comp_name,
-                competitor_price=price_val,
-                in_stock=value.get("in_stock", True),
-                product_url=value.get("url", ""),
-                product_id=product.id,
-                organization_id=product.organization_id
-            )
-            db.session.add(cp)
-            if job:
-                db.session.add(MarketplaceOffer(
-                    job_id=job.id,
-                    product_id=product.id,
-                    organization_id=product.organization_id,
-                    platform=comp_name,
-                    title=value.get("title") or value.get("product_title"),
-                    current_price=price_val,
-                    availability="in_stock" if value.get("in_stock", True) else "out_of_stock",
-                    in_stock=value.get("in_stock", True),
-                    product_url=value.get("url", ""),
-                    match_confidence=value.get("match_confidence") or "medium",
-                    source_type=value.get("fetch_method") or value.get("extraction_strategy") or "live_scrape",
-                ))
-        db.session.commit()
-        if job:
-            emit_event(job, "scraper", AgentRunStatus.SUCCEEDED, 50, f"Scraper agents found {len(scraped_prices)} marketplace result(s).", {"marketplaces": list(scraped_prices)})
-
-        # Trigger persistent in-app alerts for meaningful marketplace drops.
-
-        from app.services.price_alert_service import detect_and_create_alerts
-        current_prices = {
-            comp_name: float(comp_data.get("price", 0) if isinstance(comp_data, dict) else comp_data)
-            for comp_name, comp_data in scraped_prices.items()
-        }
-        drop_alerts = detect_and_create_alerts(product, previous_prices, current_prices)
-        if drop_alerts:
+            for comp_name, comp_data in snapshot.items():
+                if isinstance(comp_data, dict):
+                    price_val = float(comp_data.get("price", 0) or 0)
+                    if price_val <= 0:
+                        continue
+                    db.session.add(MarketplaceOffer(
+                        job_id=job.id,
+                        product_id=product.id,
+                        organization_id=product.organization_id,
+                        platform=comp_name,
+                        title=comp_data.get("product_title", f"Verified match on {comp_name}"),
+                        current_price=price_val,
+                        availability="in_stock" if comp_data.get("stock_status") == "in_stock" else "out_of_stock",
+                        in_stock=(comp_data.get("stock_status") == "in_stock"),
+                        product_url=comp_data.get("product_url", ""),
+                        match_confidence="high" if float(comp_data.get("match_score", 0) or 0) >= 0.8 else "medium",
+                        source_type=comp_data.get("data_source", "live_scrape"),
+                    ))
             db.session.commit()
-            logger.info("[task_worker] Created %s competitor drop alert(s) for %s", len(drop_alerts), product.sku)
+            emit_event(job, "scraper", AgentRunStatus.SUCCEEDED, 50, f"Scraper agents verified {len(snapshot)} marketplace result(s).", {"marketplaces": list(snapshot)})
 
         # Run AI Pricing strategy orchestrator
         if job:
@@ -175,12 +148,6 @@ def _process_pricing_job(recommendation_id: str, product_id: str):
         demand_data = ai_result["agent_analysis"]["demand_agent"]
         inventory_data = ai_result["agent_analysis"]["inventory_agent"]
 
-        competitor_data = CompetitorPrice(
-            competitor_name="AI Market Agent",
-            competitor_price=market_data["competitor_price"],
-            product_id=product.id,
-            organization_id=product.organization_id
-        )
         sales_14d = db.session.query(db.func.coalesce(db.func.sum(Sale.quantity), 0)).filter(
             Sale.product_id == product.id,
             Sale.organization_id == product.organization_id,
@@ -193,7 +160,6 @@ def _process_pricing_job(recommendation_id: str, product_id: str):
             product_id=product.id,
             organization_id=product.organization_id
         )
-        db.session.add(competitor_data)
         db.session.add(demand_signal)
 
         # Update recommendation properties

@@ -8,7 +8,7 @@ from app.models.user import User, UserRole
 from app.models.organization import Organization
 from app.models.product import Product, ProductCategory, RecommendationStatus
 from app.models.recommendation import PricingRecommendation, ApprovalAction, ApprovalActionType
-from app.models.market_data import CompetitorPrice, DemandSignal, Sale
+from app.models.market_data import DemandSignal, Sale
 from app.models.audit_loging import PricingRule, AuditLog
 from app.models.ab_test import ABTest
 
@@ -104,23 +104,8 @@ def seed_database():
             products_db.append(p)
         db.session.flush()
 
-        print("Seeding competitor prices and demand signals...")
-        competitors = ["Amazon", "Flipkart", "Walmart", "Myntra", "Ajio", "Meesho", "Shopify Stores", "Brand Website"]
+        print("Seeding demand signals...")
         for p in products_db:
-            # Seed competitor prices
-            num_competitors = random.randint(2, 4)
-            chosen_competitors = random.sample(competitors, num_competitors)
-            for comp_name in chosen_competitors:
-                comp_price_val = round(p.current_price * random.uniform(0.90, 1.10), 2)
-                cp = CompetitorPrice(
-                    competitor_name=comp_name,
-                    competitor_price=comp_price_val,
-                    product_id=p.id,
-                    organization_id=org.id,
-                    checked_at=datetime.now(timezone.utc) - timedelta(hours=random.randint(1, 24))
-                )
-                db.session.add(cp)
-
             # Seed demand signals
             for i in range(2):
                 ds = DemandSignal(

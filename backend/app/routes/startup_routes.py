@@ -1,3 +1,4 @@
+import asyncio
 import os
 from datetime import datetime, timezone
 from flask import Blueprint, request, jsonify
@@ -5,8 +6,6 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.extensions import db
 from app.models.user import User
 from app.models.product import Product
-import asyncio
-from app.services.realtime_scraper import fetch_multi_platform_prices
 
 startup_bp = Blueprint("startup", __name__)
 
@@ -35,29 +34,36 @@ def competitor_matcher():
     if not product:
         return {"success": False, "message": "Product not found in your catalog"}, 404
 
-    # Run multi-platform price intelligence
+    # Run multi-platform price intelligence via SupervisorAgent
+    from app.services.agentic.supervisor_agent import SupervisorAgent
+    import uuid
+    supervisor = SupervisorAgent()
+    task_id = str(uuid.uuid4())
+
     try:
         loop = asyncio.get_event_loop()
     except RuntimeError:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
 
-    platform_prices = loop.run_until_complete(
-        fetch_multi_platform_prices(
-            product_name=product.name,
-            brand=product.brand or "",
-            category=product.category or "",
-            baseline_price_usd=product.current_price,
-            barcode=product.barcode or "",
-            product_id=product.id
+    res = loop.run_until_complete(
+        supervisor.execute(
+            task_id=task_id,
+            product_id=product.id,
+            organization_id=current_user.organization_id,
+            force_refresh=True
         )
     )
+
+    rec_dict = res.get("recommendation") or {}
+    platform_prices = rec_dict.get("platform_prices_snapshot") or {}
 
     # Convert to ordered list for frontend
     results = []
     for idx, (pname, pdata) in enumerate(platform_prices.items()):
         results.append({
             "id": f"platform-{idx}",
+            "platform_name": pname,
             **pdata
         })
 

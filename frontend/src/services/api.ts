@@ -124,7 +124,27 @@ export async function loginRequest(email: string, password: string): Promise<{ t
 export async function signupRequest(payload: { name: string; email: string; password: string; organization: string }): Promise<{ token: string; user: User }> { const response = await apiClient.post<{ token?: string; access_token?: string; user?: User }>("/auth/register", { ...payload, organization_name: payload.organization }); const data = unwrap(response.data); if (!data.token && !data.access_token) throw new Error("Authentication server returned no token"); if (!data.user) throw new Error("Authentication server returned no user profile"); return { token: data.token || data.access_token || "", user: data.user }; }
 export interface AgentObservability { name: string; calls: number; avg_latency: number; cost: number; }
 export interface IntegrationState { connected: boolean; store_url: string; api_version: string; last_sync: string | null; }
-export interface ScraperStatus { marketplace: string; last_scraped: string | null; coverage: number; health: "healthy" | "attention" | "offline"; checks: number; }
+export interface ScraperStatus {
+  marketplace: string;
+  platform_name?: string;
+  last_scraped: string | null;
+  coverage: number;
+  health: "healthy" | "attention" | "offline";
+  checks: number;
+  circuit_state?: "closed" | "open" | "half_open";
+  failure_count_last_hour?: number;
+  backoff_minutes?: number;
+  circuit_opened_at?: string | null;
+  last_successful_scrape_at?: string | null;
+  latest_sample?: {
+    price: number;
+    product_title?: string;
+    product_url?: string;
+    match_score: number;
+    scraped_at: string | null;
+    data_source: "live_scrape" | "cached_recent" | "estimated_fallback";
+  } | null;
+}
 export interface CompetitorMatrixRow { id: string; product: string; sku: string; category: string; store: number; marketplaces: Record<string, number>; target: number; flag: "cheaper" | "matched" | "premium"; scraped: string | null; }
 
 export async function getCatalogProducts(): Promise<Product[]> {
@@ -291,3 +311,20 @@ export async function uploadAgenticCatalogCsv(file: File): Promise<any> {
   const response = await apiClient.post("/agentic/catalog/upload", formData);
   return response.data;
 }
+
+export async function runSingleScraper(
+  platform: string,
+  productId?: string
+): Promise<{ success: boolean; task_id: string; platform: string; message: string }> {
+  const response = await apiClient.post<{ success: boolean; task_id: string; platform: string; message: string }>(
+    `/agentic/scraper/${encodeURIComponent(platform)}/run-single`,
+    { product_id: productId }
+  );
+  return response.data;
+}
+
+export async function triggerHealthCheck(): Promise<{ success: boolean; results: any[] }> {
+  const response = await apiClient.post<{ success: boolean; results: any[] }>("/agentic/scraper/health-check");
+  return response.data;
+}
+

@@ -3,38 +3,6 @@ from datetime import datetime, timezone
 from app.extensions import db
 
 
-class CompetitorPrice(db.Model):
-    __tablename__ = "competitor_prices"
-
-    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    competitor_name = db.Column(db.String(255), nullable=False)
-    competitor_price = db.Column(db.Float, nullable=False)
-    in_stock = db.Column(db.Boolean, nullable=False, default=True)
-    product_url = db.Column(db.Text, nullable=True)  # Direct link to the matched product page
-    product_id = db.Column(
-        db.String(36), db.ForeignKey("products.id"), nullable=False, index=True
-    )
-    organization_id = db.Column(
-        db.String(36), db.ForeignKey("organizations.id"), nullable=False, index=True
-    )
-    checked_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
-
-    # Relationships
-    product = db.relationship("Product", back_populates="competitor_prices")
-
-    def to_dict(self):
-        return {
-            "id": self.id,
-            "competitor_name": self.competitor_name,
-            "competitor_price": self.competitor_price,
-            "in_stock": self.in_stock,
-            "product_url": self.product_url,
-            "product_id": self.product_id,
-            "organization_id": self.organization_id,
-            "checked_at": self.checked_at.isoformat(),
-        }
-
-
 class DemandSignal(db.Model):
     __tablename__ = "demand_signals"
 

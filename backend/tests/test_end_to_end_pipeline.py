@@ -15,7 +15,6 @@ from app.extensions import db
 from app.models.organization import Organization
 from app.models.product import Product
 from app.models.recommendation import PricingRecommendation, RecommendationStatus
-from app.models.market_data import CompetitorPrice
 from app.models.price_alert import PriceAlert
 from app.models.recommendation_job import RecommendationAgentEvent, RecommendationJob, RecommendationJobStatus
 from app.models.user import User, UserRole
@@ -45,13 +44,24 @@ def test_authenticated_pricing_pipeline_end_to_end(monkeypatch):
         product = Product.query.filter_by(organization_id=organization.id, sku=sku).first()
         assert product is not None
 
-        CompetitorPrice(competitor_name="Amazon", competitor_price=950, product_id=product.id, organization_id=organization.id)
-        db.session.commit()
-
-        # Keep the real route/queue/DB workflow while making the external scraper and model deterministic.
-        async def fake_scraper(**kwargs):
-            return {"Amazon": {"price": 930, "in_stock": True, "url": "https://example.com/p"}}
-        monkeypatch.setattr("app.services.realtime_scraper.fetch_multi_platform_prices", fake_scraper)
+        # Keep the real route/queue/DB workflow while making the supervisor agent and model deterministic.
+        async def fake_supervisor_execute(*args, **kwargs):
+            return {
+                "recommendation": {
+                    "platform_prices_snapshot": {
+                        "Amazon": {
+                            "price": 930.0,
+                            "currency": "INR",
+                            "stock_status": "in_stock",
+                            "product_title": "Verified match on Amazon",
+                            "product_url": "https://example.com/p",
+                            "match_score": 0.95,
+                            "data_source": "live_scrape"
+                        }
+                    }
+                }
+            }
+        monkeypatch.setattr("app.services.agentic.supervisor_agent.SupervisorAgent.execute", fake_supervisor_execute)
         monkeypatch.setattr("app.services.ai_pricing_service.PricingStrategyAgent.generate", lambda product: {
             "recommended_price": 975.0,
             "confidence_score": 0.91,

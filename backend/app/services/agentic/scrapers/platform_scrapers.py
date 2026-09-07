@@ -167,16 +167,21 @@ PLATFORM_ALIASES: Dict[str, str] = {
 }
 
 
+class UnknownPlatformError(ValueError):
+    """Raised when an unrecognized or unsupported platform is requested."""
+    pass
+
+
 def get_scraper_for_platform(platform_name: str) -> BaseScraperAgent:
     """
     Returns the scraper instance for a given platform name.
 
     Raises:
-        ValueError: If platform_name is unknown or unsupported. Never silently
-                    falls back to another platform to prevent data corruption.
+        UnknownPlatformError: If platform_name is unknown or unsupported. Never silently
+                              falls back to another platform to prevent data corruption.
     """
     if not platform_name or not isinstance(platform_name, str):
-        raise ValueError("Platform name must be a non-empty string.")
+        raise UnknownPlatformError("Platform name must be a non-empty string.")
 
     cleaned_name = platform_name.strip()
 
@@ -190,9 +195,10 @@ def get_scraper_for_platform(platform_name: str) -> BaseScraperAgent:
         canonical = PLATFORM_ALIASES[normalized]
         return PLATFORM_SCRAPERS[canonical]
 
-    # Unknown platform: Raise explicit ValueError to avoid silent cross-platform pollution
-    valid_platforms = ", ".join(sorted(PLATFORM_SCRAPERS.keys()))
-    raise ValueError(
-        f"Unsupported platform: '{platform_name}'. "
-        f"No scraper registered for this marketplace. Supported platforms: {valid_platforms}"
+    # Unknown platform: Raise explicit UnknownPlatformError to avoid silent cross-platform pollution
+    valid_platforms = list(sorted(PLATFORM_SCRAPERS.keys()))
+    raise UnknownPlatformError(
+        f"Unsupported platform: '{platform_name}' is not a registered scraper platform. "
+        f"Valid platforms: {valid_platforms}"
     )
+

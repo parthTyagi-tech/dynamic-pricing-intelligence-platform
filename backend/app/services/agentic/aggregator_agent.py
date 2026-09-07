@@ -36,7 +36,9 @@ class AggregatorAgent(BaseAgent):
             platform = item.get("platform", "Unknown")
             status = item.get("status", "failed")
             match_score = float(item.get("match_score", 0.0))
-            is_unverified = item.get("unverified_match", False) or match_score < MATCH_THRESHOLD
+            data_source = item.get("data_source", "live_scrape")
+            is_fallback = (data_source == "estimated_fallback")
+            is_unverified = item.get("unverified_match", False) or match_score < MATCH_THRESHOLD or is_fallback
 
             if status == "success" and not is_unverified and float(item.get("price", 0.0)) > 0:
                 clean_price = round(float(item["price"]), 2)
@@ -50,6 +52,30 @@ class AggregatorAgent(BaseAgent):
                     "scraped_at": item.get("scraped_at", datetime.now(timezone.utc).isoformat()),
                     "match_score": match_score,
                     "verified": True,
+                    "data_source": data_source,
+                    "is_estimated": False,
+                }
+            elif is_fallback and float(item.get("price", 0.0)) > 0:
+                # Problem 3: Estimated fallback data is surfaced to user as "unavailable, estimated only"
+                # and is strictly excluded from automated pricing calculations (never in prices list).
+                clean_price = round(float(item["price"]), 2)
+                verified_results[platform] = {
+                    "price": clean_price,
+                    "currency": item.get("currency", "INR"),
+                    "stock_status": "unverified",
+                    "product_url": "",
+                    "product_title": "Estimated market benchmark (unverified)",
+                    "scraped_at": item.get("scraped_at", datetime.now(timezone.utc).isoformat()),
+                    "match_score": 0.0,
+                    "verified": False,
+                    "data_source": "estimated_fallback",
+                    "is_estimated": True,
+                }
+                missing_platforms[platform] = {
+                    "reason": "estimated_fallback_excluded",
+                    "match_score": 0.0,
+                    "verified": False,
+                    "data_source": "estimated_fallback",
                 }
             else:
                 reason = item.get("reason", "low_match_score" if is_unverified else "unreachable")
@@ -57,10 +83,11 @@ class AggregatorAgent(BaseAgent):
                     "reason": reason,
                     "match_score": match_score,
                     "verified": False,
+                    "data_source": data_source,
                 }
 
         # Check for any expected platform completely absent from results
-        for p in expected_platforms:
+        for p in (expected_platforms or []):
             if p not in verified_results and p not in missing_platforms:
                 missing_platforms[p] = {"reason": "no_response", "verified": False}
 
@@ -70,7 +97,7 @@ class AggregatorAgent(BaseAgent):
 
         summary = {
             "verified_count": len(prices),
-            "total_expected": len(expected_platforms),
+            "total_expected": len(expected_platforms or []),
             "average_price": avg_price,
             "min_price": min_price,
             "max_price": max_price,
@@ -82,7 +109,7 @@ class AggregatorAgent(BaseAgent):
         self.record_decision(
             task_id=task_id,
             decision_point="Data Normalization",
-            rationale=f"Verified {len(prices)} of {len(expected_platforms)} target platforms. Excluded unverified matches.",
+            rationale=f"Verified {len(prices)} of {len(expected_platforms or [])} target platforms. Excluded unverified matches.",
             action_taken=f"Calculated market index average ₹{avg_price:,.2f}" if avg_price else "Flagged zero verified market prices"
         )
 

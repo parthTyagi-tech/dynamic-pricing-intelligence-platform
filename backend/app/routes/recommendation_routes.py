@@ -15,7 +15,6 @@ from app.models.user import User
 from app.models.product import Product
 
 from app.models.market_data import (
-    CompetitorPrice,
     DemandSignal,
     Sale
 )
@@ -56,61 +55,10 @@ recommendation_bp = Blueprint(
 
 
 # =====================================
-# STREAM REAL-TIME MULTI-PLATFORM PRICES (SSE)
+# AGENTIC TASK STREAMING PIPELINE
 # =====================================
 
-@recommendation_bp.route("/stream-scrape/<product_id>", methods=["GET"])
-@jwt_required()
-def stream_scrape(product_id):
-    from flask import Response, stream_with_context
-    import asyncio
-    from app.services.realtime_scraper import stream_multi_platform_prices
-
-    current_user_id = get_jwt_identity()
-    current_user = User.query.get(current_user_id)
-    if not current_user:
-        return {"success": False, "message": "User not found"}, 404
-
-    product = Product.query.filter_by(
-        id=product_id,
-        organization_id=current_user.organization_id
-    ).first()
-    if not product:
-        return {"success": False, "message": "Product not found"}, 404
-
-    def generate():
-        # Setup async loop inside the thread that Flask uses to stream
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        
-        async_gen = stream_multi_platform_prices(
-            search_query=product.name, 
-            brand=product.brand or "", 
-            category=product.category or "", 
-            baseline_price_inr=product.current_price or 0.0, 
-            barcode=product.barcode or "",
-            description=product.description or "",
-            product_id=product.id
-        )
-        
-        # Manually iterate through the async generator synchronously using run_until_complete
-        # so Flask can yield it normally.
-        while True:
-            try:
-                # __anext__ gets the next chunk
-                chunk = loop.run_until_complete(async_gen.__anext__())
-                yield chunk
-            except StopAsyncIteration:
-                break
-            except Exception as e:
-                import json
-                print(f"[SSE Error] {e}")
-                yield f"data: {json.dumps({'status': 'error', 'message': str(e)})}\n\n"
-                break
-        
-        loop.close()
-
-    return Response(stream_with_context(generate()), mimetype='text/event-stream')
+# Unified agentic task streaming lives at /api/agentic/task/<task_id>/stream
 
 
 # =====================================
@@ -223,7 +171,14 @@ def recalculate_recommendations():
     minimum_margin = float(rule.minimum_margin if rule else 0.15)
     recalculated = []
     for product in products:
-        competitor_prices = [row.competitor_price for row in CompetitorPrice.query.filter_by(product_id=product.id).all() if row.competitor_price]
+        rec_snapshot = PricingRecommendation.query.filter_by(
+            product_id=product.id, organization_id=current_user.organization_id
+        ).order_by(PricingRecommendation.created_at.desc()).first()
+        competitor_prices = []
+        if rec_snapshot and rec_snapshot.platform_prices_snapshot and isinstance(rec_snapshot.platform_prices_snapshot, dict):
+            for pdata in rec_snapshot.platform_prices_snapshot.values():
+                if isinstance(pdata, dict) and pdata.get("price", 0) > 0 and pdata.get("data_source") != "estimated_fallback":
+                    competitor_prices.append(float(pdata["price"]))
         average_competitor = sum(competitor_prices) / len(competitor_prices) if competitor_prices else float(product.current_price)
         margin_floor = float(product.cost_price or 0) / max(1 - minimum_margin, 0.01)
         recommended_price = round(max(margin_floor, average_competitor * 0.99), 2)
@@ -466,91 +421,74 @@ def process_task():
         # Check if this is a product with zero competitor prices (e.g. newly created)
         if job:
             emit_event(job, "scraper", AgentRunStatus.RUNNING, 15, "Scraper agents are searching category-specific marketplaces.")
-        has_competitors = CompetitorPrice.query.filter_by(product_id=product.id).first() is not None
+        has_competitors = PricingRecommendation.query.filter_by(product_id=product.id).first() is not None or MarketplaceOffer.query.filter_by(product_id=product.id).first() is not None
         if not has_competitors:
             import asyncio
-            from app.services.realtime_scraper import fetch_multi_platform_prices
-            
+            from app.services.agentic.supervisor_agent import SupervisorAgent
+            supervisor = SupervisorAgent()
             try:
                 loop = asyncio.get_event_loop()
             except RuntimeError:
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
-                
-            scraped_prices = loop.run_until_complete(
-                fetch_multi_platform_prices(
-                    search_query=product.name,
-                    brand=product.brand,
-                    category=product.category,
-                    baseline_price_inr=product.current_price,
-                    barcode=product.barcode or "",
-                    description=product.description or "",
-                    product_id=product.id,
-                    platforms=job.requested_platforms if job else None,
-                )
-            )
-            
+
+            platforms = job.requested_platforms if (job and job.requested_platforms) else supervisor.resolve_platforms(product.category or "general")
+            task_id = str(uuid.uuid4())
+            res = loop.run_until_complete(supervisor.execute(
+                task_id=task_id,
+                product_id=product.id,
+                organization_id=product.organization_id,
+                force_refresh=True,
+                target_platforms=platforms
+            ))
+
+            rec_dict = res.get("recommendation") or {}
+            snapshot = rec_dict.get("platform_prices_snapshot") or {}
             if job:
                 MarketplaceOffer.query.filter_by(job_id=job.id).delete()
-            for comp_name, comp_data in scraped_prices.items():
-                value = comp_data if isinstance(comp_data, dict) else {"price": comp_data}
-                price = float(value.get("price", value.get("price_inr", 0)) or 0)
-                if price <= 0:
-                    continue
-                cp = CompetitorPrice(
-                    competitor_name=comp_name,
-                    competitor_price=price,
-                    in_stock=value.get("in_stock", True),
-                    product_url=value.get("url", ""),
-                    product_id=product.id,
-                    organization_id=product.organization_id
-                )
-                db.session.add(cp)
-                if job:
+                for comp_name, comp_data in snapshot.items():
+                    price = float(comp_data.get("price", 0) or 0)
+                    if price <= 0:
+                        continue
                     db.session.add(MarketplaceOffer(
                         job_id=job.id,
                         product_id=product.id,
                         organization_id=product.organization_id,
                         platform=comp_name,
-                        title=value.get("title") or value.get("product_title"),
+                        title=comp_data.get("product_title", f"Verified match on {comp_name}"),
                         current_price=price,
-                        availability="in_stock" if value.get("in_stock", True) else "out_of_stock",
-                        in_stock=value.get("in_stock", True),
-                        product_url=value.get("url", ""),
-                        match_confidence=value.get("match_confidence") or "medium",
-                        source_type=value.get("fetch_method") or value.get("extraction_strategy") or "live_scrape",
-                    ))
-            db.session.commit()
-            if job:
-                emit_event(job, "scraper", AgentRunStatus.SUCCEEDED, 50, f"Scraper agents found {len(scraped_prices)} marketplace result(s).", {"marketplaces": list(scraped_prices)})
-        elif job:
-            # Rehydrate job-scoped offers from previously verified competitor evidence.
-            # This keeps retry/reuse jobs visible in the catalog UI with the same
-            # marketplace URL that the user can open for independent verification.
-            existing_offers = MarketplaceOffer.query.filter_by(job_id=job.id).count()
-            if not existing_offers:
-                cached_competitors = CompetitorPrice.query.filter(
-                    CompetitorPrice.product_id == product.id,
-                    CompetitorPrice.competitor_name != "AI Market Agent",
-                    CompetitorPrice.competitor_price > 0,
-                    CompetitorPrice.product_url.isnot(None),
-                    CompetitorPrice.product_url != "",
-                ).all()
-                for competitor in cached_competitors:
-                    db.session.add(MarketplaceOffer(
-                        job_id=job.id,
-                        product_id=product.id,
-                        organization_id=product.organization_id,
-                        platform=competitor.competitor_name,
-                        title=product.name,
-                        current_price=float(competitor.competitor_price),
-                        availability="in_stock" if competitor.in_stock is not False else "out_of_stock",
-                        in_stock=competitor.in_stock,
-                        product_url=competitor.product_url,
-                        match_confidence="medium",
-                        source_type="verified_cache",
+                        availability="in_stock" if comp_data.get("stock_status") == "in_stock" else "out_of_stock",
+                        in_stock=(comp_data.get("stock_status") == "in_stock"),
+                        product_url=comp_data.get("product_url", ""),
+                        match_confidence="high" if comp_data.get("match_score", 0) >= 0.8 else "medium",
+                        source_type=comp_data.get("data_source", "live_scrape"),
                     ))
                 db.session.commit()
+                emit_event(job, "scraper", AgentRunStatus.SUCCEEDED, 50, f"Scraper agents verified {len(snapshot)} marketplace result(s).", {"marketplaces": list(snapshot)})
+        elif job:
+            # Rehydrate job-scoped offers from previously verified competitor evidence.
+            existing_offers = MarketplaceOffer.query.filter_by(job_id=job.id).count()
+            if not existing_offers:
+                last_rec = PricingRecommendation.query.filter_by(product_id=product.id).order_by(PricingRecommendation.created_at.desc()).first()
+                if last_rec and last_rec.platform_prices_snapshot and isinstance(last_rec.platform_prices_snapshot, dict):
+                    for comp_name, comp_data in last_rec.platform_prices_snapshot.items():
+                        if isinstance(comp_data, dict):
+                            price = float(comp_data.get("price", 0) or 0)
+                            if price > 0:
+                                db.session.add(MarketplaceOffer(
+                                    job_id=job.id,
+                                    product_id=product.id,
+                                    organization_id=product.organization_id,
+                                    platform=comp_name,
+                                    title=comp_data.get("product_title", product.name),
+                                    current_price=price,
+                                    availability="in_stock" if comp_data.get("stock_status") == "in_stock" else "out_of_stock",
+                                    in_stock=(comp_data.get("stock_status") == "in_stock"),
+                                    product_url=comp_data.get("product_url", ""),
+                                    match_confidence="medium",
+                                    source_type=comp_data.get("data_source", "verified_cache"),
+                                ))
+                    db.session.commit()
             emit_event(job, "scraper", AgentRunStatus.SUCCEEDED, 50, f"Verified marketplace evidence reused ({MarketplaceOffer.query.filter_by(job_id=job.id).count()} offer(s)).")
 
         # Run agent strategy logic
@@ -561,13 +499,6 @@ def process_task():
         market_data = ai_result["agent_analysis"]["market_agent"]
         demand_data = ai_result["agent_analysis"]["demand_agent"]
         inventory_data = ai_result["agent_analysis"]["inventory_agent"]
-
-        competitor_data = CompetitorPrice(
-            competitor_name="AI Market Agent",
-            competitor_price=market_data["competitor_price"],
-            product_id=product.id,
-            organization_id=product.organization_id
-        )
 
         latest_sales = db.session.query(db.func.coalesce(db.func.sum(Sale.quantity), 0)).filter(
             Sale.product_id == product.id,
@@ -725,11 +656,19 @@ def get_recommendation_details(recommendation_id):
             "message": "Product not found"
         }, 404
 
-    # Fetch competitor prices
-    competitors = CompetitorPrice.query.filter_by(
-        product_id=product.id,
-        organization_id=current_user.organization_id
-    ).all()
+    # Fetch competitor prices from recommendation snapshot
+    competitors = []
+    if recommendation.platform_prices_snapshot and isinstance(recommendation.platform_prices_snapshot, dict):
+        for comp_name, comp_data in recommendation.platform_prices_snapshot.items():
+            if isinstance(comp_data, dict) and comp_data.get("price", 0) > 0:
+                competitors.append({
+                    "competitor_name": comp_name,
+                    "competitor_price": float(comp_data.get("price", 0)),
+                    "in_stock": comp_data.get("stock_status") == "in_stock",
+                    "product_url": comp_data.get("product_url", ""),
+                    "match_score": float(comp_data.get("match_score", 1.0)),
+                    "data_source": comp_data.get("data_source", "live_scrape"),
+                })
 
     # Fetch demand signals
     signals = DemandSignal.query.filter_by(

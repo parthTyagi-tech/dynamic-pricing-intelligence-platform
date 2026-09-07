@@ -82,6 +82,66 @@ def auto_patch_database_schema(db):
                             logger.warning(f"[AutoPatch] Error running '{stmt}': {e}")
                     conn.commit()
 
+        # 4. Check and patch scraper_reliability columns
+        if "scraper_reliability" in table_names:
+            rel_cols = {c["name"] for c in inspector.get_columns("scraper_reliability")}
+            dt_type = "TIMESTAMP" if dialect_name != "sqlite" else "DATETIME"
+            statements = []
+            if "circuit_opened_at" not in rel_cols:
+                statements.append(f"ALTER TABLE scraper_reliability ADD COLUMN circuit_opened_at {dt_type}")
+            if "backoff_minutes" not in rel_cols:
+                statements.append("ALTER TABLE scraper_reliability ADD COLUMN backoff_minutes INTEGER DEFAULT 15")
+            if "last_successful_scrape_at" not in rel_cols:
+                statements.append(f"ALTER TABLE scraper_reliability ADD COLUMN last_successful_scrape_at {dt_type}")
+
+            if statements:
+                with engine.connect() as conn:
+                    for stmt in statements:
+                        try:
+                            conn.execute(text(stmt))
+                        except Exception as e:
+                            logger.warning(f"[AutoPatch] Error running '{stmt}': {e}")
+                    conn.commit()
+
+        # 5. One-time backfill of legacy competitor_prices to price_history and drop legacy tables
+        if "competitor_prices" in table_names:
+            try:
+                with engine.connect() as conn:
+                    rows = conn.execute(text("SELECT product_id, organization_id, competitor_name, competitor_price FROM competitor_prices")).fetchall()
+                    if rows:
+                        import uuid
+                        import json
+                        from datetime import datetime, timezone
+                        grouped = {}
+                        for pid, oid, cname, cprice in rows:
+                            key = (pid, oid)
+                            if key not in grouped:
+                                grouped[key] = {}
+                            if cprice is not None:
+                                grouped[key][cname] = float(cprice)
+                        for (pid, oid), pprices in grouped.items():
+                            hist_id = str(uuid.uuid4())
+                            now_str = datetime.now(timezone.utc).isoformat()
+                            pp_json = json.dumps(pprices)
+                            conn.execute(
+                                text("INSERT INTO price_history (id, product_id, organization_id, old_price, new_price, platform_prices, created_at) VALUES (:id, :pid, :oid, :old_p, :new_p, :pp, :created_at)"),
+                                {"id": hist_id, "pid": pid, "oid": oid, "old_p": 0.0, "new_p": 0.0, "pp": pp_json, "created_at": now_str}
+                            )
+                    conn.execute(text("DROP TABLE competitor_prices"))
+                    conn.commit()
+                    logger.info("[AutoPatch] Legacy competitor_prices migrated to price_history and dropped.")
+            except Exception as e:
+                logger.warning(f"[AutoPatch] Error during legacy competitor_prices backfill: {e}")
+
+        if "price_alerts" in table_names:
+            try:
+                with engine.connect() as conn:
+                    conn.execute(text("DROP TABLE price_alerts"))
+                    conn.commit()
+                    logger.info("[AutoPatch] Legacy price_alerts table dropped.")
+            except Exception as e:
+                logger.warning(f"[AutoPatch] Error dropping price_alerts table: {e}")
+
         _SCHEMA_PATCHED = True
         logger.info("[AutoPatch] Database schema verified and patched successfully.")
     except Exception as exc:

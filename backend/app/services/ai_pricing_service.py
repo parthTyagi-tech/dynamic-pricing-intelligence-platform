@@ -18,46 +18,46 @@ import os
 
 async def _run_pipeline_async(product):
     """Executes the Market, Demand, and Inventory agents concurrently with live scraped data."""
-    # 1. Fetch fresh live competitor prices first to ensure 100% accuracy
-    from app.services.realtime_scraper import fetch_multi_platform_prices
-    from app.extensions import db
-    from app.models.market_data import CompetitorPrice
-    
+    # 1. Fetch fresh live competitor prices from agentic pipeline or recommendation snapshot
+    import uuid
+    from app.models.recommendation import PricingRecommendation
+    from app.services.agentic.supervisor_agent import SupervisorAgent
+
+    snapshot = {}
     try:
-        scraped_prices = await fetch_multi_platform_prices(
-            product_name=product.name,
-            brand=product.brand,
-            category=product.category,
-            baseline_price_inr=product.current_price,
-            barcode=product.barcode or "",
-            description=product.description or "",
-            product_id=product.id
+        supervisor = SupervisorAgent()
+        platforms = supervisor.resolve_platforms(product.category or "general")
+        task_id = str(uuid.uuid4())
+        res = await supervisor.execute(
+            task_id=task_id,
+            product_id=product.id,
+            organization_id=product.organization_id,
+            force_refresh=True,
+            target_platforms=platforms
         )
-        
-        # Clear existing competitor prices to avoid duplicates
-        CompetitorPrice.query.filter_by(product_id=product.id).delete()
-        
-        for comp_name, comp_data in scraped_prices.items():
-            price_val = comp_data["price"] if isinstance(comp_data, dict) else comp_data
-            # Skip platforms where no matching product was found (price=0)
-            if not price_val or price_val <= 0:
-                continue
-            cp = CompetitorPrice(
-                competitor_name=comp_name,
-                competitor_price=price_val,
-                in_stock=comp_data.get("in_stock", True) if isinstance(comp_data, dict) else True,
-                product_url=comp_data.get("url", "") if isinstance(comp_data, dict) else "",
-                product_id=product.id,
-                organization_id=product.organization_id
-            )
-            db.session.add(cp)
-        db.session.commit()
+        rec_dict = res.get("recommendation") or {}
+        snapshot = rec_dict.get("platform_prices_snapshot") or {}
     except Exception as e:
         print(f"[AI Orchestrator] Scraper error: {e}")
-        db.session.rollback()
+        latest_rec = PricingRecommendation.query.filter_by(
+            product_id=product.id, organization_id=product.organization_id
+        ).order_by(PricingRecommendation.created_at.desc()).first()
+        snapshot = latest_rec.platform_prices_snapshot if latest_rec else {}
 
-    # 2. Query relationship data inside transaction context
-    competitor_prices = [cp.to_dict() for cp in product.competitor_prices.all()]
+    competitor_prices = []
+    if isinstance(snapshot, dict):
+        for comp_name, comp_data in snapshot.items():
+            if isinstance(comp_data, dict):
+                price_val = float(comp_data.get("price", 0) or 0)
+                if price_val > 0 and comp_data.get("data_source") != "estimated_fallback":
+                    competitor_prices.append({
+                        "competitor_name": comp_name,
+                        "competitor_price": price_val,
+                        "in_stock": comp_data.get("stock_status") == "in_stock",
+                        "product_url": comp_data.get("product_url", ""),
+                        "match_score": float(comp_data.get("match_score", 1.0)),
+                        "data_source": comp_data.get("data_source", "live_scrape")
+                    })
     demand_signals = [ds.to_dict() for ds in product.demand_signals.all()]
     product_dict = product.to_dict()
 

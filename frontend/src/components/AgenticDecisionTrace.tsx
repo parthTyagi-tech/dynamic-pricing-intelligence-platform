@@ -157,39 +157,59 @@ export const AgenticDecisionTrace: React.FC<Props> = ({
             Verified Marketplace Evidence
           </h4>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {Object.entries(recommendation.platform_prices_snapshot).map(([platform, item]: [string, any]) => (
-              <div
-                key={platform}
-                className="p-3 rounded-lg bg-zinc-900/70 border border-white/5 flex items-center justify-between"
-              >
-                <div>
-                  <div className="font-semibold text-sm text-white flex items-center gap-1.5">
-                    {platform}
-                    {item.verified && (
-                      <CheckCircle2 size={13} className="text-emerald-400" />
-                    )}
+            {Object.entries(recommendation.platform_prices_snapshot).map(([platform, item]: [string, any]) => {
+              const isFallback = item.data_source === "estimated_fallback";
+              const isCached = item.data_source === "cached_recent";
+              return (
+                <div
+                  key={platform}
+                  className={`p-3 rounded-lg border flex items-center justify-between transition-all ${
+                    isFallback
+                      ? "bg-amber-950/20 border-amber-500/30 text-amber-200/90"
+                      : isCached
+                      ? "bg-blue-950/20 border-blue-500/30 text-zinc-200"
+                      : "bg-zinc-900/70 border-white/5 text-white"
+                  }`}
+                >
+                  <div>
+                    <div className="font-semibold text-sm flex items-center gap-1.5">
+                      {platform}
+                      {item.verified && !isFallback && (
+                        <CheckCircle2 size={13} className="text-emerald-400" />
+                      )}
+                      {isFallback && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-normal">
+                          Estimated — not verified
+                        </span>
+                      )}
+                      {isCached && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 font-normal">
+                          Cached
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-[11px] text-zinc-400">
+                      {isFallback ? "Estimated signal (excluded from pricing)" : `Match Confidence: ${Math.round((item.match_score || 0.9) * 100)}%`}
+                    </div>
                   </div>
-                  <div className="text-[11px] text-zinc-400">
-                    Match Confidence: {Math.round((item.match_score || 0.9) * 100)}%
+                  <div className="text-right">
+                    <div className={`font-bold text-sm ${isFallback ? "text-amber-400/80 line-through" : "text-zinc-200"}`}>
+                      {money(item.price || 0)}
+                    </div>
+                    {item.product_url && !isFallback ? (
+                      <a
+                        href={item.product_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[11px] text-indigo-400 hover:text-indigo-300 inline-flex items-center gap-0.5"
+                      >
+                        Inspect source <ExternalLink size={10} />
+                      </a>
+                    ) : null}
                   </div>
                 </div>
-                <div className="text-right">
-                  <div className="font-bold text-sm text-zinc-200">
-                    {money(item.price || 0)}
-                  </div>
-                  {item.product_url && (
-                    <a
-                      href={item.product_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-[11px] text-indigo-400 hover:text-indigo-300 inline-flex items-center gap-0.5"
-                    >
-                      Inspect source <ExternalLink size={10} />
-                    </a>
-                  )}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

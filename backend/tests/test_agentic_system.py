@@ -4,10 +4,11 @@ import uuid
 import pytest
 from datetime import datetime, timezone
 
-# Ensure environment is configured for testing
-os.environ["FLASK_ENV"] = "testing"
-os.environ["MOCK_SCRAPING"] = "true"
-os.environ["EVENT_BUS_PROVIDER"] = "local"
+import sys
+from pathlib import Path
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 from app.config.settings import get_config
 from app.extensions import db

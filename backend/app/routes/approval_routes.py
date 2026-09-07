@@ -17,7 +17,6 @@ from app.models.recommendation import (
 )
 
 from app.models.product import Product
-from app.models.market_data import CompetitorPrice
 from app.services.email_service import send_recommendation_action_email
 from app.services.whatsapp_service import send_whatsapp_recommendation_action
 import os
@@ -33,10 +32,23 @@ approval_bp = Blueprint(
 )
 
 
+def _get_competitor_prices_for_rec(recommendation):
+    competitor_prices = []
+    if recommendation and recommendation.platform_prices_snapshot and isinstance(recommendation.platform_prices_snapshot, dict):
+        for plat, comp_data in recommendation.platform_prices_snapshot.items():
+            if isinstance(comp_data, dict):
+                competitor_prices.append({
+                    "competitor_name": plat,
+                    "competitor_price": float(comp_data.get("price", 0)),
+                    "product_url": comp_data.get("product_url", ""),
+                    "match_score": float(comp_data.get("match_score", 1.0))
+                })
+    return competitor_prices
+
+
 def _finalize_action_email(action_record, current_user, product, recommendation, action_type, previous_price, executed_price):
     """Send the action email and persist a complete, queryable audit record."""
-    competitor_records = CompetitorPrice.query.filter_by(product_id=product.id, organization_id=current_user.organization_id).all()
-    competitor_prices = [record.to_dict() for record in competitor_records]
+    competitor_prices = _get_competitor_prices_for_rec(recommendation)
     rationale = recommendation.rationale or recommendation.ai_summary or "No rationale provided."
     action_record.sku = product.sku
     action_record.llm_statement = rationale
@@ -178,7 +190,7 @@ def approve_recommendation(recommendation_id):
         approval_action.email_error = str(e)
         db.session.commit()
         print(f"[Approval Route] Failed to send approval email: {e}")
-    comp_prices = [c.to_dict() for c in CompetitorPrice.query.filter_by(product_id=product.id, organization_id=current_user.organization_id).all()]
+    comp_prices = _get_competitor_prices_for_rec(recommendation)
 
     # Send WhatsApp notification if user has phone number
     if current_user.phone_number:
@@ -296,7 +308,7 @@ def reject_recommendation(recommendation_id):
         rejection_action.email_error = str(e)
         db.session.commit()
         print(f"[Approval Route] Failed to send rejection email: {e}")
-    comp_prices = [c.to_dict() for c in CompetitorPrice.query.filter_by(product_id=product.id, organization_id=current_user.organization_id).all()]
+    comp_prices = _get_competitor_prices_for_rec(recommendation)
 
     # Send WhatsApp notification if user has phone number
     if current_user.phone_number:
@@ -448,11 +460,7 @@ def rollback_approval(action_id):
         print(f"[Approval Route] Rollback Browser Agent Failed: {e}")
 
     try:
-        competitor_records = CompetitorPrice.query.filter_by(
-            product_id=product.id,
-            organization_id=current_user.organization_id
-        ).all()
-        comp_prices = [c.to_dict() for c in competitor_records]
+        comp_prices = _get_competitor_prices_for_rec(recommendation)
 
         product_details = {
             "name": product.name,
@@ -558,13 +566,12 @@ def email_rollback(token):
     try:
         recipient = target_action.user_email or (target_action.approver.email if target_action.approver else None)
         if recipient:
-            competitor_records = CompetitorPrice.query.filter_by(product_id=product.id, organization_id=recommendation.organization_id).all()
             result = send_recommendation_action_email(
                 user_email=recipient,
                 action_type="rollback",
                 product_details={"name": product.name, "sku": product.sku, "category": product.category, "base_price": original_price},
                 recommendation_details={"id": recommendation.id, "previous_price": original_price, "executed_price": restored_price, "rationale": "Reverted via one-click email rollback.", "confidence_score": 1.0},
-                competitor_prices=[record.to_dict() for record in competitor_records],
+                competitor_prices=_get_competitor_prices_for_rec(recommendation),
                 action_id=rollback_action.id,
                 user_role=target_action.approver.role if target_action.approver else "unknown",
             )

@@ -51,7 +51,6 @@ urllib3
 URLObject
 Werkzeug
 google-cloud-tasks
-crawl4ai
 playwright
 browser-use
 supabase
