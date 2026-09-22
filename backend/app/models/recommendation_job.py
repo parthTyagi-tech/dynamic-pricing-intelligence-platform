@@ -57,8 +57,11 @@ class RecommendationJob(db.Model):
     organization = db.relationship("Organization", back_populates="recommendation_jobs")
     events = db.relationship("RecommendationAgentEvent", back_populates="job", cascade="all, delete-orphan", order_by="RecommendationAgentEvent.created_at")
     offers = db.relationship("MarketplaceOffer", back_populates="job", cascade="all, delete-orphan", order_by="MarketplaceOffer.platform")
-
     def to_dict(self) -> dict:
+        from app.services.recommendation_job_service import platforms_for_product
+        requested = self.requested_platforms if self.requested_platforms else (
+            platforms_for_product(self.product) if self.product else []
+        )
         return {
             "id": self.id,
             "recommendation_id": self.recommendation_id,
@@ -67,7 +70,7 @@ class RecommendationJob(db.Model):
             "status": self.status,
             "progress": self.progress,
             "current_agent": self.current_agent,
-            "requested_platforms": self.requested_platforms or [],
+            "requested_platforms": requested or [],
             "attempts": self.attempts,
             "error_message": self.error_message,
             "created_at": self.created_at.isoformat() if self.created_at else None,

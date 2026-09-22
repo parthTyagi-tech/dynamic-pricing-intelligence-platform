@@ -71,6 +71,10 @@ class TaskManager:
         self._tasks: Dict[str, TaskState] = {}
         self._lock = threading.RLock()
 
+    @property
+    def tasks(self) -> Dict[str, TaskState]:
+        return self._tasks
+
     def create_task(
         self,
         task_id: str,

@@ -15,7 +15,12 @@ from app.models.recommendation import (
     ApprovalActionType
 )
 from app.models.recommendation_job import AgentRunStatus, MarketplaceOffer, RecommendationJob, RecommendationJobStatus
-from app.services.recommendation_job_service import emit_event, mark_job_failed, mark_job_succeeded
+from app.services.recommendation_job_service import (
+    emit_event,
+    mark_job_failed,
+    mark_job_succeeded,
+    execute_auto_approval,
+)
 from app.services.email_service import send_recommendation_action_email
 from app.services.whatsapp_service import send_whatsapp_recommendation_action
 from app.models.user import User
@@ -101,7 +106,7 @@ def _process_pricing_job(recommendation_id: str, product_id: str):
             asyncio.set_event_loop(loop)
             
         supervisor = SupervisorAgent()
-        platforms = job.requested_platforms if (job and job.requested_platforms) else supervisor.resolve_platforms(product.category or "general")
+        target_platforms = list(job.requested_platforms) if (job and job.requested_platforms) else None
         task_id = str(uuid.uuid4())
         res = loop.run_until_complete(
             supervisor.execute(
@@ -109,12 +114,13 @@ def _process_pricing_job(recommendation_id: str, product_id: str):
                 product_id=product.id,
                 organization_id=product.organization_id,
                 force_refresh=True,
-                target_platforms=platforms
+                target_platforms=target_platforms
             )
         )
         
         rec_dict = res.get("recommendation") or {}
         snapshot = rec_dict.get("platform_prices_snapshot") or {}
+        recommendation.platform_prices_snapshot = snapshot
         
         if job:
             MarketplaceOffer.query.filter_by(job_id=job.id).delete()
@@ -181,57 +187,9 @@ def _process_pricing_job(recommendation_id: str, product_id: str):
             emit_event(job, "inventory", AgentRunStatus.SUCCEEDED, 85, "Inventory agent completed margin and stock analysis.")
             emit_event(job, "orchestrator", AgentRunStatus.RUNNING, 90, "Orchestrator synthesized the final price recommendation.")
 
-        # Auto-execute checking
+        # Auto-execute checking (SEC-10 gated single source of truth)
         if ai_result.get("execution_route") == "auto_execute":
-            recommendation.status = RecommendationStatus.APPROVED
-            previous_price = product.current_price
-            product.current_price = recommendation.recommended_price
-            
-            approval_action = ApprovalAction(
-                recommendation_id=recommendation.id,
-                action_type=ApprovalActionType.AUTO_EXECUTE,
-                previous_price=previous_price,
-                executed_price=recommendation.recommended_price,
-                approved_by=None,
-                timestamp=recommendation.created_at
-            )
-            db.session.add(approval_action)
-            db.session.flush() # flush to get approval_action.id
-            recommendation.ai_summary += " (AUTOPILOT: Automatically executed due to high confidence)"
-            
-            # Send Notification for auto-execute
-            try:
-                # Find the owner/admin user to notify
-                admin_user = User.query.filter_by(organization_id=product.organization_id, role="admin").first()
-                if admin_user:
-                    product_details = {"name": product.name, "sku": product.sku}
-                    rec_details = {
-                        "id": recommendation.id,
-                        "previous_price": previous_price,
-                        "executed_price": recommendation.recommended_price,
-                        "rationale": recommendation.rationale,
-                        "confidence_score": recommendation.confidence_score
-                    }
-                    comp_prices = [{"competitor_name": cp.competitor_name, "competitor_price": cp.competitor_price, "in_stock": cp.in_stock} for cp in product.competitor_prices.all()]
-                    
-                    send_recommendation_action_email(
-                        user_email=admin_user.email,
-                        action_type="auto_execute",
-                        product_details=product_details,
-                        recommendation_details=rec_details,
-                        competitor_prices=comp_prices,
-                        action_id=approval_action.id
-                    )
-                    if admin_user.phone_number:
-                        send_whatsapp_recommendation_action(
-                            phone_number=admin_user.phone_number,
-                            action_type="auto_execute",
-                            product_details=product_details,
-                            recommendation_details=rec_details,
-                            competitor_prices=comp_prices
-                        )
-            except Exception as e:
-                logger.error(f"[task_worker] Failed to send auto-execute notification: {e}")
+            execute_auto_approval(recommendation, product, ai_result)
         
         db.session.commit()
         if job:
@@ -242,9 +200,18 @@ def _process_pricing_job(recommendation_id: str, product_id: str):
     except Exception as e:
         db.session.rollback()
         logger.error(f"[task_worker] Failed processing recommendation {recommendation_id}: {e}", exc_info=True)
-        # Mark recommendation as failed
-        recommendation.status = RecommendationStatus.FAILED
-        recommendation.rationale = f"Generation failed: {str(e)}"
-        db.session.commit()
-        if job:
-            mark_job_failed(job, str(e))
+        try:
+            rec = PricingRecommendation.query.get(recommendation_id)
+            if rec:
+                rec.status = RecommendationStatus.FAILED
+                rec.rationale = f"Generation failed: {str(e)}"
+                db.session.commit()
+            j = RecommendationJob.query.filter_by(recommendation_id=recommendation_id).first()
+            if j:
+                mark_job_failed(j, str(e))
+        except Exception as inner_e:
+            logger.error(f"[task_worker] Failed to record failure state: {inner_e}", exc_info=True)
+
+
+process_pricing_recommendation_task = _process_pricing_job
+

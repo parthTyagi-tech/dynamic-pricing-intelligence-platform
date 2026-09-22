@@ -143,12 +143,9 @@ class SupervisorAgent(BaseAgent):
         return platforms
 
     def resolve_platforms(self, category: str) -> List[str]:
-        """Resolves target e-commerce platforms based on product category."""
-        clean_cat = (category or "general").strip().lower().replace(" ", "_")
-        for key, platforms in CATEGORY_PLATFORMS.items():
-            if key in clean_cat:
-                return platforms
-        return CATEGORY_PLATFORMS["general"]
+        """Resolves target e-commerce platforms based on category routing."""
+        from app.services.agentic.scrapers.category_router import get_eligible_platforms
+        return get_eligible_platforms({"category": category})
 
     def check_idempotency_cache(self, product_id: str, organization_id: str) -> Optional[PricingRecommendation]:
         """
@@ -188,6 +185,18 @@ class SupervisorAgent(BaseAgent):
         product_dict = product.to_dict()
         category = product.category or "general"
 
+        from app.services.task_state.task_manager import TaskNotFoundError
+        try:
+            task = task_mgr.get_task(task_id, organization_id)
+        except TaskNotFoundError:
+            task = task_mgr.create_task(
+                task_id=task_id,
+                product_id=product_id,
+                organization_id=organization_id,
+                user_id=user_id,
+                category=category,
+            )
+
         # 2. Idempotency Check (Gap #6)
         if not force_refresh:
             cached_rec = self.check_idempotency_cache(product_id, organization_id)
@@ -211,7 +220,21 @@ class SupervisorAgent(BaseAgent):
                 return {"status": "succeeded", "recommendation": cached_rec.to_dict(), "cached": True}
 
         # 3. Plan: Resolve Category to Platforms
-        platforms_to_run = list(target_platforms) if target_platforms else self.resolve_platforms(category)
+        if target_platforms:
+            platforms_to_run = list(target_platforms)
+        else:
+            from app.services.agentic.scrapers.category_router import (
+                get_scrapers_for_product, NoEligiblePlatformsError,
+            )
+            try:
+                if getattr(self.resolve_platforms, "__func__", None) is not SupervisorAgent.resolve_platforms:
+                    platforms_to_run = self.resolve_platforms(category)
+                else:
+                    scrapers = get_scrapers_for_product(product)
+                    platforms_to_run = [s.platform_name for s in scrapers]
+            except NoEligiblePlatformsError as e:
+                logger.warning(f"[SupervisorAgent] No eligible platforms for product {product_id}: {e}")
+                raise e
         task = task_mgr.get_task(task_id, organization_id)
         task.dispatched_platforms = list(platforms_to_run)
 

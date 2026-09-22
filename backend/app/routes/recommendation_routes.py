@@ -36,6 +36,7 @@ from app.services.recommendation_job_service import (
     emit_event,
     mark_job_failed,
     mark_job_succeeded,
+    execute_auto_approval,
 )
 
 from app.services.ai_pricing_service import (
@@ -432,18 +433,19 @@ def process_task():
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
 
-            platforms = job.requested_platforms if (job and job.requested_platforms) else supervisor.resolve_platforms(product.category or "general")
+            target_platforms = list(job.requested_platforms) if (job and job.requested_platforms) else None
             task_id = str(uuid.uuid4())
             res = loop.run_until_complete(supervisor.execute(
                 task_id=task_id,
                 product_id=product.id,
                 organization_id=product.organization_id,
                 force_refresh=True,
-                target_platforms=platforms
+                target_platforms=target_platforms
             ))
 
             rec_dict = res.get("recommendation") or {}
             snapshot = rec_dict.get("platform_prices_snapshot") or {}
+            recommendation.platform_prices_snapshot = snapshot
             if job:
                 MarketplaceOffer.query.filter_by(job_id=job.id).delete()
                 for comp_name, comp_data in snapshot.items():
@@ -537,22 +539,9 @@ def process_task():
         }
         recommendation.status = RecommendationStatus.PENDING
 
-        # Auto execution logic
+        # Auto execution logic (SEC-10 gated single source of truth)
         if ai_result.get("execution_route") == "auto_execute":
-            recommendation.status = RecommendationStatus.APPROVED
-            previous_price = product.current_price
-            product.current_price = recommendation.recommended_price
-
-            approval_action = ApprovalAction(
-                recommendation_id=recommendation.id,
-                action_type=ApprovalActionType.AUTO_EXECUTE,
-                previous_price=previous_price,
-                executed_price=recommendation.recommended_price,
-                approved_by=None,
-                timestamp=recommendation.created_at
-            )
-            db.session.add(approval_action)
-            recommendation.ai_summary += " (AUTOPILOT: Automatically executed due to high confidence)"
+            execute_auto_approval(recommendation, product, ai_result)
 
         db.session.commit()
         if job:
@@ -562,12 +551,18 @@ def process_task():
 
     except Exception as e:
         db.session.rollback()
-        recommendation.status = RecommendationStatus.FAILED
-        recommendation.rationale = f"Processing error: {str(e)}"
-        db.session.commit()
-        if job:
-            mark_job_failed(job, str(e))
-        print(f"[recommendation_bp] Task processing error: {e}")
+        logger.error(f"[recommendation_bp] Task processing error: {e}", exc_info=True)
+        try:
+            rec = PricingRecommendation.query.get(recommendation_id)
+            if rec:
+                rec.status = RecommendationStatus.FAILED
+                rec.rationale = f"Processing error: {str(e)}"
+                db.session.commit()
+            j = RecommendationJob.query.filter_by(id=job_id).first() if job_id else RecommendationJob.query.filter_by(recommendation_id=recommendation_id).first()
+            if j:
+                mark_job_failed(j, str(e))
+        except Exception as inner_e:
+            logger.error(f"[recommendation_bp] Failed to record failure state: {inner_e}", exc_info=True)
         return {
             "success": False,
             "message": f"Task processing error: {str(e)}"

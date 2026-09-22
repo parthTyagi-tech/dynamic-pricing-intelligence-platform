@@ -48,20 +48,25 @@ def jwt_required_with_user(fn):
     return wrapper
 
 
-def admin_required(fn):
-    """JWT required + must be admin role."""
-    @wraps(fn)
-    def wrapper(*args, **kwargs):
-        verify_jwt_in_request()
-        user = get_current_user()
-        if not user:
-            return error_response("User not found", 404)
-        if not user.is_admin():
-            return error_response("Admin privileges required", 403)
-        g.current_user = user
-        g.organization_id = user.organization_id
-        return fn(*args, **kwargs)
-    return wrapper
+def admin_required(fn=None):
+    """JWT required + must be admin role. Supports both @admin_required and @admin_required()."""
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            verify_jwt_in_request()
+            user = get_current_user()
+            if not user:
+                return error_response("User not found", 404)
+            if not user.is_admin():
+                return error_response("Admin privileges required", 403)
+            g.current_user = user
+            g.organization_id = user.organization_id
+            return func(*args, **kwargs)
+        return wrapper
+
+    if fn is not None and callable(fn):
+        return decorator(fn)
+    return decorator
 
 
 def analyst_required(fn):

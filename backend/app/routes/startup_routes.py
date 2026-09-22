@@ -46,14 +46,18 @@ def competitor_matcher():
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
 
-    res = loop.run_until_complete(
-        supervisor.execute(
-            task_id=task_id,
-            product_id=product.id,
-            organization_id=current_user.organization_id,
-            force_refresh=True
+    try:
+        res = loop.run_until_complete(
+            supervisor.execute(
+                task_id=task_id,
+                product_id=product.id,
+                organization_id=current_user.organization_id,
+                force_refresh=True
+            )
         )
-    )
+    except Exception as e:
+        logger.error(f"[startup_routes] Supervisor error: {e}", exc_info=True)
+        return {"success": False, "message": f"Scraping error: {str(e)}"}, 500
 
     rec_dict = res.get("recommendation") or {}
     platform_prices = rec_dict.get("platform_prices_snapshot") or {}

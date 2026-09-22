@@ -42,7 +42,7 @@ def utcnow() -> datetime:
 
 
 def platforms_for_product(product: Product) -> list[str]:
-    category = (product.category_hint or product.category or "").strip().lower()
+    category = (getattr(product, "category_hint", None) or getattr(product, "category", None) or "").strip().lower()
     for key, platforms in CATEGORY_PLATFORM_ROUTING.items():
         if key in category:
             routed = [platform for platform in platforms if platform in SUPPORTED_MARKETPLACES]
@@ -50,7 +50,11 @@ def platforms_for_product(product: Product) -> list[str]:
     return FALLBACK_PLATFORMS
 
 
-def create_recommendation_job(product: Product, organization_id: str) -> tuple[PricingRecommendation, RecommendationJob]:
+def create_recommendation_job(
+    product: Product,
+    organization_id: str,
+    requested_platforms: list[str] | None = None
+) -> tuple[PricingRecommendation, RecommendationJob]:
     recommendation = PricingRecommendation(
         product_id=product.id,
         recommended_price=float(product.current_price or 0),
@@ -70,7 +74,7 @@ def create_recommendation_job(product: Product, organization_id: str) -> tuple[P
         status=RecommendationJobStatus.QUEUED,
         progress=0,
         current_agent="OrchestratorAgent",
-        requested_platforms=platforms_for_product(product),
+        requested_platforms=requested_platforms,
     )
     db.session.add(job)
     db.session.flush()
@@ -112,3 +116,122 @@ def mark_job_succeeded(job: RecommendationJob) -> None:
     job.completed_at = utcnow()
     job.updated_at = utcnow()
     db.session.commit()
+
+
+def execute_auto_approval(recommendation: PricingRecommendation, product: Product, ai_result: dict[str, Any]) -> bool:
+    """
+    Single source of truth for the auto-execute path. Returns True if the
+    recommendation was auto-executed, False if it was downgraded to PENDING
+    (e.g. SEC-10 violation) instead. Called from both task_worker.py and
+    recommendation_routes.py — must never be reimplemented at either call site.
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+    from app.models.price_history import PriceHistory
+    from app.models.recommendation import ApprovalAction, ApprovalActionType, RecommendationStatus
+    from app.utils.security_guardrails import atomic_ledger_write, check_sanity_bound
+
+    flagged, delta_pct = check_sanity_bound(product.current_price, recommendation.recommended_price)
+
+    if flagged:
+        recommendation.status = RecommendationStatus.PENDING
+        recommendation.sanity_bound_flagged = True
+        recommendation.rationale = (
+            (recommendation.rationale or "")
+            + f" [SEC-10 SANITY BOUND FLAGGED: {delta_pct:.1%} exceeds 50%. "
+              "Auto-execution blocked; requires human review.]"
+        )
+        logger.warning(
+            f"[auto_approval] Blocked auto-execute for recommendation {recommendation.id}: "
+            f"delta {delta_pct:.1%} exceeds SEC-10 bound."
+        )
+        db.session.commit()
+        return False
+
+    with atomic_ledger_write():
+        previous_price = product.current_price
+        recommendation.status = RecommendationStatus.APPROVED
+        recommendation.sanity_bound_flagged = False
+        product.current_price = recommendation.recommended_price
+
+        approval_action = ApprovalAction(
+            recommendation_id=recommendation.id,
+            action_type=ApprovalActionType.AUTO_EXECUTE,
+            previous_price=previous_price,
+            executed_price=recommendation.recommended_price,
+            approved_by=None,
+            timestamp=recommendation.created_at,
+        )
+        db.session.add(approval_action)
+
+        db.session.add(PriceHistory(
+            product_id=product.id,
+            organization_id=product.organization_id,
+            old_price=previous_price,
+            new_price=recommendation.recommended_price,
+            platform_prices=recommendation.platform_prices_snapshot or {},
+            approved_by=None,
+            recommendation_id=recommendation.id,
+        ))
+        db.session.flush()
+
+    recommendation.ai_summary = (recommendation.ai_summary or "") + \
+        " (AUTOPILOT: Automatically executed due to high confidence)"
+    db.session.commit()
+
+    _send_auto_execute_notification(recommendation, product, approval_action)
+    return True
+
+
+def _send_auto_execute_notification(recommendation: PricingRecommendation, product: Product, approval_action: Any) -> None:
+    """
+    Extracted notification sender for auto-execute. Uses recommendation's
+    platform_prices_snapshot rather than the nonexistent product.competitor_prices.
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+    try:
+        from app.models.user import User
+        from app.services.email_service import send_recommendation_action_email
+        from app.services.whatsapp_service import send_whatsapp_recommendation_action
+
+        admin_user = User.query.filter_by(
+            organization_id=product.organization_id, role="admin"
+        ).first()
+        if not admin_user:
+            return
+
+        snapshot = recommendation.platform_prices_snapshot or {}
+        comp_prices = [
+            {
+                "competitor_name": name,
+                "competitor_price": data.get("price"),
+                "in_stock": data.get("in_stock", data.get("stock_status") == "in_stock"),
+            }
+            for name, data in snapshot.items()
+            if isinstance(data, dict)
+        ]
+
+        product_details = {"name": product.name, "sku": product.sku}
+        rec_details = {
+            "id": recommendation.id,
+            "previous_price": approval_action.previous_price,
+            "executed_price": recommendation.recommended_price,
+            "rationale": recommendation.rationale,
+            "confidence_score": recommendation.confidence_score,
+        }
+
+        send_recommendation_action_email(
+            user_email=admin_user.email, action_type="auto_execute",
+            product_details=product_details, recommendation_details=rec_details,
+            competitor_prices=comp_prices, action_id=approval_action.id,
+        )
+        if admin_user.phone_number:
+            send_whatsapp_recommendation_action(
+                phone_number=admin_user.phone_number, action_type="auto_execute",
+                product_details=product_details, recommendation_details=rec_details,
+                competitor_prices=comp_prices,
+            )
+    except Exception as e:
+        logger.error(f"[auto_approval] Failed to send auto-execute notification: {e}")
+

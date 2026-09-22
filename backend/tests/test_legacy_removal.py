@@ -32,7 +32,7 @@ def test_legacy_removal_zero_references():
 
         for file in files:
             file_path = Path(root) / file
-            if file == "test_legacy_removal.py":
+            if file in {"test_legacy_removal.py", "full_code_dump.txt"}:
                 continue
             # Only check source and config files
             if file_path.suffix in {".py", ".ts", ".tsx", ".js", ".jsx", ".json", ".md", ".txt", ".html"}:

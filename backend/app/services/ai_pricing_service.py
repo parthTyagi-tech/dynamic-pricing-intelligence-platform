@@ -24,25 +24,27 @@ async def _run_pipeline_async(product):
     from app.services.agentic.supervisor_agent import SupervisorAgent
 
     snapshot = {}
-    try:
-        supervisor = SupervisorAgent()
-        platforms = supervisor.resolve_platforms(product.category or "general")
-        task_id = str(uuid.uuid4())
-        res = await supervisor.execute(
-            task_id=task_id,
-            product_id=product.id,
-            organization_id=product.organization_id,
-            force_refresh=True,
-            target_platforms=platforms
-        )
-        rec_dict = res.get("recommendation") or {}
-        snapshot = rec_dict.get("platform_prices_snapshot") or {}
-    except Exception as e:
-        print(f"[AI Orchestrator] Scraper error: {e}")
-        latest_rec = PricingRecommendation.query.filter_by(
-            product_id=product.id, organization_id=product.organization_id
-        ).order_by(PricingRecommendation.created_at.desc()).first()
-        snapshot = latest_rec.platform_prices_snapshot if latest_rec else {}
+    latest_rec = PricingRecommendation.query.filter_by(
+        product_id=product.id, organization_id=product.organization_id
+    ).order_by(PricingRecommendation.created_at.desc()).first()
+    if latest_rec and latest_rec.platform_prices_snapshot:
+        snapshot = latest_rec.platform_prices_snapshot
+    else:
+        try:
+            supervisor = SupervisorAgent()
+            task_id = str(uuid.uuid4())
+            res = await supervisor.execute(
+                task_id=task_id,
+                product_id=product.id,
+                organization_id=product.organization_id,
+                force_refresh=True,
+                target_platforms=None
+            )
+            rec_dict = res.get("recommendation") or {}
+            snapshot = rec_dict.get("platform_prices_snapshot") or {}
+        except Exception as e:
+            print(f"[AI Orchestrator] Scraper error: {e}")
+            snapshot = latest_rec.platform_prices_snapshot if latest_rec else {}
 
     competitor_prices = []
     if isinstance(snapshot, dict):
@@ -98,8 +100,20 @@ async def _run_pipeline_async(product):
         rule_dict = rule.to_dict() if rule else {"auto_execute_threshold": 0.90, "minimum_margin": 0.15}
         
         threshold = rule_dict.get("auto_execute_threshold", 0.90)
-        if strategy_res["confidence_score"] >= threshold:
+        from app.utils.security_guardrails import check_sanity_bound
+        flagged, delta_pct = check_sanity_bound(product.current_price, float(recommended_price))
+        strategy_res["sanity_bound_flagged"] = flagged
+        strategy_res["delta_pct"] = delta_pct
+        if flagged:
+            strategy_res["execution_route"] = "human_review"
+            strategy_res["rationale"] += (
+                f" [SEC-10 SANITY BOUND FLAGGED: {delta_pct:.1%} exceeds 50%. "
+                "Auto-execution blocked; requires human review.]"
+            )
+        elif strategy_res["confidence_score"] >= threshold:
             strategy_res["execution_route"] = "auto_execute"
+        else:
+            strategy_res["execution_route"] = "human_review"
             
     else:
         # Fallback to legacy local python asyncio agents if Langflow is disabled
@@ -163,12 +177,23 @@ async def _run_pipeline_async(product):
         if not compliance_res["compliant"]:
             strategy_res["rationale"] += " " + compliance_res["compliance_notes"]
 
+        from app.utils.security_guardrails import check_sanity_bound
+        flagged, delta_pct = check_sanity_bound(product.current_price, final_price)
+        strategy_res["sanity_bound_flagged"] = flagged
+        strategy_res["delta_pct"] = delta_pct
+
         threshold = rule_dict.get("auto_execute_threshold", 0.90)
         confidence = strategy_res["confidence_score"]
         if confidence > 1.0:
             confidence /= 100.0
 
-        if confidence >= threshold and compliance_res["compliant"]:
+        if flagged:
+            strategy_res["execution_route"] = "human_review"
+            strategy_res["rationale"] += (
+                f" [SEC-10 SANITY BOUND FLAGGED: {delta_pct:.1%} exceeds 50%. "
+                "Auto-execution blocked; requires human review.]"
+            )
+        elif confidence >= threshold and compliance_res["compliant"]:
             strategy_res["execution_route"] = "auto_execute"
         else:
             strategy_res["execution_route"] = "human_review"
@@ -339,12 +364,23 @@ class PricingStrategyAgent:
             if not compliance_res["compliant"]:
                 strategy_res["rationale"] += " " + compliance_res["compliance_notes"]
 
+            from app.utils.security_guardrails import check_sanity_bound
+            flagged, delta_pct = check_sanity_bound(product.current_price, final_price)
+            strategy_res["sanity_bound_flagged"] = flagged
+            strategy_res["delta_pct"] = delta_pct
+
             threshold = rule_dict.get("auto_execute_threshold", 0.90)
             confidence = strategy_res["confidence_score"]
             if confidence > 1.0:
                 confidence /= 100.0
 
-            if confidence >= threshold and compliance_res["compliant"]:
+            if flagged:
+                strategy_res["execution_route"] = "human_review"
+                strategy_res["rationale"] += (
+                    f" [SEC-10 SANITY BOUND FLAGGED: {delta_pct:.1f}% exceeds 50%. "
+                    "Auto-execution blocked; requires human review.]"
+                )
+            elif confidence >= threshold and compliance_res["compliant"]:
                 strategy_res["execution_route"] = "auto_execute"
             else:
                 strategy_res["execution_route"] = "human_review"

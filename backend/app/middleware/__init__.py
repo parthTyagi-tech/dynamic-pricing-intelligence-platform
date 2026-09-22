@@ -1,4 +1,4 @@
-from app.middleware.auth import (
+from app.middleware.auth_middleware import (
     jwt_required_with_user,
     admin_required,
     analyst_required,

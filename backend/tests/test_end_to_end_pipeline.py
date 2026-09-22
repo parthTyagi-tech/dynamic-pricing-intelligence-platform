@@ -129,6 +129,8 @@ def test_authenticated_pricing_pipeline_end_to_end(monkeypatch):
         assert history.status_code == 200
         assert history.get_json()["count"] >= 1
 
+        from app.models.price_alert import PriceAlert
+        PriceAlert.query.filter_by(product_id=product.id).delete()
         db.session.delete(product)
         db.session.delete(user)
         db.session.delete(organization)

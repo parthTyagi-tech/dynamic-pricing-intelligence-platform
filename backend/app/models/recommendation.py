@@ -248,16 +248,16 @@ class PricingRecommendation(db.Model):
             "product_id":
             self.product_id,
 
-            "recommended_price":
-            round(
-                float(self.recommended_price),
-                2
+            "recommended_price": (
+                round(float(self.recommended_price), 2)
+                if self.recommended_price is not None
+                else 0.0
             ),
 
-            "confidence_score":
-            round(
-                float(self.confidence_score) * (100 if self.confidence_score <= 1.0 else 1),
-                0
+            "confidence_score": (
+                round(float(self.confidence_score) * (100 if self.confidence_score <= 1.0 else 1), 0)
+                if self.confidence_score is not None
+                else 0.0
             ),
 
             "rationale":
@@ -324,8 +324,8 @@ class PricingRecommendation(db.Model):
 
             } if self.product else None,
 
-            "competitors": [c.to_dict() for c in competitors],
-            "sales_history": [s.to_dict() for s in sales_history]
+            "competitors": [c.to_dict() if hasattr(c, "to_dict") else c for c in competitors],
+            "sales_history": [s.to_dict() if hasattr(s, "to_dict") else s for s in sales_history]
         }
 
 
