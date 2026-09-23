@@ -1,0 +1,5 @@
+sku,name,brand,category,cost_price,current_price,inventory_quantity,min_margin_percentage
+SEC-ELEC-99,=1+1 Sony WH-1000XM5 Noise Cancelling,Sony,electronics,18000.00,26990.00,45,15.0
+SEC-FASH-99,@SUM(A1:B10) Levi's Men Slim Fit Jeans,Levi's,fashion,1200.00,2499.00,120,20.0
+SEC-GROC-99,+cmd|' /C calc'!A0 Tata Tea Gold 1kg,Tata,grocery,450.00,620.00,300,10.0
+SEC-STAT-99,-5*3 Scooboo Pastel Gel Highlighter,Scooboo,stationery,250.00,420.00,150,15.0

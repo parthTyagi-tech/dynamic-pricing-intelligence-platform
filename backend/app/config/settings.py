@@ -37,7 +37,16 @@ class BaseConfig:
     JWT_BLACKLIST_TOKEN_CHECKS = ["access", "refresh"]
 
     # CORS
-    CORS_ORIGINS = os.environ.get("CORS_ORIGINS", "http://localhost:3000").split(",")
+    cors_env = os.environ.get("CORS_ORIGINS")
+    if cors_env:
+        CORS_ORIGINS = [origin.strip() for origin in cors_env.split(",") if origin.strip()]
+    else:
+        CORS_ORIGINS = [
+            "http://localhost:5173",
+            "http://localhost:3000",
+            "http://127.0.0.1:5173",
+            "https://dynamic-pricing-intelligence-platfo.vercel.app",
+        ]
 
     # AI
     OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
@@ -59,28 +68,11 @@ class BaseConfig:
     )
 
 
-class DevelopmentConfig(BaseConfig):
-    DEBUG = True
-    
-    _dev_db_url = os.environ.get(
-        "DATABASE_URL", "sqlite:///pricing_dashboard.db"
-    )
-    if _dev_db_url:
-        if _dev_db_url.startswith("postgres://"):
-            _dev_db_url = _dev_db_url.replace("postgres://", "postgresql://", 1)
-        _dev_db_url = _dev_db_url.replace("?pgbouncer=true", "")
-        _dev_db_url = _dev_db_url.replace("&pgbouncer=true", "")
-        
-    SQLALCHEMY_DATABASE_URI = _dev_db_url
-    SQLALCHEMY_ECHO = False
-
-
 def _normalize_database_url(raw_url: str | None) -> str | None:
-    """Normalize hosted PostgreSQL URLs for short-lived Vercel functions.
+    """Normalize hosted PostgreSQL URLs for short-lived Vercel functions and dev environments.
 
     Supabase's direct `db.<project>.supabase.co` hostname can resolve only to
-    IPv6 in some regions. Vercel functions need the IPv4-compatible pooler.
-    The password remains entirely in the URL and is never logged.
+    IPv6 in some regions. The IPv4-compatible pooler ensures reliability.
     """
     if not raw_url:
         return raw_url
@@ -103,6 +95,20 @@ def _normalize_database_url(raw_url: str | None) -> str | None:
         netloc = f"{auth}@{pooler_host}:{pooler_port}"
         return urlunsplit((parsed.scheme, netloc, parsed.path or "/postgres", parsed.query, parsed.fragment))
     return url
+
+
+class DevelopmentConfig(BaseConfig):
+    DEBUG = True
+    _dev_db_url = os.environ.get(
+        "DATABASE_URL", "sqlite:///pricing_dashboard.db"
+    )
+    if _dev_db_url:
+        if _dev_db_url.startswith("postgres://"):
+            _dev_db_url = _dev_db_url.replace("postgres://", "postgresql://", 1)
+        _dev_db_url = _dev_db_url.replace("?pgbouncer=true", "")
+        _dev_db_url = _dev_db_url.replace("&pgbouncer=true", "")
+    SQLALCHEMY_DATABASE_URI = _dev_db_url
+    SQLALCHEMY_ECHO = False
 
 
 class ProductionConfig(BaseConfig):

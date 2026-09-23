@@ -128,15 +128,148 @@ class TanishqScraperAgent(BaseScraperAgent):
         )
 
 
+class CromaScraperAgent(BaseScraperAgent):
+    def __init__(self):
+        super().__init__(
+            platform_name="Croma",
+            search_url_template="https://www.croma.com/searchB?q={query}%3Arelevance&text={query}",
+            base_url="https://www.croma.com",
+        )
+
+
+class MeeshoScraperAgent(BaseScraperAgent):
+    def __init__(self):
+        super().__init__(
+            platform_name="Meesho",
+            search_url_template="https://www.meesho.com/search?q={query}",
+            base_url="https://www.meesho.com",
+        )
+
+
+class BlinkitScraperAgent(BaseScraperAgent):
+    def __init__(self):
+        super().__init__(
+            platform_name="Blinkit",
+            search_url_template="https://blinkit.com/s/?q={query}",
+            base_url="https://blinkit.com",
+        )
+        self.headers = {
+            "lat": "28.6139",
+            "lon": "77.2090",
+            "app_client": "consumer_web",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "Accept": "application/json",
+        }
+
+    async def _tier1_internal_api(self, product_name: str, brand: str, barcode: str):
+        """Blinkit internal search API with coordinate headers (lat/lon)."""
+        import aiohttp
+        from datetime import datetime, timezone
+        from urllib.parse import quote_plus
+
+        query = quote_plus(f"{brand} {product_name}".strip())
+        api_url = f"https://blinkit.com/v1/search?q={query}"
+        headers = self.headers
+        try:
+            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=8)) as session:
+                async with session.get(api_url, headers=headers) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        products = data.get("products") or data.get("items") or []
+                        if products and isinstance(products, list):
+                            first = products[0]
+                            title = first.get("name") or first.get("title") or product_name
+                            price = float(first.get("price") or first.get("discounted_price") or 0)
+                            match_score = self.compute_match_score(title, product_name, brand, barcode)
+                            p_slug = first.get("product_id") or first.get("id") or query
+                            return {
+                                "platform": "Blinkit",
+                                "price": price,
+                                "currency": "INR",
+                                "in_stock": True,
+                                "product_url": f"https://blinkit.com/prn/{p_slug}",
+                                "url_verified": True,
+                                "product_title": self.sanitize_output(title),
+                                "scraped_at": datetime.now(timezone.utc).isoformat(),
+                                "match_score": match_score,
+                                "unverified_match": False,
+                                "scrape_mode": "internal_api",
+                                "data_source": "live_scrape",
+                            }
+        except Exception:
+            pass
+        return None
+
+
+class ScoobooScraperAgent(BaseScraperAgent):
+    def __init__(self):
+        super().__init__(
+            platform_name="Scooboo",
+            search_url_template="https://scooboo.in/search?q={query}",
+            base_url="https://scooboo.in",
+        )
+
+    async def _tier1_internal_api(self, product_name: str, brand: str, barcode: str):
+        """Scooboo Shopify suggest JSON search API."""
+        import aiohttp
+        from datetime import datetime, timezone
+        from urllib.parse import quote_plus
+
+        query = quote_plus(f"{brand} {product_name}".strip())
+        api_url = f"https://scooboo.in/search/suggest.json?q={query}&resources[type]=product"
+        headers = {
+            "Accept": "application/json",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        }
+        try:
+            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=8)) as session:
+                async with session.get(api_url, headers=headers) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        products = data.get("resources", {}).get("results", {}).get("products", [])
+                        if products and isinstance(products, list):
+                            first = products[0]
+                            title = first.get("title") or product_name
+                            price_raw = first.get("price") or 0.0
+                            try:
+                                price = float(price_raw)
+                            except (ValueError, TypeError):
+                                price = 0.0
+                            match_score = self.compute_match_score(title, product_name, brand, barcode)
+                            handle = first.get("handle") or ""
+                            product_url = f"https://scooboo.in/products/{handle}" if handle else f"https://scooboo.in/search?q={query}"
+                            return {
+                                "platform": "Scooboo",
+                                "price": price,
+                                "currency": "INR",
+                                "in_stock": True,
+                                "product_url": product_url,
+                                "url_verified": bool(handle),
+                                "product_title": self.sanitize_output(title),
+                                "scraped_at": datetime.now(timezone.utc).isoformat(),
+                                "match_score": match_score,
+                                "unverified_match": False,
+                                "scrape_mode": "internal_api",
+                                "data_source": "live_scrape",
+                            }
+        except Exception:
+            pass
+        return None
+
+
 PLATFORM_SCRAPERS: Dict[str, BaseScraperAgent] = {
     "Amazon.in": AmazonScraperAgent(),
     "Flipkart": FlipkartScraperAgent(),
+    "Croma": CromaScraperAgent(),
     "Myntra": MyntraScraperAgent(),
     "Ajio": AjioScraperAgent(),
+    "Meesho": MeeshoScraperAgent(),
+    "Blinkit": BlinkitScraperAgent(),
     "Nykaa": NykaaScraperAgent(),
     "Purplle": PurplleScraperAgent(),
     "BigBasket": BigBasketScraperAgent(),
     "JioMart": JioMartScraperAgent(),
+    "Scooboo": ScoobooScraperAgent(),
     "Pepperfry": PepperfryScraperAgent(),
     "Urban Ladder": UrbanLadderScraperAgent(),
     "1mg": OneMgScraperAgent(),
@@ -149,12 +282,16 @@ PLATFORM_ALIASES: Dict[str, str] = {
     "amazon": "Amazon.in",
     "amazon.in": "Amazon.in",
     "flipkart": "Flipkart",
+    "croma": "Croma",
     "myntra": "Myntra",
     "ajio": "Ajio",
+    "meesho": "Meesho",
+    "blinkit": "Blinkit",
     "nykaa": "Nykaa",
     "purplle": "Purplle",
     "bigbasket": "BigBasket",
     "jiomart": "JioMart",
+    "scooboo": "Scooboo",
     "pepperfry": "Pepperfry",
     "urban ladder": "Urban Ladder",
     "urbanladder": "Urban Ladder",

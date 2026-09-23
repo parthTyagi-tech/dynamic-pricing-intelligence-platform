@@ -9,6 +9,7 @@ from app.extensions import db
 from app.models.user import User
 from app.models.product import Product
 from app.utils.decorators import admin_required
+from app.utils.security_guardrails import sanitize_csv_cell
 
 
 product_bp = Blueprint(
@@ -352,8 +353,15 @@ def import_csv():
             barcode = row_clean.get("barcode", "")
             inventory_qty = int(row_clean.get("inventory_quantity", 0) or 0)
 
-            category_hint = row_clean.get("category_hint") or category
-            normalized_query = row_clean.get("normalized_query") or name
+            # SEC-4: Neutralize formula injection in CSV cells
+            name = sanitize_csv_cell(name)
+            sku = sanitize_csv_cell(sku)
+            category = sanitize_csv_cell(category)
+            description = sanitize_csv_cell(description)
+            brand = sanitize_csv_cell(brand)
+            barcode = sanitize_csv_cell(barcode)
+            category_hint = sanitize_csv_cell(category_hint)
+            normalized_query = sanitize_csv_cell(normalized_query)
             
             # Parse attributes JSON if present
             attrs_val = {}

@@ -32,84 +32,194 @@ class PricingReasoningAgent(BaseAgent):
         aggregated_data: Dict[str, Any],
         organization_id: str
     ) -> Dict[str, Any]:
+        from app.services.task_state.task_manager import get_task_manager
+        task_mgr = get_task_manager()
+
         product_id = product["id"]
+        product_name = product.get("name", "Product")
         current_price = float(product.get("current_price", 0.0) or 0.0)
         cost_price = float(product.get("cost_price", 0.0) or 0.0)
         min_margin_pct = float(product.get("min_margin_percentage", 10.0) or 10.0)
         inventory_qty = int(product.get("inventory_quantity", 0) or 0)
 
-        # -------------------------------------------------------------
-        # 1. Code-Level Hard Guardrail: Margin Floor (SEC-9)
-        # -------------------------------------------------------------
-        margin_floor = round(cost_price * (1.0 + (min_margin_pct / 100.0)), 2)
-
         verified_count = aggregated_data.get("verified_count", 0)
         avg_market_price = float(aggregated_data.get("average_price", 0.0))
         platforms = aggregated_data.get("platforms", {})
 
-        # Default confidence based on platform availability
-        if verified_count >= 2:
-            confidence = "high"
-        elif verified_count == 1:
-            confidence = "medium"
-        else:
-            confidence = "low"
+        # Compute average Jaccard match score from verified platform snapshots
+        match_scores = [
+            float(p.get("match_score", 0.85))
+            for p in platforms.values()
+            if isinstance(p, dict) and p.get("verified") and not p.get("unverified_match")
+        ]
+        avg_match_score = (sum(match_scores) / len(match_scores)) if match_scores else 0.85
 
         # -------------------------------------------------------------
-        # 2. Reasoning Synthesis (LLM with Prompt Injection Defense or Rule Fallback)
+        # TURN 1: Agent A (Market & Inventory Analyst)
+        # Assesses internal COGS, inventory velocity & applies margin floor
         # -------------------------------------------------------------
-        recommended_price, rationale = self._synthesize_strategy(
-            product=product,
-            margin_floor=margin_floor,
-            avg_market_price=avg_market_price,
-            verified_count=verified_count,
-            platforms=platforms,
-            confidence=confidence
+        margin_floor = round(cost_price * (1.0 + (min_margin_pct / 100.0)), 2)
+        
+        # Inventory velocity assessment
+        if inventory_qty > 75:
+            velocity_assessment = f"High inventory pressure ({inventory_qty} units). Recommend competitive pricing to accelerate inventory turns."
+            agent_a_target = round(max(margin_floor, cost_price * (1.0 + (min_margin_pct + 4.0) / 100.0)), 2)
+        elif inventory_qty < 20:
+            velocity_assessment = f"Scarcity condition ({inventory_qty} units in stock). Recommend protecting margins and capturing scarcity premium."
+            agent_a_target = round(max(margin_floor, current_price * 1.05 if current_price > 0 else margin_floor * 1.15), 2)
+        else:
+            velocity_assessment = f"Balanced stock level ({inventory_qty} units). Standard margin optimization active."
+            agent_a_target = round(max(margin_floor, current_price if current_price > 0 else margin_floor), 2)
+
+        agent_a_rationale = (
+            f"Evaluated internal economics for {product_name}: COGS ₹{cost_price:,.2f}, required margin {min_margin_pct:.1f}%. "
+            f"Established non-negotiable margin floor of ₹{margin_floor:,.2f}. {velocity_assessment} Initial internal target: ₹{agent_a_target:,.2f}."
+        )
+
+        task_mgr.add_decision_trace(
+            task_id=task_id,
+            agent="Agent A (Market & Inventory Analyst)",
+            decision_point="COGS & Margin Floor Enforcement",
+            rationale=agent_a_rationale,
+            action_taken=f"Established non-negotiable margin floor of ₹{margin_floor:,.2f} (Target: ₹{agent_a_target:,.2f})"
+        )
+
+        await self.emit_event(
+            task_id=task_id,
+            product_id=product_id,
+            organization_id=organization_id,
+            event_type="debate_turn_agent_a",
+            message=f"Agent A: COGS floor locked at ₹{margin_floor:,.2f}. Inventory velocity: {inventory_qty} units.",
+            payload={"turn": 1, "agent": "Agent A", "margin_floor": margin_floor, "target": agent_a_target}
         )
 
         # -------------------------------------------------------------
-        # 3. ENFORCE CODE GUARDRAIL: Never violate margin floor
+        # TURN 2: Agent B (Market Judge & Competitor Strategist)
+        # Evaluates competitor distributions, Jaccard match scores, price elasticity
         # -------------------------------------------------------------
-        margin_floor_applied = False
-        if recommended_price < margin_floor:
-            logger.warning(
-                f"[GUARDRAIL ACTIVATED] Pricing agent proposed ₹{recommended_price} below margin floor ₹{margin_floor}. "
-                f"Clamping to floor."
-            )
-            self.record_decision(
-                task_id=task_id,
-                decision_point="Margin Floor Check",
-                rationale=f"Proposed price ₹{recommended_price:,.2f} fell below minimum required margin floor of ₹{margin_floor:,.2f}.",
-                action_taken=f"Hard-clamped recommended price to ₹{margin_floor:,.2f}"
-            )
-            recommended_price = margin_floor
-            margin_floor_applied = True
-            rationale += f" [Guardrail Note: Price adjusted to margin floor of ₹{margin_floor:,.2f} to protect profitability.]"
+        if verified_count > 0 and avg_market_price > 0:
+            if avg_market_price < current_price:
+                # Market is discounting: match or undercut to protect demand elasticity
+                agent_b_target = round(avg_market_price * 0.99, 2)
+                elasticity_note = f"Market is discounting (index: ₹{avg_market_price:,.2f}). Recommending competitive adjustment to ₹{agent_b_target:,.2f} to protect sales volume."
+            else:
+                # Market index is higher: opportunity to harvest premium
+                agent_b_target = round(current_price + (avg_market_price - current_price) * 0.60, 2) if current_price > 0 else avg_market_price
+                elasticity_note = f"Market index trades higher at ₹{avg_market_price:,.2f}. Recommending upward repricing to ₹{agent_b_target:,.2f} to harvest margin."
+        else:
+            agent_b_target = agent_a_target
+            elasticity_note = "Competitor feeds yielded no verified listings. Suggesting reliance on internal economic valuation."
+
+        agent_b_rationale = (
+            f"Market intelligence assessed across {verified_count} verified marketplace(s) with average Jaccard match score of {avg_match_score:.0%}. "
+            f"{elasticity_note}"
+        )
+
+        task_mgr.add_decision_trace(
+            task_id=task_id,
+            agent="Agent B (Market Judge & Competitor Strategist)",
+            decision_point="Competitor Distribution & Elasticity Assessment",
+            rationale=agent_b_rationale,
+            action_taken=f"Proposed market-informed target of ₹{agent_b_target:,.2f}"
+        )
+
+        await self.emit_event(
+            task_id=task_id,
+            product_id=product_id,
+            organization_id=organization_id,
+            event_type="debate_turn_agent_b",
+            message=f"Agent B: Market index ₹{avg_market_price:,.2f} across {verified_count} platforms. Proposed: ₹{agent_b_target:,.2f}.",
+            payload={"turn": 2, "agent": "Agent B", "market_index": avg_market_price, "target": agent_b_target}
+        )
 
         # -------------------------------------------------------------
-        # 4. ENFORCE CODE GUARDRAIL (SEC-10): Price Sanity Bounds
+        # TURN 3: Debate Exchange & Consensus Synthesis
+        # Reconciles Agent A & Agent B arguments into a binding decision
+        # -------------------------------------------------------------
+        margin_floor_applied = False
+        if agent_b_target < margin_floor:
+            # Agent A asserts hard veto to protect profitability
+            agreed_price = margin_floor
+            margin_floor_applied = True
+            consensus_detail = (
+                f"Agent A intervened: Agent B's market target of ₹{agent_b_target:,.2f} falls below mandatory margin floor ₹{margin_floor:,.2f}. "
+                f"Clamped consensus price to margin floor of ₹{margin_floor:,.2f} to guarantee unit profitability."
+            )
+            action_summary = f"Hard-clamped consensus price to margin floor ₹{margin_floor:,.2f}"
+        else:
+            agreed_price = agent_b_target
+            consensus_detail = (
+                f"Consensus reached: Agent A verified that Agent B's market target of ₹{agent_b_target:,.2f} safely preserves the required "
+                f"{min_margin_pct:.1f}% margin floor (₹{margin_floor:,.2f}). Both agents agree to execute ₹{agreed_price:,.2f}."
+            )
+            action_summary = f"Adopted balanced consensus price of ₹{agreed_price:,.2f}"
+
+        # Assign confidence based on verification coverage
+        if verified_count >= 2:
+            confidence = "high"
+            confidence_score = 0.94
+        elif verified_count == 1:
+            confidence = "medium"
+            confidence_score = 0.78
+        else:
+            confidence = "low"
+            confidence_score = 0.55
+
+        llm_statement = (
+            f"Dual-Agent Consensus: {consensus_detail} Evaluated against {verified_count} marketplace endpoints "
+            f"(Jaccard match {avg_match_score:.0%}) with internal stock velocity of {inventory_qty} units."
+        )
+
+        task_mgr.add_decision_trace(
+            task_id=task_id,
+            agent="Dual-Agent Debate Consensus",
+            decision_point="Strategic Price Agreement",
+            rationale=consensus_detail,
+            action_taken=action_summary
+        )
+
+        await self.emit_event(
+            task_id=task_id,
+            product_id=product_id,
+            organization_id=organization_id,
+            event_type="debate_consensus_reached",
+            message=f"Consensus agreed at ₹{agreed_price:,.2f} ({confidence.upper()} confidence).",
+            payload={"agreed_price": agreed_price, "confidence": confidence, "confidence_score": confidence_score}
+        )
+
+        # -------------------------------------------------------------
+        # SEC-10: Sanity Bound Validation Check (Deviation > ±50%)
         # -------------------------------------------------------------
         sanity_bound_flagged = False
         if current_price > 0:
-            deviation = abs(recommended_price - current_price) / current_price
+            deviation = abs(agreed_price - current_price) / current_price
             if deviation > 0.50:
                 sanity_bound_flagged = True
-                confidence = "low"  # Force human review on wild deviation
-                self.record_decision(
-                    task_id=task_id,
-                    decision_point="Sanity Bound Validation (SEC-10)",
-                    rationale=f"Recommended price ₹{recommended_price:,.2f} deviates by {deviation*100:.1f}% (>50%) from current price ₹{current_price:,.2f}.",
-                    action_taken="Flagged sanity_bound_flagged=True and downgraded confidence to low for mandatory human audit"
+                confidence = "low"
+                confidence_score = min(confidence_score, 0.40)
+                warning_msg = (
+                    f"Price shift of {deviation*100:.1f}% exceeds strict ±50% sanity bound against current price ₹{current_price:,.2f}. "
+                    f"Automatic execution is strictly blocked; routing to human review queue."
                 )
-                rationale += f" [Sanity Warning: Price deviates by >50% from catalog price. Requires manual review.]"
+                llm_statement += f" [SEC-10 Sanity Warning: {warning_msg}]"
+                task_mgr.add_decision_trace(
+                    task_id=task_id,
+                    agent="SEC-10 Sanity Guardrail",
+                    decision_point="Price Sanity Bounding",
+                    rationale=warning_msg,
+                    action_taken="Flagged sanity_bound_flagged=True, forced confidence=LOW, and blocked auto-execution"
+                )
 
         result = {
             "product_id": product_id,
             "current_price": current_price,
             "cost_price": cost_price,
-            "recommended_price": recommended_price,
+            "recommended_price": agreed_price,
+            "agreed_price": agreed_price,
             "confidence": confidence,
-            "reasoning_text": self.sanitize_output(rationale),
+            "confidence_score": confidence_score,
+            "reasoning_text": self.sanitize_output(llm_statement),
+            "llm_statement": self.sanitize_output(llm_statement),
             "platform_prices_snapshot": platforms,
             "margin_floor_applied": margin_floor_applied,
             "margin_floor_value": margin_floor,
@@ -122,48 +232,8 @@ class PricingReasoningAgent(BaseAgent):
             product_id=product_id,
             organization_id=organization_id,
             event_type="recommendation_generated",
-            message=f"Recommended ₹{recommended_price:,.2f} ({confidence.upper()} confidence). Margin floor: ₹{margin_floor:,.2f}.",
+            message=f"Recommended ₹{agreed_price:,.2f} ({confidence.upper()} confidence). Margin floor: ₹{margin_floor:,.2f}.",
             payload=result
         )
 
         return result
-
-    def _synthesize_strategy(
-        self,
-        product: Dict[str, Any],
-        margin_floor: float,
-        avg_market_price: float,
-        verified_count: int,
-        platforms: Dict[str, Any],
-        confidence: str
-    ) -> tuple:
-        """Computes safe recommended price and explainable rationale."""
-        current = float(product.get("current_price", 0.0) or 0.0)
-
-        if verified_count == 0 or avg_market_price <= 0:
-            # Fallback when no platforms reachable: keep current or clamp to margin floor
-            rec = max(current, margin_floor)
-            rationale = "Competitor scraping yielded no verified listings. Maintaining current price protected by margin floor."
-            return rec, rationale
-
-        # Market-competitive pricing formula
-        if avg_market_price > current:
-            # Opportunity to capture additional margin: move 60% towards market avg
-            rec = round(current + (avg_market_price - current) * 0.60, 2)
-            action_desc = f"Market index is trading higher at ₹{avg_market_price:,.2f}. Recommending price increase to capture additional profit."
-        elif avg_market_price < current:
-            # Market is cheaper: undercut by 1% or match market average to protect volume
-            rec = round(avg_market_price * 0.99, 2)
-            action_desc = f"Competitors are pricing lower at index ₹{avg_market_price:,.2f}. Recommending competitive adjustment to protect sales velocity."
-        else:
-            rec = current
-            action_desc = f"Catalog price aligns with market index of ₹{avg_market_price:,.2f}."
-
-        if verified_count == 1:
-            platform_name = list(platforms.keys())[0]
-            rationale = f"{action_desc} (Confidence marked MEDIUM: verified only on {platform_name}; secondary platform was unreachable)."
-        else:
-            platform_names = ", ".join(platforms.keys())
-            rationale = f"{action_desc} (Verified across {platform_names})."
-
-        return rec, rationale

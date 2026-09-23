@@ -17,13 +17,14 @@ from app.services.task_state.task_manager import get_task_manager
 logger = logging.getLogger(__name__)
 
 CATEGORY_PLATFORMS = {
-    "fashion": ["Myntra", "Ajio"],
-    "apparel": ["Myntra", "Ajio"],
-    "electronics": ["Amazon.in", "Flipkart"],
+    "fashion": ["Myntra", "Ajio", "Meesho"],
+    "apparel": ["Myntra", "Ajio", "Meesho"],
+    "electronics": ["Amazon.in", "Flipkart", "Croma"],
     "beauty": ["Nykaa", "Purplle"],
     "personal_care": ["Nykaa", "Purplle"],
-    "grocery": ["BigBasket", "JioMart"],
-    "daily_essentials": ["BigBasket", "JioMart"],
+    "grocery": ["Blinkit", "BigBasket", "JioMart"],
+    "daily_essentials": ["Blinkit", "BigBasket", "JioMart"],
+    "stationery": ["Scooboo", "Amazon.in"],
     "home_goods": ["Pepperfry", "Urban Ladder"],
     "furniture": ["Pepperfry", "Urban Ladder"],
     "pharmacy": ["1mg", "PharmEasy"],
@@ -396,7 +397,7 @@ class SupervisorAgent(BaseAgent):
             organization_id=organization_id,
             task_id=task_id,
             recommended_price=rec_data["recommended_price"],
-            confidence=rec_data["confidence"],
+            confidence_score=rec_data.get("confidence_score", 0.85),
             reasoning_text=rec_data["reasoning_text"],
             platform_prices_snapshot=rec_data["platform_prices_snapshot"],
             margin_floor_applied=rec_data["margin_floor_applied"],

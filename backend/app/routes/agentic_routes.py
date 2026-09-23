@@ -3,7 +3,7 @@ import json
 import logging
 import time
 import uuid
-from flask import Blueprint, Response, jsonify, request, stream_with_context
+from flask import Blueprint, Response, jsonify, request, stream_with_context, current_app
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from app.extensions import db
@@ -76,9 +76,9 @@ def start_recommendation(product_id: str):
     )
 
     # Launch supervisor execution in background thread / async runner
+    app = current_app._get_current_object()
     def run_supervisor_task():
-        from flask import current_app
-        with current_app.app_context():
+        with app.app_context():
             supervisor = SupervisorAgent()
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)

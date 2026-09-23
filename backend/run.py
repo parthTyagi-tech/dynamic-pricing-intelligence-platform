@@ -213,5 +213,6 @@ if __name__ == "__main__":
     app.run(
         host="0.0.0.0",
         port=port,
-        debug=bool(app.config.get("DEBUG", False))
+        debug=bool(app.config.get("DEBUG", False)),
+        use_reloader=False
     )

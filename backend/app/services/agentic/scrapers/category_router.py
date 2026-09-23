@@ -25,11 +25,19 @@ from app.services.agentic.scrapers.platform_scrapers import (
 )
 
 CATEGORY_PLATFORM_MAP = {
-    ProductCategory.ELECTRONICS: ["Amazon.in", "Flipkart", "JioMart"],
-    ProductCategory.APPAREL: ["Myntra", "Ajio", "Amazon.in", "Flipkart"],
+    ProductCategory.ELECTRONICS: ["Amazon.in", "Flipkart", "Croma"],
+    "electronics": ["Amazon.in", "Flipkart", "Croma"],
+    ProductCategory.APPAREL: ["Myntra", "Ajio", "Meesho"],
+    "apparel": ["Myntra", "Ajio", "Meesho"],
+    "fashion": ["Myntra", "Ajio", "Meesho"],
+    "grocery": ["Blinkit", "BigBasket", "JioMart"],
+    "stationery": ["Scooboo", "Amazon.in"],
     ProductCategory.HOME_GOODS: ["Pepperfry", "Urban Ladder", "Amazon.in", "Flipkart", "JioMart"],
+    "home_goods": ["Pepperfry", "Urban Ladder", "Amazon.in", "Flipkart", "JioMart"],
     ProductCategory.BEAUTY: ["Nykaa", "Purplle", "Amazon.in", "Flipkart"],
+    "beauty": ["Nykaa", "Purplle", "Amazon.in", "Flipkart"],
     ProductCategory.SPORTS: ["Amazon.in", "Flipkart", "Ajio"],
+    "sports": ["Amazon.in", "Flipkart", "Ajio"],
 }
 
 # category_hint values that route to platforms with no ProductCategory of
@@ -41,8 +49,12 @@ CATEGORY_HINT_OVERRIDES = {
     "otc": ["1mg", "PharmEasy"],
     "jewelry": ["CaratLane", "Tanishq"],
     "jewellery": ["CaratLane", "Tanishq"],
-    "grocery": ["BigBasket", "JioMart"],
-    "fmcg": ["BigBasket", "JioMart"],
+    "grocery": ["Blinkit", "BigBasket", "JioMart"],
+    "fmcg": ["Blinkit", "BigBasket", "JioMart"],
+    "stationery": ["Scooboo", "Amazon.in"],
+    "stationery & office": ["Scooboo", "Amazon.in"],
+    "fashion": ["Myntra", "Ajio", "Meesho"],
+    "electronics": ["Amazon.in", "Flipkart", "Croma"],
 }
 
 DEFAULT_PLATFORMS = ["Amazon.in", "Flipkart"]
@@ -68,9 +80,15 @@ def get_eligible_platforms(product) -> List[str]:
     if hint in CATEGORY_HINT_OVERRIDES:
         return list(CATEGORY_HINT_OVERRIDES[hint])
 
-    category = _get("category")
-    if category in CATEGORY_PLATFORM_MAP:
-        return list(CATEGORY_PLATFORM_MAP[category])[:MAX_PLATFORMS_PER_PRODUCT]
+    raw_cat = _get("category")
+    if raw_cat in CATEGORY_PLATFORM_MAP:
+        return list(CATEGORY_PLATFORM_MAP[raw_cat])[:MAX_PLATFORMS_PER_PRODUCT]
+    
+    cat_lower = str(raw_cat or "").strip().lower()
+    if cat_lower in CATEGORY_PLATFORM_MAP:
+        return list(CATEGORY_PLATFORM_MAP[cat_lower])[:MAX_PLATFORMS_PER_PRODUCT]
+    if cat_lower in CATEGORY_HINT_OVERRIDES:
+        return list(CATEGORY_HINT_OVERRIDES[cat_lower])[:MAX_PLATFORMS_PER_PRODUCT]
 
     return list(DEFAULT_PLATFORMS)
 
@@ -89,3 +107,14 @@ def get_scrapers_for_product(product) -> List[BaseScraperAgent]:
         )
 
     return scrapers
+
+
+class CategoryRouter:
+    """Convenience helper for category-based scraper routing."""
+    @staticmethod
+    def get_scrapers_for_category(category: str) -> List[str]:
+        return get_eligible_platforms({"category": category})
+
+    @staticmethod
+    def get_scrapers_for_product(product) -> List[BaseScraperAgent]:
+        return get_scrapers_for_product(product)

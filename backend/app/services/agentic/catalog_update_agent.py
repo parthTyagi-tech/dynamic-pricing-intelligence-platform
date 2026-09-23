@@ -98,6 +98,19 @@ class CatalogUpdateAgent(BaseAgent):
             )
             db.session.add(audit_record)
 
+            from app.models.recommendation import ApprovalAction
+            approval_action = ApprovalAction(
+                id=str(uuid.uuid4()),
+                recommendation_id=rec.id,
+                action_type="approve",
+                previous_price=old_price,
+                executed_price=new_price,
+                approved_by=user_id,
+                sku=product.sku,
+                llm_statement=rec.reasoning_text or rec.rationale,
+            )
+            db.session.add(approval_action)
+
             # Commit all changes atomically
             db.session.commit()
 
@@ -113,6 +126,7 @@ class CatalogUpdateAgent(BaseAgent):
                 "new_price": new_price,
                 "history_id": history_record.id,
                 "audit_id": audit_record.id,
+                "action_id": approval_action.id,
             }
 
             await self.emit_event(

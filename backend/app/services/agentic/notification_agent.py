@@ -71,7 +71,9 @@ class NotificationAgent(BaseAgent):
         new_price: float,
         confidence: str,
         reasoning_text: str,
-        user_id: Optional[str] = None
+        user_id: Optional[str] = None,
+        action_id: Optional[str] = None,
+        platform_prices_snapshot: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         # SEC-11: Render template with auto-escape
         rendered_html = self.template.render(
@@ -89,6 +91,38 @@ class NotificationAgent(BaseAgent):
             f"[NotificationAgent] Dispatched approval notification for SKU {product.get('sku')} "
             f"(Length: {len(rendered_html)} chars)"
         )
+
+        # Dispatch rich email with verified competitor table and signed URLSafeSerializer rollback link
+        try:
+            from app.models.user import User
+            from app.services.email_service import send_recommendation_action_email
+            user = User.query.get(user_id) if user_id else None
+            recipient = user.email if user else "admin@acme.com"
+            user_role = user.role if user else "admin"
+
+            competitor_prices = []
+            snapshot = platform_prices_snapshot or product.get("platform_prices_snapshot") or {}
+            if isinstance(snapshot, dict):
+                for plat, pdata in snapshot.items():
+                    if isinstance(pdata, dict):
+                        competitor_prices.append({
+                            "competitor_name": plat,
+                            "competitor_price": float(pdata.get("price", 0)),
+                            "product_url": pdata.get("product_url", ""),
+                            "match_score": float(pdata.get("match_score", 1.0))
+                        })
+
+            send_recommendation_action_email(
+                user_email=recipient,
+                action_type="approve",
+                product_details={"name": product.get("name"), "sku": product.get("sku"), "category": product.get("category"), "base_price": old_price},
+                recommendation_details={"id": task_id, "previous_price": old_price, "executed_price": new_price, "rationale": reasoning_text, "confidence_score": 1.0 if confidence == "high" else 0.8},
+                competitor_prices=competitor_prices,
+                action_id=action_id,
+                user_role=user_role
+            )
+        except Exception as exc:
+            logger.warning(f"[NotificationAgent] Rich email dispatch skipped: {exc}")
 
         await self.emit_event(
             task_id=task_id,

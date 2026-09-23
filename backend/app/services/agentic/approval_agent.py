@@ -71,8 +71,10 @@ class ApprovalAgent(BaseAgent):
             old_price=old_price,
             new_price=update_result["new_price"],
             confidence=rec.confidence,
-            reasoning_text=rec.reasoning_text,
-            user_id=user_id
+            reasoning_text=rec.reasoning_text or rec.rationale,
+            user_id=user_id,
+            action_id=update_result.get("action_id"),
+            platform_prices_snapshot=rec.platform_prices_snapshot
         )
 
         task_mgr.update_status(task_id, "approved")

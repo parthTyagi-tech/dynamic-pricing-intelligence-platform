@@ -35,3 +35,5 @@ __pycache__/
 backend/emails/
 backend/whatsapp_logs/
 scratch/
+*.pdf
+*code_dump.txt

@@ -260,6 +260,11 @@ class PricingRecommendation(db.Model):
                 else 0.0
             ),
 
+            "confidence": (
+                "high" if (self.confidence_score or 0) >= 0.80 or (self.confidence_score or 0) >= 80
+                else ("medium" if (self.confidence_score or 0) >= 0.50 or (self.confidence_score or 0) >= 50 else "low")
+            ),
+
             "rationale":
             self.rationale,
 
