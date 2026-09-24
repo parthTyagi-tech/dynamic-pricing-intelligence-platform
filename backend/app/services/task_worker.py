@@ -129,6 +129,21 @@ def _process_pricing_job(recommendation_id: str, product_id: str):
                     price_val = float(comp_data.get("price", 0) or 0)
                     if price_val <= 0:
                         continue
+                    rating_val = None
+                    try:
+                        rating_val = float(comp_data.get("rating")) if comp_data.get("rating") is not None else None
+                    except (ValueError, TypeError):
+                        pass
+
+                    specs = {
+                        "rating": rating_val,
+                        "review_count": comp_data.get("review_count"),
+                        "seller": comp_data.get("seller"),
+                        "scrape_mode": comp_data.get("scrape_mode", "live_scrape"),
+                        "match_score": comp_data.get("match_score"),
+                        "latency_ms": comp_data.get("latency_ms"),
+                    }
+
                     db.session.add(MarketplaceOffer(
                         job_id=job.id,
                         product_id=product.id,
@@ -136,8 +151,12 @@ def _process_pricing_job(recommendation_id: str, product_id: str):
                         platform=comp_name,
                         title=comp_data.get("product_title", f"Verified match on {comp_name}"),
                         current_price=price_val,
+                        mrp=float(comp_data.get("mrp")) if comp_data.get("mrp") else None,
                         availability="in_stock" if comp_data.get("stock_status") == "in_stock" else "out_of_stock",
                         in_stock=(comp_data.get("stock_status") == "in_stock"),
+                        rating=rating_val,
+                        review_count=comp_data.get("review_count"),
+                        specifications=specs,
                         product_url=comp_data.get("product_url", ""),
                         match_confidence="high" if float(comp_data.get("match_score", 0) or 0) >= 0.8 else "medium",
                         source_type=comp_data.get("data_source", "live_scrape"),

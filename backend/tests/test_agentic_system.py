@@ -285,7 +285,7 @@ async def test_supervisor_circuit_breaker(client, org_and_product):
         traces = [t["decision_point"] for t in task_state.decision_traces]
 
         # Verify circuit breaker was invoked
-        assert "Circuit Breaker Check (Gap #7)" in traces
+        assert "Marketplace Sensor Health" in traces or "Circuit Breaker Check (Gap #7)" in traces
         assert result["status"] == "succeeded"
 
         # Cleanup

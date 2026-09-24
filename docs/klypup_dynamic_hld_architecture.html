@@ -1,0 +1,1566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Klypup AI · Dynamic High-Level Design (HLD) Architecture</title>
+  <style>
+    :root {
+      --bg: #090d16;
+      --surface: #101726;
+      --surface-border: #1e293b;
+      --surface-hover: #1e2942;
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --accent: #38bdf8;
+      --accent-glow: rgba(56, 189, 248, 0.25);
+      --green: #10b981;
+      --green-glow: rgba(16, 185, 129, 0.2);
+      --purple: #818cf8;
+      --purple-glow: rgba(129, 140, 248, 0.2);
+      --amber: #f59e0b;
+      --amber-glow: rgba(245, 158, 11, 0.2);
+      --rose: #f43f5e;
+      --rose-glow: rgba(244, 63, 94, 0.2);
+      --cyan: #06b6d4;
+      --blue: #3b82f6;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    }
+
+    [data-theme="light"] {
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --surface-border: #e2e8f0;
+      --surface-hover: #f1f5f9;
+      --text: #0f172a;
+      --text-muted: #475569;
+      --text-dim: #94a3b8;
+      --accent: #0284c7;
+      --accent-glow: rgba(2, 132, 199, 0.15);
+      --green: #059669;
+      --green-glow: rgba(5, 150, 105, 0.15);
+      --purple: #6366f1;
+      --purple-glow: rgba(99, 102, 241, 0.15);
+      --amber: #d97706;
+      --amber-glow: rgba(217, 119, 6, 0.15);
+      --rose: #e11d48;
+      --rose-glow: rgba(225, 29, 72, 0.15);
+      --cyan: #0891b2;
+      --blue: #2563eb;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-sans);
+      min-height: 100vh;
+      overflow-x: hidden;
+      line-height: 1.5;
+      transition: background 0.3s ease, color 0.3s ease;
+    }
+
+    /* Top Navigation Header */
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background: rgba(16, 23, 38, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--surface-border);
+      padding: 14px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .brand-logo {
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, #38bdf8, #818cf8);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      color: #fff;
+      font-size: 16px;
+      box-shadow: 0 0 16px var(--accent-glow);
+    }
+    .brand-title {
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+    .brand-tag {
+      font-size: 11px;
+      text-transform: uppercase;
+      padding: 3px 8px;
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      border-radius: 999px;
+      color: var(--accent);
+      font-family: var(--font-mono);
+      font-weight: 600;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    /* Scenario Tour Buttons */
+    .scenario-btn {
+      background: var(--surface);
+      border: 1px solid var(--surface-border);
+      color: var(--text-muted);
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+    .scenario-btn:hover, .scenario-btn.active {
+      color: var(--accent);
+      border-color: var(--accent);
+      background: rgba(56, 189, 248, 0.08);
+      box-shadow: 0 0 12px var(--accent-glow);
+    }
+    .theme-toggle-btn {
+      background: var(--surface);
+      border: 1px solid var(--surface-border);
+      color: var(--text-muted);
+      padding: 6px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.2s;
+    }
+    .theme-toggle-btn:hover {
+      color: var(--text);
+      border-color: var(--text-muted);
+    }
+
+    /* Layer Filter Pills */
+    .layer-filters {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 28px;
+      background: rgba(16, 23, 38, 0.4);
+      border-bottom: 1px solid var(--surface-border);
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .layer-pill {
+      background: transparent;
+      border: 1px solid var(--surface-border);
+      color: var(--text-muted);
+      padding: 4px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.15s ease;
+    }
+    .layer-pill:hover, .layer-pill.active {
+      background: var(--surface);
+      color: var(--text);
+      border-color: var(--accent);
+    }
+    .layer-pill.active {
+      box-shadow: 0 0 10px var(--accent-glow);
+    }
+
+    /* Main Canvas Layout */
+    .container {
+      max-width: 1560px;
+      margin: 0 auto;
+      padding: 24px 28px 80px;
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+    }
+
+    /* Architectural Layers */
+    .layer-container {
+      position: relative;
+      background: var(--surface);
+      border: 1px solid var(--surface-border);
+      border-radius: 16px;
+      padding: 24px 28px;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+      transition: transform 0.25s ease, border-color 0.25s ease, opacity 0.25s ease;
+    }
+    .layer-container:hover {
+      border-color: rgba(56, 189, 248, 0.4);
+    }
+    .layer-container.highlighted {
+      border-color: var(--accent);
+      box-shadow: 0 0 30px var(--accent-glow);
+      transform: translateY(-2px);
+    }
+    .layer-container.dimmed {
+      opacity: 0.35;
+      filter: grayscale(0.5);
+    }
+
+    .layer-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 18px;
+      padding-bottom: 12px;
+      border-bottom: 1px dashed var(--surface-border);
+    }
+    .layer-title-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .layer-badge {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 4px 9px;
+      border-radius: 6px;
+    }
+    .badge-l1 { background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); }
+    .badge-l2 { background: rgba(129, 140, 248, 0.15); color: #818cf8; border: 1px solid rgba(129, 140, 248, 0.3); }
+    .badge-l3 { background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); }
+    .badge-l4 { background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); }
+    .badge-l5 { background: rgba(244, 63, 94, 0.15); color: #f43f5e; border: 1px solid rgba(244, 63, 94, 0.3); }
+    .badge-l6 { background: rgba(6, 182, 212, 0.15); color: #06b6d4; border: 1px solid rgba(6, 182, 212, 0.3); }
+    .badge-l7 { background: rgba(168, 85, 247, 0.15); color: #a855f7; border: 1px solid rgba(168, 85, 247, 0.3); }
+
+    .layer-name {
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+    .layer-desc {
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+
+    /* Cards Grid */
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+    }
+
+    /* Architecture Component Node */
+    .arch-card {
+      background: rgba(15, 23, 42, 0.65);
+      border: 1px solid var(--surface-border);
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      cursor: pointer;
+      position: relative;
+      transition: all 0.2s ease;
+    }
+    .arch-card:hover {
+      background: var(--surface-hover);
+      border-color: var(--accent);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+    }
+    .arch-card.active-node {
+      border-color: var(--accent);
+      background: rgba(56, 189, 248, 0.08);
+      box-shadow: 0 0 16px var(--accent-glow);
+    }
+    .arch-card.flow-active {
+      border-color: #10b981;
+      animation: pulseNode 1.5s infinite alternate;
+    }
+    @keyframes pulseNode {
+      from { box-shadow: 0 0 8px var(--green-glow); }
+      to { box-shadow: 0 0 24px var(--green-glow), 0 0 8px #10b981; }
+    }
+
+    .card-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .card-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .card-pill {
+      font-size: 10px;
+      font-family: var(--font-mono);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 600;
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text-muted);
+    }
+    .card-file {
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: var(--text-dim);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .card-summary {
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+    .card-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-top: 4px;
+    }
+    .card-tag {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(56, 189, 248, 0.1);
+      color: var(--accent);
+    }
+    .tag-sec { background: rgba(244, 63, 94, 0.1); color: var(--rose); }
+    .tag-agent { background: rgba(245, 158, 11, 0.1); color: var(--amber); }
+    .tag-audit { background: rgba(16, 185, 129, 0.1); color: var(--green); }
+
+    /* Flow connector arrows */
+    .flow-connector {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 10px 0;
+      color: var(--text-dim);
+      font-size: 12px;
+      font-family: var(--font-mono);
+      position: relative;
+    }
+    .flow-line {
+      flex: 1;
+      height: 1px;
+      background: dashed var(--surface-border);
+      border-top: 1px dashed var(--surface-border);
+    }
+    .flow-pill {
+      background: var(--surface);
+      border: 1px solid var(--surface-border);
+      padding: 4px 12px;
+      border-radius: 999px;
+      color: var(--text-muted);
+      font-size: 11px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Inspector Side Drawer */
+    .inspector-drawer {
+      position: fixed;
+      right: -420px;
+      top: 0;
+      bottom: 0;
+      width: 420px;
+      background: var(--surface);
+      border-left: 1px solid var(--surface-border);
+      box-shadow: -10px 0 30px rgba(0, 0, 0, 0.5);
+      z-index: 100;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      transition: right 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      overflow-y: auto;
+    }
+    .inspector-drawer.open {
+      right: 0;
+    }
+    .inspector-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--surface-border);
+      padding-bottom: 14px;
+    }
+    .inspector-close-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 18px;
+    }
+    .inspector-close-btn:hover { color: var(--text); }
+    .inspect-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      font-family: var(--font-mono);
+      color: var(--text-dim);
+      margin-bottom: 4px;
+    }
+    .inspect-val {
+      font-size: 13px;
+      color: var(--text);
+      line-height: 1.5;
+    }
+    .inspect-code {
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid var(--surface-border);
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--accent);
+      word-break: break-all;
+    }
+    .inspect-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .inspect-list li {
+      font-size: 12px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+    }
+    .inspect-list li::before {
+      content: "•";
+      color: var(--accent);
+    }
+
+    /* Active Tour Banner */
+    .tour-banner {
+      display: none;
+      background: linear-gradient(90deg, rgba(56, 189, 248, 0.12), rgba(129, 140, 248, 0.12));
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      padding: 12px 20px;
+      border-radius: 12px;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .tour-banner.active {
+      display: flex;
+    }
+    .tour-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .tour-title { font-weight: 700; font-size: 13px; color: var(--accent); }
+    .tour-step { font-size: 12px; color: var(--text); }
+    .tour-nav-btns { display: flex; gap: 8px; }
+    .tour-nav-btn {
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      cursor: pointer;
+      border: 1px solid var(--surface-border);
+      background: var(--surface);
+      color: var(--text);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Header Navigation -->
+  <header>
+    <div class="brand">
+      <div class="brand-logo">K</div>
+      <div>
+        <div class="brand-title">Klypup AI Dynamic Pricing Intelligence</div>
+        <div style="font-size: 11px; color: var(--text-dim);">High-Level Architecture Design (HLD) · Archify Verified</div>
+      </div>
+      <span class="brand-tag">7 Layers</span>
+    </div>
+
+    <div class="header-actions">
+      <!-- Scenario Guided Tours -->
+      <span style="font-size: 11px; color: var(--text-dim); text-transform: uppercase; font-family: var(--font-mono);">Flow Tours:</span>
+      <button class="scenario-btn" onclick="startTour('repricing')">⚡ Full Repricing Swarm</button>
+      <button class="scenario-btn" onclick="startTour('sec4')">🛡️ SEC-4 Neutralization</button>
+      <button class="scenario-btn" onclick="startTour('rollback')">⏪ One-Click Rollback</button>
+      <button class="theme-toggle-btn" onclick="toggleTheme()" title="Toggle Light/Dark Theme">🌓</button>
+    </div>
+  </header>
+
+  <!-- Layer Quick Filter Pills -->
+  <div class="layer-filters">
+    <button class="layer-pill active" onclick="filterLayer('all')">All 7 Layers</button>
+    <button class="layer-pill" onclick="filterLayer('l1')">L1: Presentation</button>
+    <button class="layer-pill" onclick="filterLayer('l2')">L2: Gateway & Security</button>
+    <button class="layer-pill" onclick="filterLayer('l3')">L3: Supervisor Orchestration</button>
+    <button class="layer-pill" onclick="filterLayer('l4')">L4: Scraper Swarms</button>
+    <button class="layer-pill" onclick="filterLayer('l5')">L5: Cognitive Debate</button>
+    <button class="layer-pill" onclick="filterLayer('l6')">L6: Ledger & Rollback</button>
+    <button class="layer-pill" onclick="filterLayer('l7')">L7: Persistence & Infra</button>
+  </div>
+
+  <!-- Main Architecture Container -->
+  <div class="container">
+
+    <!-- Active Tour Banner -->
+    <div id="tourBanner" class="tour-banner">
+      <div class="tour-info">
+        <div id="tourTitle" class="tour-title">Active Scenario Tour</div>
+        <div id="tourStepDesc" class="tour-step">Step description goes here...</div>
+      </div>
+      <div class="tour-nav-btns">
+        <button class="tour-nav-btn" onclick="prevTourStep()">◀ Previous</button>
+        <button class="tour-nav-btn" onclick="nextTourStep()">Next Step ▶</button>
+        <button class="tour-nav-btn" onclick="stopTour()" style="color: var(--rose);">Exit Tour ✕</button>
+      </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- LAYER 1: PRESENTATION & CLIENT LAYER                                   -->
+    <!-- ===================================================================== -->
+    <div class="layer-container" id="layer-l1" data-layer="l1">
+      <div class="layer-header">
+        <div class="layer-title-group">
+          <span class="layer-badge badge-l1">Layer 1</span>
+          <span class="layer-name">Presentation & Client Workspace</span>
+        </div>
+        <span class="layer-desc">React 18 · Vite · Tailwind · Lucide · SSE Real-time Bus</span>
+      </div>
+      <div class="cards-grid">
+        <div class="arch-card" id="node-fe-app" onclick="inspectNode('fe-app')">
+          <div class="card-top">
+            <span class="card-title">React Client & Router</span>
+            <span class="card-pill">SPA</span>
+          </div>
+          <span class="card-file">frontend/src/App.tsx</span>
+          <p class="card-summary">SPA router guarding /dashboard, /catalog, and /approvals with JWT auth validation.</p>
+          <div class="card-tags">
+            <span class="card-tag">React 18</span>
+            <span class="card-tag">Protected Routes</span>
+          </div>
+        </div>
+
+        <div class="arch-card" id="node-fe-catalog" onclick="inspectNode('fe-catalog')">
+          <div class="card-top">
+            <span class="card-title">Catalog Intelligence</span>
+            <span class="card-pill">UI View</span>
+          </div>
+          <span class="card-file">frontend/src/pages/SecondaryPage.tsx (kind="catalog")</span>
+          <p class="card-summary">Interactive inventory catalog with formula neutralization, search filters, and single-click 'Recommend' action.</p>
+          <div class="card-tags">
+            <span class="card-tag">CSV Upload</span>
+            <span class="card-tag">Repricing Trigger</span>
+          </div>
+        </div>
+
+        <div class="arch-card" id="node-fe-drawer" onclick="inspectNode('fe-drawer')">
+          <div class="card-top">
+            <span class="card-title">Real-Time Explainability Drawer</span>
+            <span class="card-pill">SSE Drawer</span>
+          </div>
+          <span class="card-file">frontend/src/components/ExplainabilityDrawer.tsx</span>
+          <p class="card-summary">Live streaming drawer connected to /task/{id}/stream showing multi-turn debate traces and supervisor status.</p>
+          <div class="card-tags">
+            <span class="card-tag">EventSource</span>
+            <span class="card-tag">Live Traces</span>
+          </div>
+        </div>
+
+        <div class="arch-card" id="node-fe-approvals" onclick="inspectNode('fe-approvals')">
+          <div class="card-top">
+            <span class="card-title">Approvals & Audit Ledger View</span>
+            <span class="card-pill">HITL UI</span>
+          </div>
+          <span class="card-file">frontend/src/pages/SecondaryPage.tsx (kind="approvals")</span>
+          <p class="card-summary">Review queue displaying price change deltas, LLM consensus statement, and one-click rollback trigger.</p>
+          <div class="card-tags">
+            <span class="card-tag tag-audit">Audit Ledger</span>
+            <span class="card-tag">Rollback UI</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Connector L1 -> L2 -->
+    <div class="flow-connector">
+      <div class="flow-line"></div>
+      <div class="flow-pill">HTTPS REST JSON · Bearer JWT · Server-Sent Events (SSE)</div>
+      <div class="flow-line"></div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- LAYER 2: API GATEWAY, ZERO-TRUST & INGESTION LAYER                     -->
+    <!-- ===================================================================== -->
+    <div class="layer-container" id="layer-l2" data-layer="l2">
+      <div class="layer-header">
+        <div class="layer-title-group">
+          <span class="layer-badge badge-l2">Layer 2</span>
+          <span class="layer-name">API Gateway, Zero-Trust & Ingestion Layer</span>
+        </div>
+        <span class="layer-desc">Flask 3.x · JWT Tokens · Multi-Tenant Scoping · SEC-4 Formula Sanitizer</span>
+      </div>
+      <div class="cards-grid">
+        <div class="arch-card" id="node-gw-auth" onclick="inspectNode('gw-auth')">
+          <div class="card-top">
+            <span class="card-title">Zero-Trust Auth & Scoping</span>
+            <span class="card-pill">Guardrail</span>
+          </div>
+          <span class="card-file">backend/app/routes/auth_routes.py</span>
+          <p class="card-summary">Enforces JWT claim validation, extracting user_id and g.organization_id to prevent cross-tenant bleeding.</p>
+          <div class="card-tags">
+            <span class="card-tag tag-sec">SEC-1 Auth</span>
+            <span class="card-tag tag-sec">SEC-2 Multi-Tenant</span>
+          </div>
+        </div>
+
+        <div class="arch-card" id="node-gw-sec4" onclick="inspectNode('gw-sec4')">
+          <div class="card-top">
+            <span class="card-title">SEC-4 Formula Neutralizer</span>
+            <span class="card-pill">Sanitizer</span>
+          </div>
+          <span class="card-file">backend/app/services/catalog_ingestion_service.py</span>
+          <p class="card-summary">Intercepts CSV uploads and prepends an apostrophe (') to malicious formula characters (=, @, +, -) to prevent CSV DDE code injection.</p>
+          <div class="card-tags">
+            <span class="card-tag tag-sec">SEC-4 Sanitizer</span>
+            <span class="card-tag">CSV Ingestion</span>
+          </div>
+        </div>
+
+        <div class="arch-card" id="node-gw-agentic-routes" onclick="inspectNode('gw-agentic-routes')">
+          <div class="card-top">
+            <span class="card-title">Agentic Execution Dispatcher</span>
+            <span class="card-pill">Controller</span>
+          </div>
+          <span class="card-file">backend/app/routes/agentic_routes.py</span>
+          <p class="card-summary">Exposes /recommend/{id}, /task/{id}/state, and /task/{id}/stream. Captures app context for async worker threads.</p>
+          <div class="card-tags">
+            <span class="card-tag">Async Runner</span>
+            <span class="card-tag">Rate Limiter (15/min)</span>
+          </div>
+        </div>
+
+        <div class="arch-card" id="node-gw-eventbus" onclick="inspectNode('gw-eventbus')">
+          <div class="card-top">
+            <span class="card-title">In-Memory SSE Event Bus</span>
+            <span class="card-pill">Pub/Sub</span>
+          </div>
+          <span class="card-file">backend/app/services/event_bus.py</span>
+          <p class="card-summary">Tenant-isolated pub/sub queue delivering real-time agent thoughts, scraping milestones, and debate logs to browsers.</p>
+          <div class="card-tags">
+            <span class="card-tag">Tenant Isolated</span>
+            <span class="card-tag">SSE Streaming</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Connector L2 -> L3 -->
+    <div class="flow-connector">
+      <div class="flow-line"></div>
+      <div class="flow-pill">Background Thread Dispatch · Asyncio Event Loop · Task State Machine</div>
+      <div class="flow-line"></div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- LAYER 3: ORCHESTRATION & SUPERVISOR AGENT LAYER                       -->
+    <!-- ===================================================================== -->
+    <div class="layer-container" id="layer-l3" data-layer="l3">
+      <div class="layer-header">
+        <div class="layer-title-group">
+          <span class="layer-badge badge-l3">Layer 3</span>
+          <span class="layer-name">Orchestration & Supervisor Engine Layer</span>
+        </div>
+        <span class="layer-desc">Autonomous Supervisor · Category Resolution · Circuit Breaker · 20-min Idempotency</span>
+      </div>
+      <div class="cards-grid">
+        <div class="arch-card" id="node-sup-agent" onclick="inspectNode('sup-agent')">
+          <div class="card-top">
+            <span class="card-title">SupervisorAgent</span>
+            <span class="card-pill">Orchestrator</span>
+          </div>
+          <span class="card-file">backend/app/services/agentic/supervisor_agent.py</span>
+          <p class="card-summary">Central coordinator executing 9-step repricing pipeline: idempotency check, swarm dispatch, aggregation, debate, and persistence.</p>
+          <div class="card-tags">
+            <span class="card-tag tag-agent">Supervisor</span>
+            <span class="card-tag">9-Step Pipeline</span>
+          </div>
+        </div>
+
+        <div class="arch-card" id="node-sup-router" onclick="inspectNode('sup-router')">
+          <div class="card-top">
+            <span class="card-title">CategoryRouter</span>
+            <span class="card-pill">Swarm Router</span>
+          </div>
+          <span class="card-file">backend/app/services/agentic/scrapers/category_router.py</span>
+          <p class="card-summary">Maps product taxonomy (electronics, fashion, grocery, stationery) to verified scrapers. Throws NoEligiblePlatformsError on unmapped categories.</p>
+          <div class="card-tags">
+            <span class="card-tag">Taxonomy Mapping</span>
+            <span class="card-tag">Swarm Selector</span>
+          </div>
+        </div>
+
+        <div class="arch-card" id="node-sup-circuit" onclick="inspectNode('sup-circuit')">
+          <div class="card-top">
+            <span class="card-title">Circuit Breaker & Reliability</span>
+            <span class="card-pill">Resilience</span>
+          </div>
+          <span class="card-file">backend/app/models/scraper_reliability.py</span>
+          <p class="card-summary">Tracks consecutive platform failures. Automatically trips to OPEN on 3 failures (60s cooldown) to shield downstream vendors.</p>
+          <div class="card-tags">
+            <span class="card-tag tag-sec">SEC-7 Circuit Breaker</span>
+            <span class="card-tag">Self-Healing</span>
+          </div>
+        </div>
+
+        <div class="arch-card" id="node-sup-taskmgr" onclick="inspectNode('sup-taskmgr')">
+          <div class="card-top">
+            <span class="card-title">TaskStateManager</span>
+            <span class="card-pill">State Machine</span>
+          </div>
+          <span class="card-file">backend/app/services/task_state/task_manager.py</span>
+          <p class="card-summary">Thread-safe in-memory task state machine managing states (pending, running, succeeded, failed, approved) with strict tenant verification.</p>
+          <div class="card-tags">
+            <span class="card-tag">Task Lifecycle</span>
+            <span class="card-tag">Decision Traces</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Connector L3 -> L4 -->
+    <div class="flow-connector">
+      <div class="flow-line"></div>
+      <div class="flow-pill">asyncio.gather Parallel Swarm Execution · Coordinate Headers · Anti-Bot Bypasses</div>
+      <div class="flow-line"></div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- LAYER 4: DISTRIBUTED MARKETPLACE SWARMS & SCRAPER AGENTS               -->
+    <!-- ===================================================================== -->
+    <div class="layer-container" id="layer-l4" data-layer="l4">
+      <div class="layer-header">
+        <div class="layer-title-group">
+          <span class="layer-badge badge-l4">Layer 4</span>
+          <span class="layer-name">Distributed Marketplace Swarm Layer</span>
+        </div>
+        <span class="layer-desc">Async Platform Scrapers · Geo-Coordinates · Jaccard Similarity · 3-Tier Scraping</span>
+      </div>
+      <div class="cards-grid">
+        <div class="arch-card" id="node-swarm-elec" onclick="inspectNode('swarm-elec')">
+          <div class="card-top">
+            <span class="card-title">Electronics Swarm</span>
+            <span class="card-pill">3 Scrapers</span>
+          </div>
+          <span class="card-file">Amazon.in · Flipkart · Croma</span>
+          <p class="card-summary">Parallel scrapers extracting live prices, title tokens, stock availability, and verified product URLs for consumer tech.</p>
+          <div class="card-tags">
+            <span class="card-tag">Amazon</span>
+            <span class="card-tag">Flipkart</span>
+            <span class="card-tag">Croma</span>
+          </div>
+        </div>
+
+        <div class="arch-card" id="node-swarm-fash" onclick="inspectNode('swarm-fash')">
+          <div class="card-top">
+            <span class="card-title">Fashion Swarm</span>
+            <span class="card-pill">3 Scrapers</span>
+          </div>
+          <span class="card-file">Myntra · Ajio · Meesho</span>
+          <p class="card-summary">Apparel and footwear scraper agents with size/variant extraction and marketplace price normalization.</p>
+          <div class="card-tags">
+            <span class="card-tag">Myntra</span>
+            <span class="card-tag">Ajio</span>
+            <span class="card-tag">Meesho</span>
+          </div>
+        </div>
+
+        <div class="arch-card" id="node-swarm-groc" onclick="inspectNode('swarm-groc')">
+          <div class="card-top">
+            <span class="card-title">Grocery & Quick-Commerce Swarm</span>
+            <span class="card-pill">3 Scrapers</span>
+          </div>
+          <span class="card-file">Blinkit · BigBasket · JioMart</span>
+          <p class="card-summary">Hyperlocal quick-commerce agents with Delhi GPS coordinates (lat: 28.6139, lon: 77.2090) for accurate dark-store inventory pricing.</p>
+          <div class="card-tags">
+            <span class="card-tag">Blinkit (Delhi Geo)</span>
+            <span class="card-tag">BigBasket</span>
+            <span class="card-tag">JioMart</span>
+          </div>
+        </div>
+
+        <div class="arch-card" id="node-swarm-stat" onclick="inspectNode('swarm-stat')">
+          <div class="card-top">
+            <span class="card-title">Stationery & Office Swarm</span>
+            <span class="card-pill">2 Scrapers</span>
+          </div>
+          <span class="card-file">Scooboo · Amazon.in</span>
+          <p class="card-summary">Niche Japanese & boutique stationery platform scrapers with pack-quantity and brand token matching.</p>
+          <div class="card-tags">
+            <span class="card-tag">Scooboo</span>
+            <span class="card-tag">Amazon.in</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Connector L4 -> L5 -->
+    <div class="flow-connector">
+      <div class="flow-line"></div>
+      <div class="flow-pill">MarketDataAggregator · Jaccard Token Match & Outlier Rejection · Market Distribution Index</div>
+      <div class="flow-line"></div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- LAYER 5: COGNITIVE REASONING & COMMUNICATIVE DEBATE ENGINE             -->
+    <!-- ===================================================================== -->
+    <div class="layer-container" id="layer-l5" data-layer="l5">
+      <div class="layer-header">
+        <div class="layer-title-group">
+          <span class="layer-badge badge-l5">Layer 5</span>
+          <span class="layer-name">Cognitive Reasoning & Communicative Debate Engine</span>
+        </div>
+        <span class="layer-desc">Multi-Turn LLM Debate · Margin Floor Guardrail · SEC-10 Sanity Bound Validator</span>
+      </div>
+      <div class="cards-grid">
+        <div class="arch-card" id="node-deb-agenta" onclick="inspectNode('deb-agenta')">
+          <div class="card-top">
+            <span class="card-title">Agent A (Internal Economics & Velocity)</span>
+            <span class="card-pill">Turn 1</span>
+          </div>
+          <span class="card-file">backend/app/services/agentic/pricing_reasoning_agent.py</span>
+          <p class="card-summary">Evaluates internal COGS and inventory velocity. Sets non-negotiable margin floor (cost * (1 + margin%)). Holds hard veto power.</p>
+          <div class="card-tags">
+            <span class="card-tag tag-sec">Margin Floor Veto</span>
+            <span class="card-tag">Inventory Velocity</span>
+          </div>
+        </div>
+
+        <div class="arch-card" id="node-deb-agentb" onclick="inspectNode('deb-agentb')">
+          <div class="card-top">
+            <span class="card-title">Agent B (Market Judge & Competitor Strategist)</span>
+            <span class="card-pill">Turn 2</span>
+          </div>
+          <span class="card-file">backend/app/services/agentic/pricing_reasoning_agent.py</span>
+          <p class="card-summary">Analyzes competitor price distribution, Jaccard match scores, and price elasticity to formulate aggressive market capture price.</p>
+          <div class="card-tags">
+            <span class="card-tag">Market Index</span>
+            <span class="card-tag">Elasticity Formulation</span>
+          </div>
+        </div>
+
+        <div class="arch-card" id="node-deb-consensus" onclick="inspectNode('deb-consensus')">
+          <div class="card-top">
+            <span class="card-title">Consensus Synthesizer</span>
+            <span class="card-pill">Turn 3</span>
+          </div>
+          <span class="card-file">backend/app/services/agentic/pricing_reasoning_agent.py</span>
+          <p class="card-summary">Reconciles Agent A and B arguments. Clamps price to margin floor if market target erodes profitability, producing agreed_price and rationale.</p>
+          <div class="card-tags">
+            <span class="card-tag tag-agent">Consensus Engine</span>
+            <span class="card-tag">LLM Statement</span>
+          </div>
+        </div>
+
+        <div class="arch-card" id="node-deb-sec10" onclick="inspectNode('deb-sec10')">
+          <div class="card-top">
+            <span class="card-title">SEC-10 Sanity Bound Validator</span>
+            <span class="card-pill">Safety Bounding</span>
+          </div>
+          <span class="card-file">backend/app/services/agentic/pricing_reasoning_agent.py</span>
+          <p class="card-summary">Detects extreme deviations (> ±50% against current price). Sets sanity_bound_flagged=True, forces confidence=LOW, blocks auto-execution.</p>
+          <div class="card-tags">
+            <span class="card-tag tag-sec">SEC-10 ±50% Bound</span>
+            <span class="card-tag">Auto-Execution Block</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Connector L5 -> L6 -->
+    <div class="flow-connector">
+      <div class="flow-line"></div>
+      <div class="flow-pill">Human-in-the-Loop Review Queue · Atomic DB Commits · Signed HMAC URL Tokens</div>
+      <div class="flow-line"></div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- LAYER 6: TRANSACTIONAL LEDGER, HITL & ROLLBACK ENGINE                  -->
+    <!-- ===================================================================== -->
+    <div class="layer-container" id="layer-l6" data-layer="l6">
+      <div class="layer-header">
+        <div class="layer-title-group">
+          <span class="layer-badge badge-l6">Layer 6</span>
+          <span class="layer-name">Transactional Ledger, HITL & Rollback Engine</span>
+        </div>
+        <span class="layer-desc">ApprovalAgent · CatalogUpdateAgent · NotificationAgent · Brevo Email · Signed Tokens</span>
+      </div>
+      <div class="cards-grid">
+        <div class="arch-card" id="node-led-approval" onclick="inspectNode('led-approval')">
+          <div class="card-top">
+            <span class="card-title">ApprovalAgent (HITL Gate)</span>
+            <span class="card-pill">Gatekeeper</span>
+          </div>
+          <span class="card-file">backend/app/services/agentic/approval_agent.py</span>
+          <p class="card-summary">Guards manual approval workflow. Auto-executes recommendations when confidence >= 95% and sanity bounds pass.</p>
+          <div class="card-tags">
+            <span class="card-tag tag-audit">HITL Gate</span>
+            <span class="card-tag">Threshold Engine</span>
+          </div>
+        </div>
+
+        <div class="arch-card" id="node-led-update" onclick="inspectNode('led-update')">
+          <div class="card-top">
+            <span class="card-title">CatalogUpdateAgent</span>
+            <span class="card-pill">Atomic Commits</span>
+          </div>
+          <span class="card-file">backend/app/services/agentic/catalog_update_agent.py</span>
+          <p class="card-summary">Executes atomic ACID transaction writing Product.current_price, PriceHistory immutable ledger, AuditLog, and ApprovalAction simultaneously.</p>
+          <div class="card-tags">
+            <span class="card-tag tag-audit">Atomic Ledger</span>
+            <span class="card-tag">ACID Commit</span>
+          </div>
+        </div>
+
+        <div class="arch-card" id="node-led-notify" onclick="inspectNode('led-notify')">
+          <div class="card-top">
+            <span class="card-title">NotificationAgent (Email & Signed Token)</span>
+            <span class="card-pill">Notification</span>
+          </div>
+          <span class="card-file">backend/app/services/agentic/notification_agent.py</span>
+          <p class="card-summary">Generates rich Brevo HTML emails with before/after comparison tables and cryptographically signed itsdangerous.URLSafeSerializer rollback URLs.</p>
+          <div class="card-tags">
+            <span class="card-tag">Brevo SMTP</span>
+            <span class="card-tag tag-sec">URLSafeSerializer</span>
+          </div>
+        </div>
+
+        <div class="arch-card" id="node-led-rollback" onclick="inspectNode('led-rollback')">
+          <div class="card-top">
+            <span class="card-title">One-Click Rollback Controller</span>
+            <span class="card-pill">Disaster Recovery</span>
+          </div>
+          <span class="card-file">backend/app/routes/approval_routes.py</span>
+          <p class="card-summary">Validates signed tokens, restores Product.current_price to exact pre-approval value, records rollback audit entry, and prevents replay attacks.</p>
+          <div class="card-tags">
+            <span class="card-tag tag-sec">Anti-Replay Guard</span>
+            <span class="card-tag tag-audit">Instant Recovery</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Connector L6 -> L7 -->
+    <div class="flow-connector">
+      <div class="flow-line"></div>
+      <div class="flow-pill">SQLAlchemy 2.0 ORM Engine · Connection Pooling · External SaaS APIs</div>
+      <div class="flow-line"></div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- LAYER 7: PERSISTENCE & INFRASTRUCTURE LAYER                           -->
+    <!-- ===================================================================== -->
+    <div class="layer-container" id="layer-l7" data-layer="l7">
+      <div class="layer-header">
+        <div class="layer-title-group">
+          <span class="layer-badge badge-l7">Layer 7</span>
+          <span class="layer-name">Persistence, Security & External Services</span>
+        </div>
+        <span class="layer-desc">Supabase PostgreSQL · Groq/Gemini LLMs · Brevo SMTP · Twilio WhatsApp</span>
+      </div>
+      <div class="cards-grid">
+        <div class="arch-card" id="node-inf-db" onclick="inspectNode('inf-db')">
+          <div class="card-top">
+            <span class="card-title">Supabase PostgreSQL</span>
+            <span class="card-pill">Database</span>
+          </div>
+          <span class="card-file">Database (Production / Local SQLite)</span>
+          <p class="card-summary">Hosted PostgreSQL database with automatic IPv4 pooler connection handling, schema migration synchronization, and relational tables.</p>
+          <div class="card-tags">
+            <span class="card-tag">PostgreSQL</span>
+            <span class="card-tag">Supabase Pooler</span>
+          </div>
+        </div>
+
+        <div class="arch-card" id="node-inf-llm" onclick="inspectNode('inf-llm')">
+          <div class="card-top">
+            <span class="card-title">LLM AI Inference Engine</span>
+            <span class="card-pill">External AI</span>
+          </div>
+          <span class="card-file">Groq (Llama 3.3 70B) · Google Gemini 1.5</span>
+          <p class="card-summary">Multi-provider AI inference client for financial synthesis and communicative debate, with local fallback reasoning logic.</p>
+          <div class="card-tags">
+            <span class="card-tag">Groq Llama 3.3</span>
+            <span class="card-tag">Gemini Fallback</span>
+          </div>
+        </div>
+
+        <div class="arch-card" id="node-inf-comms" onclick="inspectNode('inf-comms')">
+          <div class="card-top">
+            <span class="card-title">External Communication Channels</span>
+            <span class="card-pill">Messaging</span>
+          </div>
+          <span class="card-file">Brevo API · Twilio WhatsApp</span>
+          <p class="card-summary">Omnichannel alert dispatching transactional price updates, approval notices, and signed rollback triggers to managers.</p>
+          <div class="card-tags">
+            <span class="card-tag">Brevo</span>
+            <span class="card-tag">Twilio API</span>
+          </div>
+        </div>
+
+        <div class="arch-card" id="node-inf-test" onclick="inspectNode('inf-test')">
+          <div class="card-top">
+            <span class="card-title">Autonomous Playwright E2E Suite</span>
+            <span class="card-pill">SRE Quality Gate</span>
+          </div>
+          <span class="card-file">tools/playwright_e2e_verification.py</span>
+          <p class="card-summary">Comprehensive 30-assertion test suite validating all 6 core workflows end-to-end with automated screenshot capture.</p>
+          <div class="card-tags">
+            <span class="card-tag tag-audit">30/30 Green</span>
+            <span class="card-tag">Self-Healing Loop</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Component Detail Inspector Drawer -->
+  <div class="inspector-drawer" id="inspectorDrawer">
+    <div class="inspector-header">
+      <div>
+        <div class="inspect-label" id="inspectType">Component Specification</div>
+        <div style="font-weight: 700; font-size: 16px;" id="inspectTitle">Title</div>
+      </div>
+      <button class="inspector-close-btn" onclick="closeInspector()">✕</button>
+    </div>
+
+    <div>
+      <div class="inspect-label">Source File</div>
+      <div class="inspect-code" id="inspectFile">path/to/file</div>
+    </div>
+
+    <div>
+      <div class="inspect-label">Architectural Role & Description</div>
+      <div class="inspect-val" id="inspectDesc">Detailed description...</div>
+    </div>
+
+    <div>
+      <div class="inspect-label">Security & Integrity Guardrails</div>
+      <ul class="inspect-list" id="inspectGuardrails"></ul>
+    </div>
+
+    <div>
+      <div class="inspect-label">Input Contracts</div>
+      <div class="inspect-code" id="inspectInputs">None</div>
+    </div>
+
+    <div>
+      <div class="inspect-label">Output & Emitted Events</div>
+      <div class="inspect-code" id="inspectOutputs">None</div>
+    </div>
+  </div>
+
+  <script>
+    // Component Registry Data for Interactive Inspector
+    const NODE_REGISTRY = {
+      'fe-app': {
+        title: 'React Client & Router',
+        type: 'Presentation Layer Component',
+        file: 'frontend/src/App.tsx',
+        desc: 'React 18 Single Page Application root. Implements ProtectedLayout, route alias redirection (/products -> /catalog), and global toast notifications.',
+        guardrails: ['SEC-1: Token presence verified before mounting workspace views', 'Automatic 401 interceptor redirection to /login'],
+        inputs: 'Browser URL navigation, localStorage klypup_token',
+        outputs: 'Rendered DOM views, Axios HTTP API invocations'
+      },
+      'fe-catalog': {
+        title: 'Catalog Intelligence View',
+        type: 'Catalog Presentation Component',
+        file: 'frontend/src/pages/SecondaryPage.tsx (kind="catalog")',
+        desc: 'Displays the organization product inventory. Contains CSV drag-and-drop ingestion, sanitized SKU viewing, and one-click autonomous repricing triggers.',
+        guardrails: ['Neutralizes CSV injection display', 'Strict tenant scoping via backend JWT claims'],
+        inputs: 'Product catalog API response, uploaded CSV files',
+        outputs: 'POST /agentic/recommend/{id}, POST /agentic/catalog/upload'
+      },
+      'fe-drawer': {
+        title: 'Real-Time Explainability Drawer',
+        type: 'Real-Time Telemetry Component',
+        file: 'frontend/src/components/ExplainabilityDrawer.tsx',
+        desc: 'Sliding modal showing real-time agent thoughts, scraping steps, Agent A vs Agent B debate exchanges, and consensus formulation.',
+        guardrails: ['SEC-2: Rejects foreign organization task stream events', 'SSE keepalive heartbeats preventing stale connection drops'],
+        inputs: 'GET /api/agentic/task/{id}/stream (Server-Sent Events)',
+        outputs: 'Rendered step progress, multi-turn debate dialogue, approval buttons'
+      },
+      'fe-approvals': {
+        title: 'Approvals & Audit Ledger View',
+        type: 'Human-in-the-Loop Review Component',
+        file: 'frontend/src/pages/SecondaryPage.tsx (kind="approvals")',
+        desc: 'Displays completed pricing recommendations requiring human sign-off, historical price change ledger, and one-click rollback controls.',
+        guardrails: ['Explicit user confirmation before price execution', 'Audited user email attached to approval ledger events'],
+        inputs: 'GET /api/approvals/history, GET /api/approvals/queue',
+        outputs: 'POST /api/approvals/approve/{id}, POST /api/approvals/rollback/{id}'
+      },
+      'gw-auth': {
+        title: 'Zero-Trust Auth & Scoping Gateway',
+        type: 'Security Gateway Component',
+        file: 'backend/app/routes/auth_routes.py',
+        desc: 'Validates JWT access tokens on every request. Injects g.organization_id and user_id into Flask context. Returns 403 on cross-tenant attempts.',
+        guardrails: ['SEC-1: Cryptographic JWT token verification', 'SEC-2: Zero-Trust organization tenant isolation'],
+        inputs: 'HTTP Request Authorization: Bearer <token>',
+        outputs: 'Verified flask_jwt_extended identity, g.organization_id'
+      },
+      'gw-sec4': {
+        title: 'SEC-4 Formula Neutralizer',
+        type: 'Input Ingestion Sanitizer',
+        file: 'backend/app/services/catalog_ingestion_service.py',
+        desc: 'Scans all CSV cells during ingestion. If a cell begins with =, @, +, or -, it prepends an apostrophe (\') to neutralize formula execution in Excel/Sheets.',
+        guardrails: ['SEC-4: CSV Formula / DDE Command Injection Neutralization', 'Strict field type parsing and fallback validation'],
+        inputs: 'Uploaded multipart/form-data CSV file',
+        outputs: 'Sanitized Product ORM database records'
+      },
+      'gw-agentic-routes': {
+        title: 'Agentic Execution Dispatcher',
+        type: 'Route Controller',
+        file: 'backend/app/routes/agentic_routes.py',
+        desc: 'Handles endpoints for task creation, polling, and SSE streaming. Captures current_app._get_current_object() to run supervisors in background threads.',
+        guardrails: ['SEC-6: In-memory rate limiting (15 requests/min per user)', 'SEC-1: Ownership check before initiating recommendation'],
+        inputs: 'POST /api/agentic/recommend/{product_id}',
+        outputs: '202 Accepted with task_id, background thread execution'
+      },
+      'gw-eventbus': {
+        title: 'In-Memory SSE Event Bus',
+        type: 'Telemetry Pub/Sub Bus',
+        file: 'backend/app/services/event_bus.py',
+        desc: 'Pub/sub broker buffering up to 100 historical task events and routing real-time agent messages to connected SSE client streams.',
+        guardrails: ['Tenant isolation: Subscribers only receive events matching their organization_id', 'Graceful thread-safe queue disposal on client disconnect'],
+        inputs: 'emit_event(task_id, event_type, message, payload)',
+        outputs: 'text/event-stream chunks to connected browsers'
+      },
+      'sup-agent': {
+        title: 'SupervisorAgent',
+        type: 'Autonomous Orchestrator',
+        file: 'backend/app/services/agentic/supervisor_agent.py',
+        desc: 'Coordinates the full end-to-end pricing flow: verifies 20-minute cache, resolves platforms, launches scrapers, calls aggregator, invokes debate, and writes records.',
+        guardrails: ['Idempotency: Reuses active recommendations within 20 minutes', 'Graceful degradation on scraper exceptions'],
+        inputs: 'task_id, product_id, organization_id, force_refresh',
+        outputs: 'PricingRecommendation ORM record, final_rec_dict'
+      },
+      'sup-router': {
+        title: 'CategoryRouter',
+        type: 'Taxonomy Resolution Engine',
+        file: 'backend/app/services/agentic/scrapers/category_router.py',
+        desc: 'Maps product categories (electronics, fashion, grocery, stationery) to eligible platform scraper instances.',
+        guardrails: ['Raises NoEligiblePlatformsError for unknown taxonomy', 'Case-insensitive category matching'],
+        inputs: 'Product category string (e.g., "electronics")',
+        outputs: 'List of platform scraper agent instances'
+      },
+      'sup-circuit': {
+        title: 'Circuit Breaker & Reliability',
+        type: 'Fault Tolerance Engine',
+        file: 'backend/app/models/scraper_reliability.py',
+        desc: 'Monitors platform reliability. Trips to OPEN state after 3 consecutive failures, cooling down for 60 seconds to prevent hammering failing sites.',
+        guardrails: ['SEC-7: Vendor API protection & rate-limit shielding', 'Half-Open probe testing after cooldown window'],
+        inputs: 'Scraper execution status (success / failure)',
+        outputs: 'Circuit state: CLOSED, OPEN, HALF_OPEN'
+      },
+      'sup-taskmgr': {
+        title: 'TaskStateManager',
+        type: 'State Machine Engine',
+        file: 'backend/app/services/task_state/task_manager.py',
+        desc: 'Thread-safe task registry storing lifecycle state, decision traces, and generated recommendation payloads.',
+        guardrails: ['TaskAccessDeniedError thrown on cross-organization queries', 'Immutable historical decision trace logs'],
+        inputs: 'create_task, update_status, add_decision_trace',
+        outputs: 'Task snapshot dictionary'
+      },
+      'swarm-elec': {
+        title: 'Electronics Scraper Swarm',
+        type: 'Marketplace Scraper Swarm',
+        file: 'Amazon.in · Flipkart · Croma',
+        desc: 'Scrapes consumer electronics using title tokens, barcode matching, and clean URL generation.',
+        guardrails: ['SEC-5: Anti-scraping rotation and exponential backoff', 'Output sanitization on scraped titles and currency strings'],
+        inputs: 'Product title, brand, barcode',
+        outputs: 'Verified marketplace offer: price, product_url, match_score'
+      },
+      'swarm-fash': {
+        title: 'Fashion Scraper Swarm',
+        type: 'Marketplace Scraper Swarm',
+        file: 'Myntra · Ajio · Meesho',
+        desc: 'Extracts apparel prices and catalog variants across India\'s largest fashion portals.',
+        guardrails: ['Size & color variant matching logic', 'SEC-9: Untrusted scraped data tagging'],
+        inputs: 'Fashion product name, brand, SKU',
+        outputs: 'Normalized marketplace price and verified product link'
+      },
+      'swarm-groc': {
+        title: 'Grocery & Quick-Commerce Swarm',
+        type: 'Hyperlocal Scraper Swarm',
+        file: 'Blinkit · BigBasket · JioMart',
+        desc: 'Extracts real-time quick-commerce FMCG pricing. Configured with Delhi GPS coordinates (lat: 28.6139, lon: 77.2090) for dark-store fulfillment prices.',
+        guardrails: ['Accurate hyperlocal location headers', 'Fallback to tier-2 HTML parsing if internal JSON API throttles'],
+        inputs: 'Grocery item title, quantity (e.g., 1kg), brand',
+        outputs: 'Localized dark-store price and stock status'
+      },
+      'swarm-stat': {
+        title: 'Stationery Scraper Swarm',
+        type: 'Niche Scraper Swarm',
+        file: 'Scooboo · Amazon.in',
+        desc: 'Specialized scraper for Japanese and boutique stationery items, pens, highlighters, and office supplies.',
+        guardrails: ['Multi-pack detection to prevent unit-price confusion', 'Token similarity validation'],
+        inputs: 'Stationery brand and SKU',
+        outputs: 'Boutique marketplace listing data'
+      },
+      'deb-agenta': {
+        title: 'Agent A (Internal Economics & Velocity)',
+        type: 'Cognitive Reasoning Agent',
+        file: 'backend/app/services/agentic/pricing_reasoning_agent.py',
+        desc: 'Turn 1 of the debate. Evaluates unit COGS, minimum profit margin percentage, and inventory stock velocity (scarcity vs liquidation).',
+        guardrails: ['Non-negotiable Margin Floor = cost_price * (1 + margin%)', 'Hard veto power over any market price below floor'],
+        inputs: 'Product COGS, inventory_quantity, min_margin_percentage',
+        outputs: 'Agent A target price, margin floor lock, rationale trace'
+      },
+      'deb-agentb': {
+        title: 'Agent B (Market Judge & Competitor Strategist)',
+        type: 'Cognitive Reasoning Agent',
+        file: 'backend/app/services/agentic/pricing_reasoning_agent.py',
+        desc: 'Turn 2 of the debate. Evaluates competitor price spreads, verified listing count, Jaccard match scores, and price elasticity.',
+        guardrails: ['SEC-9: Scraped data enclosed in <untrusted_scraped_data> tags to block prompt injection', 'Requires verified match scores >= 0.65'],
+        inputs: 'Aggregated marketplace prices snapshot, Jaccard match scores',
+        outputs: 'Agent B competitive price target, market rationale trace'
+      },
+      'deb-consensus': {
+        title: 'Consensus Synthesizer',
+        type: 'Strategic Negotiation Engine',
+        file: 'backend/app/services/agentic/pricing_reasoning_agent.py',
+        desc: 'Turn 3 of the debate. Reconciles Agent A and B proposals. Clamps price to margin floor if market target erodes unit profitability.',
+        guardrails: ['Confidence scored based on platform evidence (>=2: high, 1: medium, 0: low)', 'Synthesizes unified natural-language LLM statement'],
+        inputs: 'Agent A proposal, Agent B proposal, platform coverage',
+        outputs: 'agreed_price, confidence, llm_statement'
+      },
+      'deb-sec10': {
+        title: 'SEC-10 Sanity Bound Validator',
+        type: 'Safety Guardrail Component',
+        file: 'backend/app/services/agentic/pricing_reasoning_agent.py',
+        desc: 'Compares consensus price against current catalog price. If deviation > ±50%, flags sanity_bound_flagged=True, forces confidence=LOW, and blocks auto-execution.',
+        guardrails: ['SEC-10: Strict ±50% price bounding', 'Enforces human review queue routing on extreme price shifts'],
+        inputs: 'agreed_price, product current_price',
+        outputs: 'sanity_bound_flagged (boolean), updated confidence'
+      },
+      'led-approval': {
+        title: 'ApprovalAgent (HITL Gate)',
+        type: 'Human-in-the-Loop Gatekeeper',
+        file: 'backend/app/services/agentic/approval_agent.py',
+        desc: 'Determines whether a recommendation can be auto-executed (confidence >= 95% + sanity bounds clear) or must wait in human review queue.',
+        guardrails: ['SEC-8: Human-in-the-loop sign-off required for high-risk changes', 'Blocks auto-execution on flagged items'],
+        inputs: 'Pricing recommendation, user approval / rejection action',
+        outputs: 'Execution directive to CatalogUpdateAgent'
+      },
+      'led-update': {
+        title: 'CatalogUpdateAgent',
+        type: 'Transactional ACID Ledger Engine',
+        file: 'backend/app/services/agentic/catalog_update_agent.py',
+        desc: 'Atomically updates Product.current_price, appends immutable PriceHistory row, records AuditLog price_updated entry, and stores ApprovalAction.',
+        guardrails: ['Strict atomic ACID commit: If any ledger write fails, all changes roll back', 'Immutable PriceHistory ledger guaranteeing auditability'],
+        inputs: 'Product ID, new price, approver user ID, recommendation ID',
+        outputs: 'Updated database price, action_id for rollback token generation'
+      },
+      'led-notify': {
+        title: 'NotificationAgent (Email & Signed Token)',
+        type: 'Alert & Token Generation Agent',
+        file: 'backend/app/services/agentic/notification_agent.py',
+        desc: 'Dispatches Brevo HTML emails with side-by-side price comparison table, LLM explanation, and signed itsdangerous.URLSafeSerializer rollback URLs.',
+        guardrails: ['Cryptographically signed HMAC tokens using Flask SECRET_KEY', 'Sensitive parameters encapsulated in tamper-proof token'],
+        inputs: 'ApprovalAction record, user email, recommendation details',
+        outputs: 'Brevo transactional email, signed rollback link'
+      },
+      'led-rollback': {
+        title: 'One-Click Rollback Controller',
+        type: 'Disaster Recovery Controller',
+        file: 'backend/app/routes/approval_routes.py',
+        desc: 'Validates signed URL token, restores Product.current_price to exact previous_price, logs rollback action in ledger, and invalidates duplicate rollback requests.',
+        guardrails: ['Anti-replay check: Rejects already rolled-back actions', 'BadSignature handler returning HTTP 400 on tampered tokens'],
+        inputs: 'GET /api/approvals/email-rollback/<token>',
+        outputs: 'Restored catalog price, rollback audit log, success HTML confirmation'
+      },
+      'inf-db': {
+        title: 'Supabase PostgreSQL',
+        type: 'Relational Database',
+        file: 'Supabase Cloud / Local SQLite',
+        desc: 'Production relational PostgreSQL database with automated IPv4 pooler normalization and schema auto-patching.',
+        guardrails: ['Connection pooling with pool_pre_ping=True and pool_recycle=300', 'Auto-patching missing columns without manual SQL'],
+        inputs: 'SQL queries via SQLAlchemy 2.0 ORM',
+        outputs: 'Relational tables: products, price_history, audit_logs, approval_actions'
+      },
+      'inf-llm': {
+        title: 'LLM AI Inference Engine',
+        type: 'External AI Service',
+        file: 'Groq (Llama 3.3 70B) · Google Gemini 1.5',
+        desc: 'High-speed cloud AI inference providers generating financial rationale statements and evaluating strategic tradeoffs.',
+        guardrails: ['Fallback reasoning logic if external AI APIs rate-limit or fail', 'Prompt-injection defenses wrapping untrusted inputs'],
+        inputs: 'Synthesized market context and internal product economics prompt',
+        outputs: 'Natural language reasoning statement and strategic justification'
+      },
+      'inf-comms': {
+        title: 'External Communications Hub',
+        type: 'External SaaS Gateway',
+        file: 'Brevo SMTP · Twilio API',
+        desc: 'Transactional email and WhatsApp messaging providers delivering alerts and one-click rollback links to stakeholders.',
+        guardrails: ['Encrypted TLS email dispatch', 'Error logging on delivery failures without interrupting ledger commits'],
+        inputs: 'Recipient email/phone, formatted HTML template, rollback token',
+        outputs: 'Delivered transactional notifications'
+      },
+      'inf-test': {
+        title: 'Autonomous Playwright E2E Suite',
+        type: 'SRE Automation & Quality Gate',
+        file: 'tools/playwright_e2e_verification.py',
+        desc: 'Comprehensive 30-assertion automated testing suite exercising all 6 workflow phases end-to-end with visual screenshot validation.',
+        guardrails: ['100% test coverage of security guardrails (SEC-1, SEC-2, SEC-4, SEC-7, SEC-10)', 'Self-healing diagnostic test loop'],
+        inputs: 'Chromium browser headless session, live API endpoints',
+        outputs: '30/30 passing assertions, step screenshot artifacts'
+      }
+    };
+
+    // Scenario Guided Tours
+    const TOURS = {
+      repricing: [
+        {
+          title: "Step 1: User Ingestion & Trigger",
+          desc: "User selects product in Catalog Intelligence (L1) and clicks 'Recommend', initiating POST /agentic/recommend/{id} through the Gateway (L2).",
+          highlightLayers: ['l1', 'l2'],
+          activeNodes: ['node-fe-catalog', 'node-gw-agentic-routes']
+        },
+        {
+          title: "Step 2: Supervisor Orchestration",
+          desc: "SupervisorAgent (L3) verifies the 20-min cache, checks the Circuit Breaker, and maps the product taxonomy via CategoryRouter.",
+          highlightLayers: ['l3'],
+          activeNodes: ['node-sup-agent', 'node-sup-router', 'node-sup-circuit']
+        },
+        {
+          title: "Step 3: Distributed Marketplace Swarms",
+          desc: "Supervisor launches parallel scraping swarms across Amazon, Flipkart, Blinkit (with Delhi GPS coords), etc., with Jaccard token matching.",
+          highlightLayers: ['l4'],
+          activeNodes: ['node-swarm-elec', 'node-swarm-groc']
+        },
+        {
+          title: "Step 4: Cognitive Debate & Sanity Bounding",
+          desc: "Agent A (COGS margin floor) debates Agent B (Market elasticity). Consensus is synthesized and SEC-10 ±50% sanity bounds are evaluated.",
+          highlightLayers: ['l5'],
+          activeNodes: ['node-deb-agenta', 'node-deb-agentb', 'node-deb-consensus', 'node-deb-sec10']
+        },
+        {
+          title: "Step 5: HITL Approval & Atomic Commit",
+          desc: "The recommendation enters the Approvals Queue (L6). Upon approval, CatalogUpdateAgent executes an ACID transaction writing Product, PriceHistory, and AuditLog.",
+          highlightLayers: ['l6', 'l7'],
+          activeNodes: ['node-led-approval', 'node-led-update', 'node-inf-db']
+        },
+        {
+          title: "Step 6: Notification & Signed Token",
+          desc: "NotificationAgent sends a Brevo email with comparison tables and an itsdangerous.URLSafeSerializer signed rollback link.",
+          highlightLayers: ['l6', 'l7'],
+          activeNodes: ['node-led-notify', 'node-inf-comms']
+        }
+      ],
+      sec4: [
+        {
+          title: "SEC-4 Step 1: Malicious Spreadsheet Upload",
+          desc: "User uploads a CSV containing Excel formula injection vectors (=1+1, @SUM, +cmd|..., -5*3) to Catalog Intelligence (L1).",
+          highlightLayers: ['l1', 'l2'],
+          activeNodes: ['node-fe-catalog', 'node-gw-sec4']
+        },
+        {
+          title: "SEC-4 Step 2: In-Flight Neutralization",
+          desc: "SEC-4 Formula Neutralizer in catalog_ingestion_service.py detects leading =, @, +, - characters and prepends an apostrophe (').",
+          highlightLayers: ['l2'],
+          activeNodes: ['node-gw-sec4']
+        },
+        {
+          title: "SEC-4 Step 3: Safe Ledger Storage",
+          desc: "Sanitized data is committed to PostgreSQL (L7). When exported back to CSV, spreadsheet engines treat the cell as plain text, eliminating RCE risks.",
+          highlightLayers: ['l7'],
+          activeNodes: ['node-inf-db']
+        }
+      ],
+      rollback: [
+        {
+          title: "Rollback Step 1: Signed Token Generation",
+          desc: "Upon price approval, NotificationAgent generates a cryptographic URLSafeSerializer token embedding the ApprovalAction ID.",
+          highlightLayers: ['l6'],
+          activeNodes: ['node-led-notify']
+        },
+        {
+          title: "Rollback Step 2: One-Click Email Trigger",
+          desc: "Stakeholder clicks the signed email rollback link. Request hits /api/approvals/email-rollback/{token} (L6).",
+          highlightLayers: ['l6'],
+          activeNodes: ['node-led-rollback']
+        },
+        {
+          title: "Rollback Step 3: Instant Price Restoration",
+          desc: "Controller verifies HMAC signature, checks anti-replay status, restores Product.current_price to pre-approval value, and logs a rollback audit entry.",
+          highlightLayers: ['l6', 'l7'],
+          activeNodes: ['node-led-rollback', 'node-inf-db']
+        }
+      ]
+    };
+
+    let currentTourName = null;
+    let currentTourStep = 0;
+
+    function startTour(tourKey) {
+      currentTourName = tourKey;
+      currentTourStep = 0;
+      document.querySelectorAll('.scenario-btn').forEach(b => b.classList.remove('active'));
+      event.currentTarget.classList.add('active');
+      renderTourStep();
+    }
+
+    function renderTourStep() {
+      const tour = TOURS[currentTourName];
+      if (!tour) return;
+      const step = tour[currentTourStep];
+
+      const banner = document.getElementById('tourBanner');
+      banner.classList.add('active');
+      document.getElementById('tourTitle').innerText = `${tour[0].title.split(':')[0]}: Step ${currentTourStep + 1} of ${tour.length} — ${step.title}`;
+      document.getElementById('tourStepDesc').innerText = step.desc;
+
+      // Reset all highlights
+      document.querySelectorAll('.layer-container').forEach(c => {
+        c.classList.remove('highlighted', 'dimmed');
+      });
+      document.querySelectorAll('.arch-card').forEach(n => {
+        n.classList.remove('flow-active', 'active-node');
+      });
+
+      // Apply highlights
+      document.querySelectorAll('.layer-container').forEach(c => {
+        const layerId = c.getAttribute('data-layer');
+        if (step.highlightLayers.includes(layerId)) {
+          c.classList.add('highlighted');
+        } else {
+          c.classList.add('dimmed');
+        }
+      });
+
+      step.activeNodes.forEach(nodeId => {
+        const el = document.getElementById(nodeId);
+        if (el) el.classList.add('flow-active');
+      });
+
+      // Scroll smoothly to first highlighted layer
+      const firstLayerEl = document.getElementById(`layer-${step.highlightLayers[0]}`);
+      if (firstLayerEl) {
+        firstLayerEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+
+    function nextTourStep() {
+      const tour = TOURS[currentTourName];
+      if (!tour) return;
+      if (currentTourStep < tour.length - 1) {
+        currentTourStep++;
+        renderTourStep();
+      } else {
+        stopTour();
+      }
+    }
+
+    function prevTourStep() {
+      if (currentTourStep > 0) {
+        currentTourStep--;
+        renderTourStep();
+      }
+    }
+
+    function stopTour() {
+      currentTourName = null;
+      currentTourStep = 0;
+      document.getElementById('tourBanner').classList.remove('active');
+      document.querySelectorAll('.scenario-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.layer-container').forEach(c => c.classList.remove('highlighted', 'dimmed'));
+      document.querySelectorAll('.arch-card').forEach(n => n.classList.remove('flow-active'));
+    }
+
+    // Layer Filtering
+    function filterLayer(layerKey) {
+      stopTour();
+      document.querySelectorAll('.layer-pill').forEach(p => p.classList.remove('active'));
+      event.currentTarget.classList.add('active');
+
+      document.querySelectorAll('.layer-container').forEach(c => {
+        if (layerKey === 'all') {
+          c.style.display = 'block';
+          c.classList.remove('dimmed', 'highlighted');
+        } else {
+          const lId = c.getAttribute('data-layer');
+          if (lId === layerKey) {
+            c.style.display = 'block';
+            c.classList.add('highlighted');
+            c.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          } else {
+            c.style.display = 'none';
+          }
+        }
+      });
+    }
+
+    // Component Inspector
+    function inspectNode(nodeKey) {
+      const data = NODE_REGISTRY[nodeKey];
+      if (!data) return;
+
+      document.querySelectorAll('.arch-card').forEach(c => c.classList.remove('active-node'));
+      const activeEl = document.getElementById(`node-${nodeKey}`);
+      if (activeEl) activeEl.classList.add('active-node');
+
+      document.getElementById('inspectTitle').innerText = data.title;
+      document.getElementById('inspectType').innerText = data.type;
+      document.getElementById('inspectFile').innerText = data.file;
+      document.getElementById('inspectDesc').innerText = data.desc;
+      document.getElementById('inspectInputs').innerText = data.inputs;
+      document.getElementById('inspectOutputs').innerText = data.outputs;
+
+      const guardrailList = document.getElementById('inspectGuardrails');
+      guardrailList.innerHTML = '';
+      data.guardrails.forEach(g => {
+        const li = document.createElement('li');
+        li.innerText = g;
+        guardrailList.appendChild(li);
+      });
+
+      document.getElementById('inspectorDrawer').classList.add('open');
+    }
+
+    function closeInspector() {
+      document.getElementById('inspectorDrawer').classList.remove('open');
+      document.querySelectorAll('.arch-card').forEach(c => c.classList.remove('active-node'));
+    }
+
+    // Light / Dark Theme Toggle
+    function toggleTheme() {
+      const current = document.documentElement.getAttribute('data-theme');
+      if (current === 'light') {
+        document.documentElement.removeAttribute('data-theme');
+      } else {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+    }
+  </script>
+</body>
+</html>

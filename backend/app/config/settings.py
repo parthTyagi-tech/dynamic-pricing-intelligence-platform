@@ -62,10 +62,11 @@ class BaseConfig:
     TWILIO_AUTH_TOKEN = os.environ.get("TWILIO_AUTH_TOKEN", "")
     TWILIO_WHATSAPP_FROM = os.environ.get("TWILIO_WHATSAPP_FROM", "whatsapp:+14155238886")
 
-    # Mock platform
+    # Mock platform & Scraping mode
     MOCK_PLATFORM_FAILURE_RATE = float(
         os.environ.get("MOCK_PLATFORM_FAILURE_RATE", 0.1)
     )
+    MOCK_SCRAPING = os.environ.get("MOCK_SCRAPING", "false").lower() == "true"
 
 
 def _normalize_database_url(raw_url: str | None) -> str | None:
@@ -132,6 +133,7 @@ class ProductionConfig(BaseConfig):
 class TestingConfig(BaseConfig):
     TESTING = True
     SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
+    MOCK_SCRAPING = os.environ.get("MOCK_SCRAPING", "true").lower() == "true"
 
 
 config_map = {

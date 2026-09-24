@@ -2,8 +2,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List
 
 from app.services.agentic.base_agent import BaseAgent
-
-MATCH_THRESHOLD = 0.75
+from app.services.agentic.scrapers.base_scraper import MATCH_THRESHOLD
 
 
 class AggregatorAgent(BaseAgent):
@@ -54,6 +53,7 @@ class AggregatorAgent(BaseAgent):
                     "verified": True,
                     "data_source": data_source,
                     "is_estimated": False,
+                    "latency_ms": item.get("latency_ms"),
                 }
             elif is_fallback and float(item.get("price", 0.0)) > 0:
                 # Problem 3: Estimated fallback data is surfaced to user as "unavailable, estimated only"

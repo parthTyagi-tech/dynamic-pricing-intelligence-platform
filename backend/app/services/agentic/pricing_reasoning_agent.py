@@ -79,7 +79,7 @@ class PricingReasoningAgent(BaseAgent):
         task_mgr.add_decision_trace(
             task_id=task_id,
             agent="Agent A (Market & Inventory Analyst)",
-            decision_point="COGS & Margin Floor Enforcement",
+            decision_point="Unit Margin Guardrail",
             rationale=agent_a_rationale,
             action_taken=f"Established non-negotiable margin floor of ₹{margin_floor:,.2f} (Target: ₹{agent_a_target:,.2f})"
         )
@@ -188,7 +188,7 @@ class PricingReasoningAgent(BaseAgent):
         )
 
         # -------------------------------------------------------------
-        # SEC-10: Sanity Bound Validation Check (Deviation > ±50%)
+        # Price Sanity Guardrail Check (Deviation > ±50%)
         # -------------------------------------------------------------
         sanity_bound_flagged = False
         if current_price > 0:
@@ -198,16 +198,15 @@ class PricingReasoningAgent(BaseAgent):
                 confidence = "low"
                 confidence_score = min(confidence_score, 0.40)
                 warning_msg = (
-                    f"Price shift of {deviation*100:.1f}% exceeds strict ±50% sanity bound against current price ₹{current_price:,.2f}. "
-                    f"Automatic execution is strictly blocked; routing to human review queue."
+                    f"Recommended price deviates by {deviation*100:.1f}% (>50%) from current catalog price."
                 )
-                llm_statement += f" [SEC-10 Sanity Warning: {warning_msg}]"
+                llm_statement += f" [Price Sanity Guardrail: {warning_msg}]"
                 task_mgr.add_decision_trace(
                     task_id=task_id,
-                    agent="SEC-10 Sanity Guardrail",
-                    decision_point="Price Sanity Bounding",
-                    rationale=warning_msg,
-                    action_taken="Flagged sanity_bound_flagged=True, forced confidence=LOW, and blocked auto-execution"
+                    agent="Price Sanity Guardrail",
+                    decision_point="Price Sanity Guardrail",
+                    rationale=f"Recommended price deviates by {deviation*100:.1f}% (>50%) from current catalog price.",
+                    action_taken="Routing to human review queue"
                 )
 
         result = {

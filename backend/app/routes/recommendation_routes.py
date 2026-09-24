@@ -419,11 +419,19 @@ def process_task():
         emit_event(job, "orchestrator", AgentRunStatus.RUNNING, 5, "Orchestrator claimed the durable recommendation job.")
 
     try:
-        # Check if this is a product with zero competitor prices (e.g. newly created)
+        # Check if this is a product with zero competitor prices or fresh live scraping requested
         if job:
             emit_event(job, "scraper", AgentRunStatus.RUNNING, 15, "Scraper agents are searching category-specific marketplaces.")
-        has_competitors = PricingRecommendation.query.filter_by(product_id=product.id).first() is not None or MarketplaceOffer.query.filter_by(product_id=product.id).first() is not None
-        if not has_competitors:
+
+        payload_force = bool(payload.get("force_refresh", False)) if isinstance(payload, dict) else False
+        is_live_mode = os.environ.get("MOCK_SCRAPING", "false").lower() == "false"
+        has_competitors = (
+            PricingRecommendation.query.filter_by(product_id=product.id).first() is not None
+            or MarketplaceOffer.query.filter_by(product_id=product.id).first() is not None
+        )
+
+        # Trigger live scraper when fresh run is requested or no previous competitors exist
+        if not has_competitors or payload_force or is_live_mode:
             import asyncio
             from app.services.agentic.supervisor_agent import SupervisorAgent
             supervisor = SupervisorAgent()
@@ -452,6 +460,21 @@ def process_task():
                     price = float(comp_data.get("price", 0) or 0)
                     if price <= 0:
                         continue
+                    rating_val = None
+                    try:
+                        rating_val = float(comp_data.get("rating")) if comp_data.get("rating") is not None else None
+                    except (ValueError, TypeError):
+                        pass
+
+                    specs = {
+                        "rating": rating_val,
+                        "review_count": comp_data.get("review_count"),
+                        "seller": comp_data.get("seller"),
+                        "scrape_mode": comp_data.get("scrape_mode", "live_scrape"),
+                        "match_score": comp_data.get("match_score"),
+                        "latency_ms": comp_data.get("latency_ms"),
+                    }
+
                     db.session.add(MarketplaceOffer(
                         job_id=job.id,
                         product_id=product.id,
@@ -459,10 +482,14 @@ def process_task():
                         platform=comp_name,
                         title=comp_data.get("product_title", f"Verified match on {comp_name}"),
                         current_price=price,
+                        mrp=float(comp_data.get("mrp")) if comp_data.get("mrp") else None,
                         availability="in_stock" if comp_data.get("stock_status") == "in_stock" else "out_of_stock",
                         in_stock=(comp_data.get("stock_status") == "in_stock"),
+                        rating=rating_val,
+                        review_count=comp_data.get("review_count"),
+                        specifications=specs,
                         product_url=comp_data.get("product_url", ""),
-                        match_confidence="high" if comp_data.get("match_score", 0) >= 0.8 else "medium",
+                        match_confidence="high" if (comp_data.get("match_score") or 0) >= 0.8 else "medium",
                         source_type=comp_data.get("data_source", "live_scrape"),
                     ))
                 db.session.commit()

@@ -25,8 +25,10 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEY, theme);
     document.documentElement.classList.toggle("theme-dark", theme === "dark");
+    document.documentElement.classList.toggle("dark", theme === "dark");
     document.documentElement.classList.toggle("theme-light", theme === "light");
     document.body.classList.toggle("theme-dark", theme === "dark");
+    document.body.classList.toggle("dark", theme === "dark");
     document.body.classList.toggle("theme-light", theme === "light");
     document.documentElement.style.colorScheme = theme;
   }, [theme]);

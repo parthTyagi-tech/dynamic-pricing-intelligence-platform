@@ -330,7 +330,11 @@ class PricingRecommendation(db.Model):
             } if self.product else None,
 
             "competitors": [c.to_dict() if hasattr(c, "to_dict") else c for c in competitors],
-            "sales_history": [s.to_dict() if hasattr(s, "to_dict") else s for s in sales_history]
+            "sales_history": [s.to_dict() if hasattr(s, "to_dict") else s for s in sales_history],
+            "platform_prices_snapshot": self.platform_prices_snapshot or {},
+            "margin_floor_applied": bool(self.margin_floor_applied),
+            "margin_floor_value": self.margin_floor_value,
+            "sanity_bound_flagged": bool(self.sanity_bound_flagged),
         }
 
 

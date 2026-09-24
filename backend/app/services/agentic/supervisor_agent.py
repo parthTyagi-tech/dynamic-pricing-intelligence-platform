@@ -7,6 +7,11 @@ from typing import Any, Dict, List, Optional
 from app.extensions import db
 from app.models.pricing_recommendation import PricingRecommendation, RecommendationStatus
 from app.models.product import Product
+from app.models.recommendation_job import (
+    MarketplaceOffer,
+    RecommendationJob,
+    RecommendationJobStatus,
+)
 from app.models.scraper_reliability import CircuitState, ScraperReliability
 from app.services.agentic.aggregator_agent import AggregatorAgent
 from app.services.agentic.base_agent import BaseAgent
@@ -17,21 +22,16 @@ from app.services.task_state.task_manager import get_task_manager
 logger = logging.getLogger(__name__)
 
 CATEGORY_PLATFORMS = {
-    "fashion": ["Myntra", "Ajio", "Meesho"],
-    "apparel": ["Myntra", "Ajio", "Meesho"],
-    "electronics": ["Amazon.in", "Flipkart", "Croma"],
-    "beauty": ["Nykaa", "Purplle"],
-    "personal_care": ["Nykaa", "Purplle"],
-    "grocery": ["Blinkit", "BigBasket", "JioMart"],
-    "daily_essentials": ["Blinkit", "BigBasket", "JioMart"],
     "stationery": ["Scooboo", "Amazon.in"],
-    "home_goods": ["Pepperfry", "Urban Ladder"],
+    "electronics": ["Amazon.in", "Flipkart"],
+    "grocery": ["Blinkit", "BigBasket"],
+    "daily_essentials": ["Blinkit", "BigBasket"],
+    "fashion": ["Myntra", "Ajio"],
+    "apparel": ["Myntra", "Ajio"],
+    "beauty": ["Nykaa", "Purplle"],
     "furniture": ["Pepperfry", "Urban Ladder"],
+    "home_goods": ["Pepperfry", "Urban Ladder"],
     "pharmacy": ["1mg", "PharmEasy"],
-    "health": ["1mg", "PharmEasy"],
-    "jewelry": ["CaratLane", "Tanishq"],
-    "books": ["Amazon.in", "Flipkart"],
-    "sports": ["Amazon.in", "Flipkart"],
     "general": ["Amazon.in", "Flipkart"],
 }
 
@@ -101,13 +101,13 @@ def update_circuit_breaker_result(platform: str, success: bool, reason: Optional
             rel.last_failure_at = now
             rel.last_failure_reason = str(reason or "Scrape failed")[:255]
 
-            # Trip to OPEN if probe failed or already open or failure threshold exceeded (>= 3)
+            # Trip to OPEN if probe failed or already open or failure threshold exceeded (>= 5)
             if rel.circuit_state in (CircuitState.HALF_OPEN, CircuitState.OPEN):
                 rel.circuit_state = CircuitState.OPEN
                 rel.circuit_opened_at = now
                 # Exponential backoff: double previous backoff (capped at 240 mins = 4 hours)
                 rel.backoff_minutes = min(240, (rel.backoff_minutes or 15) * 2)
-            elif rel.failure_count_last_hour >= 3:
+            elif rel.failure_count_last_hour >= 5:
                 rel.circuit_state = CircuitState.OPEN
                 rel.circuit_opened_at = now
                 rel.backoff_minutes = max(15, rel.backoff_minutes or 15)
@@ -198,15 +198,15 @@ class SupervisorAgent(BaseAgent):
                 category=category,
             )
 
-        # 2. Idempotency Check (Gap #6)
+        # 2. Idempotency Check
         if not force_refresh:
             cached_rec = self.check_idempotency_cache(product_id, organization_id)
             if cached_rec:
                 self.record_decision(
                     task_id=task_id,
-                    decision_point="Idempotency Cache Check (Gap #6)",
-                    rationale=f"Active recommendation found within 20-min TTL (ID: {cached_rec.id}).",
-                    action_taken="Served cached recommendation without triggering redundant scraping runs"
+                    decision_point="Cache Verification",
+                    rationale="Active verified recommendation found within 20-minute cache window.",
+                    action_taken="Loaded cached intelligence to prevent redundant marketplace scraping"
                 )
                 await self.emit_event(
                     task_id=task_id,
@@ -264,9 +264,9 @@ class SupervisorAgent(BaseAgent):
             if not should_attempt:
                 self.record_decision(
                     task_id=task_id,
-                    decision_point="Circuit Breaker Check (Gap #7)",
-                    rationale=f"Platform {p_name} circuit is OPEN with {remaining_cd}m cooldown remaining.",
-                    action_taken=f"Skipped platform immediately to avoid latency and proxy burn (retry after {remaining_cd}m)"
+                    decision_point="Marketplace Sensor Health",
+                    rationale=f"Platform {p_name} circuit is temporarily OPEN with {remaining_cd}m backoff remaining.",
+                    action_taken=f"Bypassed {p_name} to preserve proxy pool and avoid rate limits"
                 )
                 await self.emit_event(
                     task_id=task_id,
@@ -287,9 +287,9 @@ class SupervisorAgent(BaseAgent):
                 if c_state == CircuitState.HALF_OPEN:
                     self.record_decision(
                         task_id=task_id,
-                        decision_point="Circuit Breaker Probe (Problem 1)",
-                        rationale=f"{p_name} cooldown elapsed. Testing recovery in HALF_OPEN state.",
-                        action_taken="Allowing single probe request"
+                        decision_point="Marketplace Sensor Probe",
+                        rationale=f"Platform {p_name} backoff window elapsed. Testing recovery via canary probe.",
+                        action_taken=f"Allowing single probe request to test {p_name} availability"
                     )
                 active_platforms.append(p_name)
 
@@ -407,6 +407,69 @@ class SupervisorAgent(BaseAgent):
             decided_by=None
         )
         db.session.add(rec_model)
+        db.session.flush()
+
+        # 10. Persist MarketplaceOffer rows linked to active RecommendationJob (Requirement 5)
+        job = RecommendationJob.query.filter_by(recommendation_id=rec_model.id).first()
+        if not job:
+            job = RecommendationJob(
+                id=str(uuid.uuid4()),
+                recommendation_id=rec_model.id,
+                product_id=product_id,
+                organization_id=organization_id,
+                status=RecommendationJobStatus.SUCCEEDED,
+                progress=100,
+                current_agent="SupervisorAgent",
+                requested_platforms=platforms_to_run,
+                completed_at=datetime.now(timezone.utc),
+            )
+            db.session.add(job)
+            db.session.flush()
+
+        # Save scraped offers with fully-qualified HTTPS URLs, specifications JSON, and live_scrape source
+        for out in raw_results:
+            if not isinstance(out, dict):
+                continue
+            p_price = float(out.get("price") or 0.0)
+            if p_price <= 0:
+                continue
+
+            p_platform = out.get("platform", "Unknown")
+            p_title = out.get("product_title", product.name)
+            p_url = out.get("product_url") or ""
+            if p_url and not p_url.startswith("https://") and not p_url.startswith("http://"):
+                p_url = f"https://{p_url.lstrip('/')}"
+
+            mrp_val = float(out["mrp"]) if out.get("mrp") else None
+            is_in_stock = bool(out.get("in_stock", True))
+            source_type = out.get("data_source", "live_scrape")
+
+            offer = MarketplaceOffer(
+                id=str(uuid.uuid4()),
+                job_id=job.id,
+                product_id=product_id,
+                organization_id=organization_id,
+                platform=p_platform,
+                title=p_title,
+                current_price=p_price,
+                mrp=mrp_val,
+                availability="in_stock" if is_in_stock else "out_of_stock",
+                in_stock=is_in_stock,
+                product_url=p_url,
+                match_confidence="high" if float(out.get("match_score", 0.0)) >= 0.80 else "medium",
+                source_type=source_type,
+                specifications={
+                    "rating": out.get("rating"),
+                    "review_count": out.get("review_count"),
+                    "seller": out.get("seller"),
+                    "scrape_mode": out.get("scrape_mode", "live_scrape"),
+                    "match_score": out.get("match_score"),
+                    "latency_ms": out.get("latency_ms"),
+                },
+                fetched_at=datetime.now(timezone.utc),
+            )
+            db.session.add(offer)
+
         db.session.commit()
 
         final_rec_dict = rec_model.to_dict()

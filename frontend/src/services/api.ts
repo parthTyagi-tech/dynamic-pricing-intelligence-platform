@@ -31,7 +31,12 @@ interface BackendProduct { id: string; sku?: string; name: string; category?: st
 interface BackendRecommendation { id: string; productName?: string; product?: { name?: string; id?: string; current_price?: number }; currentPrice?: number; suggestedPrice?: number; recommended_price?: number; confidence?: number; confidence_score?: number; reason?: string; }
 interface BackendActivity { message: string; timestamp: string; type: string; }
 
-const moneyValue = (value: number) => value >= 1_000_000 ? `$${(value / 1_000_000).toFixed(2)}m` : `$${(value / 1_000).toFixed(1)}k`;
+const moneyValue = (value: number) => {
+  if (value >= 10_000_000) return `₹${(value / 10_000_000).toFixed(2)} Cr`;
+  if (value >= 100_000) return `₹${(value / 100_000).toFixed(2)} L`;
+  if (value >= 1_000) return `₹${(value / 1_000).toFixed(1)}k`;
+  return `₹${Math.round(value).toLocaleString("en-IN")}`;
+};
 const initials = (name: string) => name.split(/\s+/).map((word) => word[0]).join("").slice(0, 2).toUpperCase();
 const gradientFor = (_category: string) => "#18181b";
 
