@@ -352,6 +352,8 @@ def import_csv():
             brand = row_clean.get("brand", "")
             barcode = row_clean.get("barcode", "")
             inventory_qty = int(row_clean.get("inventory_quantity", 0) or 0)
+            category_hint = row_clean.get("category_hint") or category
+            normalized_query = row_clean.get("normalized_query") or ""
 
             # SEC-4: Neutralize formula injection in CSV cells
             name = sanitize_csv_cell(name)
