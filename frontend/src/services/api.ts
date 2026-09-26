@@ -11,9 +11,18 @@ apiClient.interceptors.request.use((config) => {
   const token = localStorage.getItem("klypup_token");
   if (token) config.headers.Authorization = `Bearer ${token}`;
   if (config.data instanceof FormData) {
-    delete config.headers["Content-Type"];
+    if (config.headers && typeof (config.headers as any).delete === "function") {
+      (config.headers as any).delete("Content-Type");
+      (config.headers as any).delete("content-type");
+    }
+    delete (config.headers as any)["Content-Type"];
+    delete (config.headers as any)["content-type"];
   } else {
-    config.headers["Content-Type"] = "application/json";
+    if (config.headers && typeof (config.headers as any).set === "function") {
+      (config.headers as any).set("Content-Type", "application/json");
+    } else {
+      config.headers["Content-Type"] = "application/json";
+    }
   }
   return config;
 });

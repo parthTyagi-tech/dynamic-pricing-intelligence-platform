@@ -115,26 +115,32 @@ def parse_and_ingest_catalog_csv(
                 )
                 db.session.add(new_prod)
                 imported_count += 1
-
         except Exception as e:
             errors.append(f"Row {row_idx}: {str(e)}")
+            continue
+
+    # Persist all parsed and updated products
+    db.session.commit()
 
     # SEC-8: Audit log CSV upload
-    audit_entry = AuditLog(
-        id=str(uuid.uuid4()),
-        organization_id=organization_id,
-        actor_user_id=user_id,
-        action="csv_catalog_uploaded",
-        entity_type="catalog",
-        entity_id=filename,
-        metadata_json={
-            "filename": filename,
-            "imported_count": imported_count,
-            "updated_count": updated_count,
-            "error_count": len(errors),
-        }
-    )
-    db.session.add(audit_entry)
-    db.session.commit()
+    try:
+        audit_entry = AuditLog(
+            id=str(uuid.uuid4()),
+            organization_id=organization_id,
+            actor_user_id=user_id,
+            action="csv_catalog_uploaded",
+            entity_type="catalog",
+            entity_id=str(filename)[:36],
+            metadata_json={
+                "filename": filename,
+                "imported_count": imported_count,
+                "updated_count": updated_count,
+                "error_count": len(errors),
+            }
+        )
+        db.session.add(audit_entry)
+        db.session.commit()
+    except Exception as audit_ex:
+        logger.warning(f"[AuditLog] Could not write audit log for CSV upload: {audit_ex}")
 
     return imported_count, updated_count, errors

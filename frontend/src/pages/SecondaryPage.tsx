@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { ArrowRight, Bot, Check, ChevronRight, CircleAlert, Clock3, Database, ExternalLink, Filter, Gauge, MailCheck, Package, Search, Sparkles, Target } from "lucide-react";
+import { ArrowRight, Bot, Check, ChevronRight, CircleAlert, Clock3, Database, ExternalLink, Filter, Gauge, Loader2, MailCheck, Package, Search, Sparkles, Target } from "lucide-react";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { approveRecommendation, exportCatalog, getAgentObservability, getApprovalHistory, getCatalogProducts, getRecommendationStatus, rejectRecommendation, rollbackApproval, startRecommendation, startAgenticRecommendation, getAgenticTaskState, approveAgenticRecommendation, rejectAgenticRecommendation, uploadAgenticCatalogCsv, type AgenticTaskState, type AgentObservability } from "../services/api";
@@ -18,6 +18,7 @@ export default function SecondaryPage({ kind }: { kind: SecondaryKind }) {
   const [catalogProducts, setCatalogProducts] = useState<Product[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [catalogError, setCatalogError] = useState(false);
+  const [uploadingCsv, setUploadingCsv] = useState(false);
   const [query, setQuery] = useState("");
   const [approved, setApproved] = useState<string[]>([]);
   const [history, setHistory] = useState<ApprovalAuditEvent[]>([]);
@@ -36,7 +37,7 @@ export default function SecondaryPage({ kind }: { kind: SecondaryKind }) {
     ? [{ label: "Observed agents", value: String(agentStats.length), icon: Bot }, { label: "Logged calls", value: String(agentStats.reduce((sum, agent) => sum + agent.calls, 0)), icon: Sparkles }, { label: "Avg. confidence", value: `${avgConfidence.toFixed(1)}%`, icon: Gauge }]
     : kind === "approvals"
       ? [{ label: "Audit events", value: String(history.length), icon: Package }, { label: "Pending recommendations", value: String(pendingCount), icon: CircleAlert }, { label: "Approved actions", value: String(history.filter((event) => event.actionType === "approve" || event.actionType === "auto_execute").length), icon: Target }]
-      : [{ label: "Items in view", value: String(products.length), icon: Package }, { label: "Need attention", value: String(pendingCount), icon: CircleAlert }, { label: "Catalog units", value: data.products.reduce((sum, product) => sum + product.inventory, 0).toLocaleString(), icon: Target }];
+      : [{ label: "Items in view", value: String(products.length), icon: Package }, { label: "Need attention", value: String(pendingCount), icon: CircleAlert }, { label: "Catalog units", value: (kind === "catalog" ? catalogProducts : data.products).reduce((sum, product) => sum + product.inventory, 0).toLocaleString(), icon: Target }];
 
   useEffect(() => {
     if (kind !== "catalog") return undefined;
@@ -148,12 +149,22 @@ export default function SecondaryPage({ kind }: { kind: SecondaryKind }) {
   const onUploadCsv = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setUploadingCsv(true);
     try {
       const res = await uploadAgenticCatalogCsv(file);
-      push(res.message || "Catalog CSV uploaded and sanitized (SEC-4).", "success");
+      const msg = res.message || `Processed ${res.imported_count ?? 0} new and ${res.updated_count ?? 0} updated catalog items.`;
+      push(msg, "success");
       await refreshCatalog();
     } catch (err: any) {
-      push(err.response?.data?.message || "Failed to upload CSV.", "error");
+      const errorMsg =
+        err.response?.data?.message ||
+        err.response?.data?.error ||
+        err.message ||
+        "Failed to upload CSV.";
+      push(errorMsg, "error");
+    } finally {
+      setUploadingCsv(false);
+      e.target.value = "";
     }
   };
 
@@ -167,7 +178,7 @@ export default function SecondaryPage({ kind }: { kind: SecondaryKind }) {
     }
   };
 
-  return <div className="page-stack"><ToastStack toasts={toasts} dismiss={dismiss} /><header className="page-header compact-header"><div><p className="eyebrow">Workspace module</p><h1>{title}, <em>made legible.</em></h1><p className="page-lede">{subtitle}</p></div><div className="flex gap-2"><label className="btn-secondary text-xs px-3 py-1.5 rounded cursor-pointer border border-white/10 hover:border-white/20 flex items-center gap-1.5"><Package size={14} /> Upload Catalog CSV <input type="file" accept=".csv" onChange={onUploadCsv} className="hidden" /></label><Button onClick={() => void onExport()}>Export updated catalog <ArrowRight size={15} /></Button></div></header><section className="secondary-metrics">{metrics.map((metric) => <GlassCard key={metric.label}><metric.icon size={18} className="text-indigo" /><span><strong>{metric.value}</strong><small>{metric.label}</small></span></GlassCard>)}</section>{catalogError && kind === "catalog" && <EmptyState title="Catalog service unavailable" description="The catalog could not be loaded from the backend. Retry after checking the API connection." action={<Button onClick={() => refreshCatalog()}>Retry catalog</Button>} />}{kind === "agents" ? <AgentConsole agents={agentStats} loading={agentLoading} onToast={push} /> : kind === "approvals" ? <ApprovalAuditPanel history={history} loading={historyLoading} onRefresh={refreshHistory} onRollback={onRollback} /> : <CatalogTable products={products} loading={catalogLoading} query={query} setQuery={setQuery} approved={approved} jobs={jobs} agenticTasks={agenticTasks} startingProductId={startingProductId} onRecommend={onRecommend} onApprove={onApprove} onReject={onReject} navigate={navigate} />}</div>;
+  return <div className="page-stack"><ToastStack toasts={toasts} dismiss={dismiss} /><header className="page-header compact-header"><div><p className="eyebrow">Workspace module</p><h1>{title}, <em>made legible.</em></h1><p className="page-lede">{subtitle}</p></div><div className="flex gap-2"><label className={cn("btn-secondary text-xs px-3 py-1.5 rounded cursor-pointer border border-white/10 hover:border-white/20 flex items-center gap-1.5 transition-all select-none", uploadingCsv && "opacity-60 cursor-not-allowed pointer-events-none")}>{uploadingCsv ? <><Loader2 size={14} className="animate-spin text-indigo" /> Uploading catalog…</> : <><Package size={14} /> Upload Catalog CSV</>}<input type="file" accept=".csv" disabled={uploadingCsv} onClick={(e) => { (e.currentTarget as HTMLInputElement).value = ""; }} onChange={onUploadCsv} className="hidden" /></label><Button onClick={() => void onExport()}>Export updated catalog <ArrowRight size={15} /></Button></div></header><section className="secondary-metrics">{metrics.map((metric) => <GlassCard key={metric.label}><metric.icon size={18} className="text-indigo" /><span><strong>{metric.value}</strong><small>{metric.label}</small></span></GlassCard>)}</section>{catalogError && kind === "catalog" && <EmptyState title="Catalog service unavailable" description="The catalog could not be loaded from the backend. Retry after checking the API connection." action={<Button onClick={() => refreshCatalog()}>Retry catalog</Button>} />}{kind === "agents" ? <AgentConsole agents={agentStats} loading={agentLoading} onToast={push} /> : kind === "approvals" ? <ApprovalAuditPanel history={history} loading={historyLoading} onRefresh={refreshHistory} onRollback={onRollback} /> : <CatalogTable products={products} loading={catalogLoading} query={query} setQuery={setQuery} approved={approved} jobs={jobs} agenticTasks={agenticTasks} startingProductId={startingProductId} onRecommend={onRecommend} onApprove={onApprove} onReject={onReject} navigate={navigate} />}</div>;
 }
 
 function CatalogTable({ products, loading, query, setQuery, approved, jobs, agenticTasks, startingProductId, onRecommend, onApprove, onReject, navigate }: { products: Product[]; loading: boolean; query: string; setQuery: (value: string) => void; approved: string[]; jobs: Record<string, RecommendationJob>; agenticTasks: Record<string, AgenticTaskState>; startingProductId: string | null; onRecommend: (product: Product) => Promise<void>; onApprove: (product: Product) => Promise<void>; onReject: (product: Product) => Promise<void>; navigate: ReturnType<typeof useNavigate> }) {
