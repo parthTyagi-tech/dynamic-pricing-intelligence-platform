@@ -121,6 +121,7 @@ def _process_pricing_job(recommendation_id: str, product_id: str):
         rec_dict = res.get("recommendation") or {}
         snapshot = rec_dict.get("platform_prices_snapshot") or {}
         recommendation.platform_prices_snapshot = snapshot
+        db.session.commit()
         
         if job:
             MarketplaceOffer.query.filter_by(job_id=job.id).delete()

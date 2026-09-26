@@ -27,7 +27,7 @@ async def _run_pipeline_async(product):
     latest_rec = PricingRecommendation.query.filter_by(
         product_id=product.id, organization_id=product.organization_id
     ).order_by(PricingRecommendation.created_at.desc()).first()
-    if latest_rec and latest_rec.platform_prices_snapshot:
+    if latest_rec and latest_rec.platform_prices_snapshot is not None:
         snapshot = latest_rec.platform_prices_snapshot
     else:
         try:

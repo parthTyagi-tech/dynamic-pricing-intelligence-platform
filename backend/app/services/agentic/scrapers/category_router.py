@@ -25,19 +25,25 @@ from app.services.agentic.scrapers.platform_scrapers import (
 )
 
 CATEGORY_PLATFORM_MAP = {
-    ProductCategory.ELECTRONICS: ["Amazon.in", "Flipkart", "Croma"],
     "electronics": ["Amazon.in", "Flipkart", "Croma"],
-    ProductCategory.APPAREL: ["Myntra", "Ajio", "Meesho"],
-    "apparel": ["Myntra", "Ajio", "Meesho"],
-    "fashion": ["Myntra", "Ajio", "Meesho"],
-    "grocery": ["Blinkit", "BigBasket", "JioMart"],
+    ProductCategory.ELECTRONICS: ["Amazon.in", "Flipkart", "Croma"],
     "stationery": ["Scooboo", "Amazon.in"],
-    ProductCategory.HOME_GOODS: ["Pepperfry", "Urban Ladder", "Amazon.in", "Flipkart", "JioMart"],
-    "home_goods": ["Pepperfry", "Urban Ladder", "Amazon.in", "Flipkart", "JioMart"],
-    ProductCategory.BEAUTY: ["Nykaa", "Purplle", "Amazon.in", "Flipkart"],
-    "beauty": ["Nykaa", "Purplle", "Amazon.in", "Flipkart"],
-    ProductCategory.SPORTS: ["Amazon.in", "Flipkart", "Ajio"],
+    "grocery": ["Blinkit", "BigBasket", "JioMart"],
+    "fashion": ["Myntra", "Ajio", "Meesho"],
+    "apparel": ["Myntra", "Ajio", "Meesho"],
+    ProductCategory.APPAREL: ["Myntra", "Ajio", "Meesho"],
+    "beauty": ["Nykaa", "Purplle"],
+    "personal_care": ["Nykaa", "Purplle"],
+    ProductCategory.BEAUTY: ["Nykaa", "Purplle"],
+    "furniture": ["Pepperfry", "Urban Ladder"],
+    "home_goods": ["Pepperfry", "Urban Ladder"],
+    ProductCategory.HOME_GOODS: ["Pepperfry", "Urban Ladder"],
+    "pharmacy": ["1mg", "PharmEasy"],
+    "health": ["1mg", "PharmEasy"],
+    "jewelry": ["CaratLane", "Tanishq"],
     "sports": ["Amazon.in", "Flipkart", "Ajio"],
+    ProductCategory.SPORTS: ["Amazon.in", "Flipkart", "Ajio"],
+    "general": ["Scooboo", "Amazon.in", "Flipkart"],
 }
 
 # category_hint values that route to platforms with no ProductCategory of
@@ -45,6 +51,7 @@ CATEGORY_PLATFORM_MAP = {
 # were unreachable by any routing path before this file existed).
 CATEGORY_HINT_OVERRIDES = {
     "pharmacy": ["1mg", "PharmEasy"],
+    "health": ["1mg", "PharmEasy"],
     "medicine": ["1mg", "PharmEasy"],
     "otc": ["1mg", "PharmEasy"],
     "jewelry": ["CaratLane", "Tanishq"],
@@ -54,7 +61,13 @@ CATEGORY_HINT_OVERRIDES = {
     "stationery": ["Scooboo", "Amazon.in"],
     "stationery & office": ["Scooboo", "Amazon.in"],
     "fashion": ["Myntra", "Ajio", "Meesho"],
+    "apparel": ["Myntra", "Ajio", "Meesho"],
     "electronics": ["Amazon.in", "Flipkart", "Croma"],
+    "beauty": ["Nykaa", "Purplle"],
+    "personal_care": ["Nykaa", "Purplle"],
+    "furniture": ["Pepperfry", "Urban Ladder"],
+    "home_goods": ["Pepperfry", "Urban Ladder"],
+    "general": ["Scooboo", "Amazon.in", "Flipkart"],
 }
 
 DEFAULT_PLATFORMS = ["Amazon.in", "Flipkart"]

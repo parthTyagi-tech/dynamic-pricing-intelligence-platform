@@ -107,7 +107,7 @@ def update_circuit_breaker_result(platform: str, success: bool, reason: Optional
                 rel.circuit_opened_at = now
                 # Exponential backoff: double previous backoff (capped at 240 mins = 4 hours)
                 rel.backoff_minutes = min(240, (rel.backoff_minutes or 15) * 2)
-            elif rel.failure_count_last_hour >= 5:
+            elif rel.failure_count_last_hour >= 3:
                 rel.circuit_state = CircuitState.OPEN
                 rel.circuit_opened_at = now
                 rel.backoff_minutes = max(15, rel.backoff_minutes or 15)
@@ -163,7 +163,123 @@ class SupervisorAgent(BaseAgent):
             return existing
         except Exception as e:
             logger.debug(f"[SupervisorAgent] Idempotency check failed: {e}")
-            return None
+    async def run_scraping_phase(
+        self,
+        task_id: str,
+        product: Dict[str, Any],
+        organization_id: str,
+        force_refresh: bool = False,
+        simulate_failure_platform: Optional[str] = None,
+        target_platforms: Optional[List[str]] = None,
+    ) -> List[Dict[str, Any]]:
+        category = product.get("category") or "general"
+        if target_platforms:
+            platforms_to_run = list(target_platforms)
+        else:
+            from app.services.agentic.scrapers.category_router import get_scrapers_for_product
+            try:
+                scrapers = get_scrapers_for_product(product)
+                platforms_to_run = [s.platform_name for s in scrapers]
+            except Exception:
+                platforms_to_run = self.resolve_platforms(category)
+
+        # Force refresh: Reset circuit breakers in database and bypass cooldowns
+        if force_refresh:
+            for p_name in platforms_to_run:
+                try:
+                    rel = ScraperReliability.query.filter_by(platform=p_name).first()
+                    if rel:
+                        rel.circuit_state = CircuitState.CLOSED
+                        rel.failure_count_last_hour = 0
+                        rel.circuit_opened_at = None
+                        rel.last_failure_reason = None
+                        rel.backoff_minutes = 15
+                    db.session.commit()
+                except Exception as ex:
+                    logger.debug(f"[SupervisorAgent] Force refresh reset error for {p_name}: {ex}")
+
+        active_platforms = []
+        raw_results = []
+
+        for p_name in platforms_to_run:
+            if force_refresh:
+                should_attempt = True
+                remaining_cd = 0
+                c_state = CircuitState.CLOSED
+            else:
+                should_attempt, remaining_cd, c_state = self.check_circuit_breaker(p_name)
+
+            if not should_attempt:
+                self.record_decision(
+                    task_id=task_id,
+                    decision_point="Marketplace Sensor Health",
+                    rationale=f"Platform {p_name} circuit is temporarily OPEN with {remaining_cd}m backoff remaining.",
+                    action_taken=f"Bypassed {p_name} to preserve proxy pool and avoid rate limits"
+                )
+                await self.emit_event(
+                    task_id=task_id,
+                    product_id=product.get("id", ""),
+                    organization_id=organization_id,
+                    event_type="scraper_skipped_circuit_open",
+                    message=f"{p_name} skipped: Circuit breaker is OPEN. Retry after {remaining_cd}m.",
+                    payload={"platform": p_name, "circuit_state": "open", "retry_after_minutes": remaining_cd}
+                )
+                raw_results.append({
+                    "platform": p_name,
+                    "status": "unreachable",
+                    "reason": f"circuit_open_cooldown_{remaining_cd}m",
+                    "match_score": 0.0,
+                    "unverified_match": True,
+                })
+            else:
+                if c_state == CircuitState.HALF_OPEN:
+                    self.record_decision(
+                        task_id=task_id,
+                        decision_point="Marketplace Sensor Probe",
+                        rationale=f"Platform {p_name} backoff window elapsed. Testing recovery via canary probe.",
+                        action_taken=f"Allowing single probe request to test {p_name} availability"
+                    )
+                active_platforms.append(p_name)
+
+        scraper_tasks = []
+        dispatched_agents = []
+        for p_name in active_platforms:
+            try:
+                agent = get_scraper_for_platform(p_name)
+            except Exception as val_err:
+                logger.warning(f"[SupervisorAgent] Unknown or unsupported platform: {p_name} - {val_err}")
+                raw_results.append({
+                    "platform": p_name,
+                    "status": "unreachable",
+                    "reason": f"unsupported_platform: {p_name}",
+                    "match_score": 0.0,
+                    "unverified_match": True,
+                })
+                continue
+
+            sim_fail = (p_name == simulate_failure_platform)
+            dispatched_agents.append(p_name)
+            scraper_tasks.append(
+                agent.scrape(
+                    task_id=task_id,
+                    product=product,
+                    organization_id=organization_id,
+                    simulate_failure=sim_fail
+                )
+            )
+
+        if scraper_tasks:
+            scraped_outputs = await asyncio.gather(*scraper_tasks, return_exceptions=True)
+            for p_name, out in zip(dispatched_agents, scraped_outputs):
+                if isinstance(out, dict):
+                    raw_results.append(out)
+                    is_success = (out.get("status") == "success" and not out.get("unverified_match", False))
+                    self.update_circuit_breaker_result(p_name, success=is_success, reason=out.get("reason"))
+                else:
+                    logger.error(f"[SupervisorAgent] Scraper task exception for {p_name}: {out}")
+                    self.update_circuit_breaker_result(p_name, success=False, reason=str(out))
+
+        return raw_results
 
     async def execute(
         self,
@@ -255,97 +371,15 @@ class SupervisorAgent(BaseAgent):
             payload={"platforms": platforms_to_run, "category": category}
         )
 
-        # 4. Filter platforms by Circuit Breaker (Gap #7 & Problem 1)
-        active_platforms = []
-        raw_results = []
-
-        for p_name in platforms_to_run:
-            should_attempt, remaining_cd, c_state = self.check_circuit_breaker(p_name)
-            if not should_attempt:
-                self.record_decision(
-                    task_id=task_id,
-                    decision_point="Marketplace Sensor Health",
-                    rationale=f"Platform {p_name} circuit is temporarily OPEN with {remaining_cd}m backoff remaining.",
-                    action_taken=f"Bypassed {p_name} to preserve proxy pool and avoid rate limits"
-                )
-                await self.emit_event(
-                    task_id=task_id,
-                    product_id=product_id,
-                    organization_id=organization_id,
-                    event_type="scraper_skipped_circuit_open",
-                    message=f"{p_name} skipped: Circuit breaker is OPEN. Retry after {remaining_cd}m.",
-                    payload={"platform": p_name, "circuit_state": "open", "retry_after_minutes": remaining_cd}
-                )
-                raw_results.append({
-                    "platform": p_name,
-                    "status": "unreachable",
-                    "reason": f"circuit_open_cooldown_{remaining_cd}m",
-                    "match_score": 0.0,
-                    "unverified_match": True,
-                })
-            else:
-                if c_state == CircuitState.HALF_OPEN:
-                    self.record_decision(
-                        task_id=task_id,
-                        decision_point="Marketplace Sensor Probe",
-                        rationale=f"Platform {p_name} backoff window elapsed. Testing recovery via canary probe.",
-                        action_taken=f"Allowing single probe request to test {p_name} availability"
-                    )
-                active_platforms.append(p_name)
-
-        # 5. Dispatch Scraper Agents in Parallel
-        scraper_tasks = []
-        dispatched_agents = []
-        for p_name in active_platforms:
-            try:
-                agent = get_scraper_for_platform(p_name)
-            except Exception as val_err:
-                logger.warning(f"[SupervisorAgent] Unknown or unsupported platform: {p_name} - {val_err}")
-                self.record_decision(
-                    task_id=task_id,
-                    decision_point="Platform Resolution",
-                    rationale=f"Platform '{p_name}' has no registered scraper: {val_err}",
-                    action_taken="Marked as unsupported platform without silent fallback"
-                )
-                await self.emit_event(
-                    task_id=task_id,
-                    product_id=product_id,
-                    organization_id=organization_id,
-                    event_type="platform_not_found",
-                    message=f"Platform '{p_name}' is unsupported by scraper registry.",
-                    payload={"platform": p_name, "error": str(val_err)}
-                )
-                raw_results.append({
-                    "platform": p_name,
-                    "status": "unreachable",
-                    "reason": f"unsupported_platform: {p_name}",
-                    "match_score": 0.0,
-                    "unverified_match": True,
-                })
-                continue
-
-            sim_fail = (p_name == simulate_failure_platform)
-            dispatched_agents.append(p_name)
-            scraper_tasks.append(
-                agent.scrape(
-                    task_id=task_id,
-                    product=product_dict,
-                    organization_id=organization_id,
-                    simulate_failure=sim_fail
-                )
-            )
-
-        if scraper_tasks:
-            scraped_outputs = await asyncio.gather(*scraper_tasks, return_exceptions=True)
-            for p_name, out in zip(dispatched_agents, scraped_outputs):
-                if isinstance(out, dict):
-                    raw_results.append(out)
-                    is_success = (out.get("status") == "success" and not out.get("unverified_match", False))
-                    self.update_circuit_breaker_result(p_name, success=is_success, reason=out.get("reason"))
-                else:
-                    logger.error(f"[SupervisorAgent] Scraper task exception for {p_name}: {out}")
-                    self.update_circuit_breaker_result(p_name, success=False, reason=str(out))
-
+        # 4 & 5. Scraping Phase
+        raw_results = await self.run_scraping_phase(
+            task_id=task_id,
+            product=product_dict,
+            organization_id=organization_id,
+            force_refresh=force_refresh,
+            simulate_failure_platform=simulate_failure_platform,
+            target_platforms=platforms_to_run,
+        )
 
         # 6. Aggregation Step
         aggregated_data = await self.aggregator.aggregate(
