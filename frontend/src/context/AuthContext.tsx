@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { getProfile, loginRequest, signupRequest } from "../services/api";
+import { getProfile, loginRequest, signupRequest, googleLoginRequest } from "../services/api";
 import type { User } from "../types/domain";
 
 interface AuthContextValue {
@@ -8,6 +8,7 @@ interface AuthContextValue {
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<User>;
   signup: (payload: { name: string; email: string; password: string; organization: string }) => Promise<User>;
+  loginWithGoogle: (payload: { credential?: string; token?: string; code?: string; redirect_uri?: string }) => Promise<User>;
   logout: () => void;
 }
 
@@ -50,8 +51,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return result.user;
   }, []);
 
+  const loginWithGoogle = useCallback(async (payload: { credential?: string; token?: string; code?: string; redirect_uri?: string }) => {
+    const result = await googleLoginRequest(payload);
+    if (!result.token) throw new Error("The server did not return a sign-in token.");
+    localStorage.setItem("klypup_token", result.token);
+    setUser(result.user);
+    return result.user;
+  }, []);
+
   const logout = useCallback(() => { localStorage.removeItem("klypup_token"); setUser(null); }, []);
-  const value = useMemo(() => ({ user, loading, isAuthenticated: Boolean(user), login, signup, logout }), [user, loading, login, signup, logout]);
+  const value = useMemo(() => ({ user, loading, isAuthenticated: Boolean(user), login, signup, loginWithGoogle, logout }), [user, loading, login, signup, loginWithGoogle, logout]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

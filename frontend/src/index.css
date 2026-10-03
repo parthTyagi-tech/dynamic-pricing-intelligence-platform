@@ -544,6 +544,208 @@ body {
   text-align: center;
 }
 
+/* ==========================================================================
+   FORM OPTIONS, FORGOT PASSWORD & RESET DRAWER POLISH
+   ========================================================================== */
+.form-options {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 4px 0 8px;
+}
+.remember {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary, #94a3b8);
+  font-size: 13px !important;
+  cursor: pointer;
+  user-select: none;
+}
+.remember input {
+  accent-color: #6366f1;
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+}
+.forgot-password-btn,
+.form-options .text-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #4f46e5 !important;
+  font-size: 13.5px !important;
+  font-weight: 600 !important;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.15s ease-in-out;
+}
+.forgot-password-btn:hover,
+.form-options .text-button:hover {
+  color: #1e1b4b !important; /* Deep rich indigo on light mode - clearly visible, never disappears */
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.theme-dark .forgot-password-btn,
+.theme-dark .form-options .text-button {
+  color: #a5b4fc !important;
+}
+.theme-dark .forgot-password-btn:hover,
+.theme-dark .form-options .text-button:hover {
+  color: #ffffff !important; /* Crisp white on dark background */
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* Account Recovery Reset Drawer */
+.reset-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(440px, 100%);
+  padding: 36px 32px;
+  background: #12141f !important;
+  color: #f8fafc !important;
+  border-left: 1px solid rgba(148, 163, 184, 0.18);
+  box-shadow: -20px 0 60px rgba(0, 0, 0, 0.65);
+  z-index: 60;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+.reset-drawer .drawer-close {
+  float: right;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff !important;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+}
+.reset-drawer .drawer-close:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff !important;
+  transform: translateY(-1px);
+}
+
+.reset-drawer .eyebrow {
+  color: #a5b4fc !important;
+  font: 600 11px/1.2 "DM Mono", monospace;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  margin: 0 0 6px;
+  display: block;
+}
+
+.reset-drawer h2 {
+  margin: 14px 0 10px !important;
+  color: #ffffff !important; /* Pure white heading as requested */
+  font: 700 28px/1.2 "Plus Jakarta Sans", sans-serif !important;
+  letter-spacing: -0.04em;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+
+.reset-drawer p,
+.reset-drawer > p:not(.eyebrow) {
+  margin: 0 0 28px !important;
+  color: #cbd5e1 !important; /* High contrast light slate text */
+  font-size: 13.5px !important;
+  line-height: 1.6 !important;
+}
+
+.reset-drawer form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.reset-drawer .field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.reset-drawer .field > span {
+  color: #e2e8f0 !important;
+  font: 600 10.5px "DM Mono", monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.reset-drawer .field-input {
+  min-height: 44px;
+  padding: 0 13px;
+  border: 1px solid rgba(148, 163, 184, 0.28) !important;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.06) !important;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.reset-drawer .field-input:focus-within {
+  border-color: #818cf8 !important;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25) !important;
+  background: rgba(255, 255, 255, 0.09) !important;
+}
+
+.reset-drawer .field-input svg {
+  color: #94a3b8 !important;
+  flex-shrink: 0;
+}
+
+.reset-drawer .field-input input {
+  color: #ffffff !important;
+  font-size: 13.5px !important;
+  background: transparent !important;
+  border: 0 !important;
+  outline: 0 !important;
+  width: 100%;
+}
+
+.reset-drawer .field-input input::placeholder {
+  color: #64748b !important;
+}
+
+.reset-drawer .button,
+.reset-drawer button[type="submit"] {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 10px;
+  border-radius: 9px;
+  background: #6366f1 !important;
+  color: #ffffff !important;
+  font-size: 13.5px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.01em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.reset-drawer .button:hover:not(:disabled),
+.reset-drawer button[type="submit"]:hover:not(:disabled) {
+  background: #4f46e5 !important;
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.5);
+  transform: translateY(-1px);
+}
+
 /* Scraper Hub & Terminal Components */
 .scraper-summary-grid {
   display: grid;

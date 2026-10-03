@@ -12,38 +12,77 @@ DEFAULT_SENDER = {"name": "Klypup Pricing Intelligence", "email": "notifications
 
 
 def _archive_email(subject: str, html_content: str) -> None:
-    if os.environ.get("EMAIL_LOCAL_ARCHIVE", "0").lower() not in {"1", "true", "yes"}:
-        return
-    EMAILS_DIR.mkdir(parents=True, exist_ok=True)
-    safe = "".join(c for c in subject if c.isalnum() or c in (" ", "-", "_"))[:100].rstrip()
-    path = EMAILS_DIR / f"{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{safe}.html"
-    path.write_text(html_content, encoding="utf-8")
+    try:
+        EMAILS_DIR.mkdir(parents=True, exist_ok=True)
+        safe = "".join(c for c in subject if c.isalnum() or c in (" ", "-", "_"))[:100].rstrip()
+        path = EMAILS_DIR / f"{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{safe}.html"
+        path.write_text(html_content, encoding="utf-8")
+    except Exception as exc:
+        print(f"[Email Service] Archive error: {exc}")
+
+
+def _send_via_smtp(to_email: str, subject: str, html_content: str) -> dict[str, Any] | None:
+    smtp_host = os.environ.get("SMTP_HOST", "").strip()
+    smtp_user = os.environ.get("SMTP_USER", "").strip()
+    smtp_pass = os.environ.get("SMTP_PASS", "").strip()
+    if not (smtp_host and smtp_user and smtp_pass):
+        return None
+
+    smtp_port = int(os.environ.get("SMTP_PORT", 587))
+    sender = os.environ.get("SMTP_SENDER", smtp_user)
+
+    from email.mime.multipart import MIMEMultipart
+    from email.mime.text import MIMEText
+    import smtplib
+
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"] = f"{os.environ.get('BREVO_SENDER_NAME', DEFAULT_SENDER['name'])} <{sender}>"
+    msg["To"] = to_email
+    msg.attach(MIMEText(html_content, "html"))
+
+    try:
+        server = smtplib.SMTP(smtp_host, smtp_port, timeout=12)
+        server.starttls()
+        server.login(smtp_user, smtp_pass)
+        server.sendmail(sender, [to_email], msg.as_string())
+        server.quit()
+        return {"sent": True, "status": "sent", "provider": "smtp", "host": smtp_host}
+    except Exception as exc:
+        print(f"[Email Service] SMTP dispatch error: {exc}")
+        return {"sent": False, "status": "failed", "provider": "smtp", "error": str(exc)}
 
 
 def _send_or_archive_email(to_email: str, subject: str, html_content: str) -> dict[str, Any]:
-    """Send through Brevo when configured; otherwise preserve a deterministic local fallback."""
+    """Send through SMTP (Gmail) or Brevo when configured; otherwise preserve a deterministic local fallback."""
     _archive_email(subject, html_content)
-    api_key = os.environ.get("BREVO_API_KEY", "").strip()
-    if not api_key:
-        return {"sent": False, "status": "mocked", "provider": "local_archive"}
 
-    sender = {
-        "name": os.environ.get("BREVO_SENDER_NAME", DEFAULT_SENDER["name"]),
-        "email": os.environ.get("BREVO_SENDER_EMAIL", DEFAULT_SENDER["email"]),
-    }
-    try:
-        response = requests.post(
-            BREVO_ENDPOINT,
-            headers={"accept": "application/json", "api-key": api_key, "content-type": "application/json"},
-            json={"sender": sender, "to": [{"email": to_email}], "subject": subject, "htmlContent": html_content},
-            timeout=15,
-        )
-        body = response.json() if response.content else {}
-        if response.status_code == 201:
-            return {"sent": True, "status": "sent", "provider": "brevo", "provider_message_id": body.get("messageId"), "http_status": 201}
-        return {"sent": False, "status": "failed", "provider": "brevo", "http_status": response.status_code, "error": body.get("message", response.text[:300])}
-    except requests.RequestException as exc:
-        return {"sent": False, "status": "failed", "provider": "brevo", "error": str(exc)}
+    # 1. Try configured SMTP (e.g. Gmail App Password in .env)
+    smtp_res = _send_via_smtp(to_email, subject, html_content)
+    if smtp_res and smtp_res.get("sent"):
+        return smtp_res
+
+    # 2. Try Brevo API if key is present
+    api_key = os.environ.get("BREVO_API_KEY", "").strip()
+    if api_key:
+        sender = {
+            "name": os.environ.get("BREVO_SENDER_NAME", DEFAULT_SENDER["name"]),
+            "email": os.environ.get("BREVO_SENDER_EMAIL", DEFAULT_SENDER["email"]),
+        }
+        try:
+            response = requests.post(
+                BREVO_ENDPOINT,
+                headers={"accept": "application/json", "api-key": api_key, "content-type": "application/json"},
+                json={"sender": sender, "to": [{"email": to_email}], "subject": subject, "htmlContent": html_content},
+                timeout=15,
+            )
+            body = response.json() if response.content else {}
+            if response.status_code == 201:
+                return {"sent": True, "status": "sent", "provider": "brevo", "provider_message_id": body.get("messageId"), "http_status": 201}
+        except requests.RequestException as exc:
+            print(f"[Email Service] Brevo dispatch error: {exc}")
+
+    return smtp_res or {"sent": False, "status": "archived", "provider": "local_archive"}
 
 
 def _base_template(title: str, body: str) -> str:
@@ -58,6 +97,21 @@ def send_login_email(user_email: str, user_name: str, ip_address: str = "unknown
 
 def send_registration_email(user_email: str, user_name: str) -> dict[str, Any]:
     return send_login_email(user_email, user_name, event="REGISTRATION")
+
+
+def send_password_reset_email(user_email: str, user_name: str, reset_url: str) -> dict[str, Any]:
+    body = f"""
+    <p>Hello <strong>{html.escape(user_name)}</strong>,</p>
+    <p>We received a request to reset your password for your Klypup Pricing Intelligence account.</p>
+    <div style='margin:28px 0;text-align:center;'>
+        <a href='{reset_url}' target='_blank' rel='noopener noreferrer' style='background:#6366f1;color:#ffffff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:700;display:inline-block;font-size:14px;letter-spacing:0.02em;'>
+            Reset Your Password &rarr;
+        </a>
+    </div>
+    <p style='color:#7d8997;font-size:13px;line-height:1.6;'>This secure link is valid for <strong>60 minutes</strong>. If you did not request a password reset, you can safely ignore this email — your account remains fully protected.</p>
+    <p style='color:#7d8997;font-size:11px;margin-top:24px;word-break:break-all;'>If the button doesn't work, copy and paste this URL into your browser:<br /><a href='{reset_url}' style='color:#a78bfa;'>{reset_url}</a></p>
+    """
+    return _send_or_archive_email(user_email, "Klypup: Password Reset Request", _base_template("Reset Your Password", body))
 
 
 def send_recommendation_action_email(user_email: str, action_type: str, product_details: dict, recommendation_details: dict, competitor_prices: list, action_id: str | None = None, user_role: str = "unknown") -> dict[str, Any]:
