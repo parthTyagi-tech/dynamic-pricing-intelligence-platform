@@ -47,34 +47,10 @@ def check_circuit_breaker(platform: str) -> tuple[bool, int, str]:
     Problem 1: Circuit breaker gate with exponential backoff and half-open probing.
     Returns: (should_attempt, remaining_cooldown_minutes, circuit_state)
     """
-    try:
-        rel = ScraperReliability.query.filter_by(platform=platform).first()
-        if not rel:
-            return True, 0, CircuitState.CLOSED
-        if rel.circuit_state == CircuitState.CLOSED:
-            return True, 0, CircuitState.CLOSED
-        if rel.circuit_state == CircuitState.HALF_OPEN:
-            return True, 0, CircuitState.HALF_OPEN
-
-        if rel.circuit_state == CircuitState.OPEN:
-            cooldown_mins = rel.backoff_minutes or 15
-            opened_at = rel.circuit_opened_at or rel.last_failure_at or rel.updated_at
-            if opened_at:
-                if opened_at.tzinfo is None:
-                    opened_at = opened_at.replace(tzinfo=timezone.utc)
-                elapsed = (datetime.now(timezone.utc) - opened_at).total_seconds() / 60.0
-                if elapsed < cooldown_mins:
-                    remaining = max(1, int(cooldown_mins - elapsed))
-                    return False, remaining, CircuitState.OPEN
-                else:
-                    # Cooldown elapsed -> permit exactly one probe attempt in HALF_OPEN state
-                    rel.circuit_state = CircuitState.HALF_OPEN
-                    db.session.commit()
-                    return True, 0, CircuitState.HALF_OPEN
-            return False, cooldown_mins, CircuitState.OPEN
-    except Exception as e:
-        logger.warning(f"[SupervisorAgent] Circuit breaker check error: {e}")
-    return True, 0, CircuitState.CLOSED
+    from app.services.agentic.circuit_breaker import circuit_breaker
+    allowed, state, retry_after = circuit_breaker.allow(platform)
+    remaining_cd = max(1, (retry_after + 59) // 60) if retry_after > 0 else 0
+    return allowed, remaining_cd, state
 
 
 def update_circuit_breaker_result(platform: str, success: bool, reason: Optional[str] = None):
@@ -83,37 +59,22 @@ def update_circuit_breaker_result(platform: str, success: bool, reason: Optional
     Success -> reset to CLOSED, reset failure count, reset backoff to 15m.
     Failure -> increment failure count; if HALF_OPEN or threshold exceeded -> OPEN with exponential backoff.
     """
-    try:
-        rel = ScraperReliability.query.filter_by(platform=platform).first()
-        if not rel:
-            rel = ScraperReliability(platform=platform)
-            db.session.add(rel)
-
-        now = datetime.now(timezone.utc)
-        if success:
-            rel.circuit_state = CircuitState.CLOSED
-            rel.failure_count_last_hour = 0
-            rel.backoff_minutes = 15
-            rel.last_successful_scrape_at = now
-            db.session.commit()
+    from app.services.agentic.circuit_breaker import circuit_breaker, FailureKind
+    if success:
+        circuit_breaker.record_success(platform)
+    else:
+        r_lower = str(reason or "").lower()
+        if "timeout" in r_lower:
+            kind = FailureKind.TIMEOUT
+        elif any(w in r_lower for w in ["blocked", "403", "429", "bot", "captcha", "challenge"]):
+            kind = FailureKind.BLOCKED
+        elif "validation" in r_lower or "parse" in r_lower:
+            kind = FailureKind.PARSE_ERROR
+        elif "no_match" in r_lower:
+            kind = FailureKind.NO_MATCH
         else:
-            rel.failure_count_last_hour = (rel.failure_count_last_hour or 0) + 1
-            rel.last_failure_at = now
-            rel.last_failure_reason = str(reason or "Scrape failed")[:255]
-
-            # Trip to OPEN if probe failed or already open or failure threshold exceeded (>= 5)
-            if rel.circuit_state in (CircuitState.HALF_OPEN, CircuitState.OPEN):
-                rel.circuit_state = CircuitState.OPEN
-                rel.circuit_opened_at = now
-                # Exponential backoff: double previous backoff (capped at 240 mins = 4 hours)
-                rel.backoff_minutes = min(240, (rel.backoff_minutes or 15) * 2)
-            elif rel.failure_count_last_hour >= 3:
-                rel.circuit_state = CircuitState.OPEN
-                rel.circuit_opened_at = now
-                rel.backoff_minutes = max(15, rel.backoff_minutes or 15)
-            db.session.commit()
-    except Exception as e:
-        logger.warning(f"[SupervisorAgent] Circuit breaker update error: {e}")
+            kind = FailureKind.BLOCKED
+        circuit_breaker.record_failure(platform, kind=kind, reason=reason or "Scrape failed")
 
 
 class SupervisorAgent(BaseAgent):
@@ -273,8 +234,6 @@ class SupervisorAgent(BaseAgent):
             for p_name, out in zip(dispatched_agents, scraped_outputs):
                 if isinstance(out, dict):
                     raw_results.append(out)
-                    is_success = (out.get("status") == "success" and not out.get("unverified_match", False))
-                    self.update_circuit_breaker_result(p_name, success=is_success, reason=out.get("reason"))
                 else:
                     logger.error(f"[SupervisorAgent] Scraper task exception for {p_name}: {out}")
                     self.update_circuit_breaker_result(p_name, success=False, reason=str(out))

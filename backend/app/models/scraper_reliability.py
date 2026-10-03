@@ -20,6 +20,8 @@ class ScraperReliability(db.Model):
 
     platform = db.Column(db.String(64), primary_key=True)
     failure_count_last_hour = db.Column(db.Integer, nullable=False, default=0)
+    failure_window_started_at = db.Column(db.DateTime, nullable=True)
+    probe_lease_until = db.Column(db.DateTime, nullable=True)
     last_failure_at = db.Column(db.DateTime, nullable=True)
     last_failure_reason = db.Column(db.String(255), nullable=True)
     circuit_state = db.Column(db.String(16), nullable=False, default=CircuitState.CLOSED)
@@ -44,6 +46,8 @@ class ScraperReliability(db.Model):
         return {
             "platform": self.platform,
             "failure_count_last_hour": self.failure_count_last_hour,
+            "failure_window_started_at": self.failure_window_started_at.isoformat() if self.failure_window_started_at else None,
+            "probe_lease_until": self.probe_lease_until.isoformat() if self.probe_lease_until else None,
             "last_failure_at": self.last_failure_at.isoformat() if self.last_failure_at else None,
             "last_failure_reason": self.last_failure_reason,
             "circuit_state": self.circuit_state,

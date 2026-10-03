@@ -37,10 +37,9 @@ def test_circuit_breaker_exponential_backoff_and_half_open():
         rel.circuit_opened_at = None
         db.session.commit()
 
-        # 1. Simulate 3 consecutive failures to trigger open circuit
-        update_circuit_breaker_result(platform, success=False)
-        update_circuit_breaker_result(platform, success=False)
-        update_circuit_breaker_result(platform, success=False)
+        # 1. Simulate 5 consecutive failures to trigger open circuit
+        for _ in range(5):
+            update_circuit_breaker_result(platform, success=False)
 
         rel = ScraperReliability.query.filter_by(platform=platform).first()
         assert rel.circuit_state == "open", f"Expected open, got {rel.circuit_state}"

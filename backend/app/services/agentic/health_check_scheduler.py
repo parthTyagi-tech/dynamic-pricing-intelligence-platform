@@ -62,29 +62,18 @@ async def run_single_canary_check(platform_name: str, organization_id: str = "sy
         )
 
         now = datetime.now(timezone.utc)
-        rel = ScraperReliability.query.filter_by(platform=platform_name).first()
-        if not rel:
-            rel = ScraperReliability(platform=platform_name)
-            db.session.add(rel)
-
         if is_success:
             status_str = "success"
-            rel.circuit_state = CircuitState.CLOSED
-            rel.failure_count_last_hour = 0
-            rel.backoff_minutes = 15
-            rel.last_successful_scrape_at = now
+            from app.services.agentic.circuit_breaker import circuit_breaker
+            circuit_breaker.record_success(platform_name)
         else:
             status_str = "failed"
-            rel.failure_count_last_hour = (rel.failure_count_last_hour or 0) + 1
-            rel.last_failure_at = now
-            if rel.circuit_state in (CircuitState.HALF_OPEN, CircuitState.OPEN):
-                rel.circuit_state = CircuitState.OPEN
-                rel.circuit_opened_at = now
-                rel.backoff_minutes = min(240, (rel.backoff_minutes or 15) * 2)
-            elif rel.failure_count_last_hour >= 3:
-                rel.circuit_state = CircuitState.OPEN
-                rel.circuit_opened_at = now
-                rel.backoff_minutes = max(15, rel.backoff_minutes or 15)
+            from app.services.agentic.circuit_breaker import circuit_breaker, FailureKind
+            r_lower = str(result.get("reason") or "").lower()
+            kind = FailureKind.TIMEOUT if "timeout" in r_lower else FailureKind.BLOCKED
+            circuit_breaker.record_failure(platform_name, kind=kind, reason=str(result.get("reason") or "Canary scrape failed"))
+
+        rel = ScraperReliability.query.filter_by(platform=platform_name).first()
 
         # Record health check log
         log_entry = ScraperHealthCheckLog(
@@ -108,7 +97,7 @@ async def run_single_canary_check(platform_name: str, organization_id: str = "sy
             "platform": platform_name,
             "status": status_str,
             "latency_ms": latency_ms,
-            "circuit_state": rel.circuit_state,
+            "circuit_state": rel.circuit_state if rel else "closed",
             "checked_at": now.isoformat(),
         }
 
@@ -117,22 +106,10 @@ async def run_single_canary_check(platform_name: str, organization_id: str = "sy
         now = datetime.now(timezone.utc)
         logger.error(f"[CanaryHealthCheck] Error checking {platform_name}: {e}")
 
+        from app.services.agentic.circuit_breaker import circuit_breaker, FailureKind
+        kind = FailureKind.TIMEOUT if "timeout" in str(e).lower() else FailureKind.BLOCKED
+        circuit_breaker.record_failure(platform_name, kind=kind, reason=str(e))
         rel = ScraperReliability.query.filter_by(platform=platform_name).first()
-        if not rel:
-            rel = ScraperReliability(platform=platform_name)
-            db.session.add(rel)
-
-        rel.failure_count_last_hour = (rel.failure_count_last_hour or 0) + 1
-        rel.last_failure_at = now
-        rel.last_failure_reason = str(e)[:255]
-        if rel.circuit_state in (CircuitState.HALF_OPEN, CircuitState.OPEN):
-            rel.circuit_state = CircuitState.OPEN
-            rel.circuit_opened_at = now
-            rel.backoff_minutes = min(240, (rel.backoff_minutes or 15) * 2)
-        elif rel.failure_count_last_hour >= 3:
-            rel.circuit_state = CircuitState.OPEN
-            rel.circuit_opened_at = now
-            rel.backoff_minutes = max(15, rel.backoff_minutes or 15)
 
         log_entry = ScraperHealthCheckLog(
             id=str(uuid.uuid4()),

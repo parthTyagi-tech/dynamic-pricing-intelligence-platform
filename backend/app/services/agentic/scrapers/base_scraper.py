@@ -282,70 +282,34 @@ class BaseScraperAgent(BaseAgent):
     # ------------------------------------------------------------------
 
     def _get_reliability_record(self):
-        from app.extensions import db
-        from app.models.scraper_reliability import ScraperReliability
-
-        rel = ScraperReliability.query.get(self.platform_name)
-        if rel is None:
-            rel = ScraperReliability(platform=self.platform_name)
-            db.session.add(rel)
-            db.session.commit()
-        return rel
+        from app.services.agentic.circuit_breaker import circuit_breaker
+        return circuit_breaker._get_or_create(self.platform_name)
 
     def _circuit_allows_request(self) -> Tuple[bool, str]:
         """Returns (allowed, state_label)."""
-        from app.extensions import db
-        from app.models.scraper_reliability import CircuitState
-
-        rel = self._get_reliability_record()
-        now = datetime.now(timezone.utc)
-
-        if rel.circuit_state == CircuitState.OPEN:
-            opened_at = rel.circuit_opened_at or now
-            if opened_at.tzinfo is None:
-                opened_at = opened_at.replace(tzinfo=timezone.utc)
-            elapsed_minutes = (now - opened_at).total_seconds() / 60.0
-            backoff = rel.backoff_minutes or DEFAULT_BACKOFF_MINUTES
-            if elapsed_minutes >= backoff:
-                rel.circuit_state = CircuitState.HALF_OPEN
-                db.session.commit()
-                return True, "half_open_probe"
-            return False, "circuit_open"
-
-        return True, rel.circuit_state
+        from app.services.agentic.circuit_breaker import circuit_breaker
+        allowed, state, _ = circuit_breaker.allow(self.platform_name)
+        return allowed, state
 
     def _record_scrape_success(self) -> None:
-        from app.extensions import db
-        from app.models.scraper_reliability import CircuitState
+        from app.services.agentic.circuit_breaker import circuit_breaker
+        circuit_breaker.record_success(self.platform_name)
 
-        rel = self._get_reliability_record()
-        rel.failure_count_last_hour = 0
-        rel.circuit_state = CircuitState.CLOSED
-        rel.circuit_opened_at = None
-        rel.backoff_minutes = DEFAULT_BACKOFF_MINUTES
-        rel.last_successful_scrape_at = datetime.now(timezone.utc)
-        db.session.commit()
-
-    def _record_scrape_failure(self, reason: str) -> None:
-        from app.extensions import db
-        from app.models.scraper_reliability import CircuitState
-
-        rel = self._get_reliability_record()
-        rel.failure_count_last_hour = (rel.failure_count_last_hour or 0) + 1
-        rel.last_failure_at = datetime.now(timezone.utc)
-        rel.last_failure_reason = str(reason)[:255]
-
-        if rel.circuit_state == CircuitState.HALF_OPEN:
-            # The recovery probe itself failed — re-open with extended
-            # backoff (capped) instead of hammering a still-blocking site.
-            rel.circuit_state = CircuitState.OPEN
-            rel.circuit_opened_at = datetime.now(timezone.utc)
-            rel.backoff_minutes = min((rel.backoff_minutes or DEFAULT_BACKOFF_MINUTES) * 2, MAX_BACKOFF_MINUTES)
-        elif rel.failure_count_last_hour >= CIRCUIT_FAILURE_THRESHOLD:
-            rel.circuit_state = CircuitState.OPEN
-            rel.circuit_opened_at = datetime.now(timezone.utc)
-
-        db.session.commit()
+    def _record_scrape_failure(self, reason: str, kind: Optional[Any] = None) -> None:
+        from app.services.agentic.circuit_breaker import circuit_breaker, FailureKind
+        if kind is None:
+            r_lower = str(reason).lower()
+            if "timeout" in r_lower:
+                kind = FailureKind.TIMEOUT
+            elif any(w in r_lower for w in ["blocked", "403", "429", "bot", "captcha", "challenge"]):
+                kind = FailureKind.BLOCKED
+            elif "validation" in r_lower or "parse" in r_lower:
+                kind = FailureKind.PARSE_ERROR
+            elif "no_match" in r_lower:
+                kind = FailureKind.NO_MATCH
+            else:
+                kind = FailureKind.BLOCKED
+        circuit_breaker.record_failure(self.platform_name, kind=kind, reason=reason)
 
     # ------------------------------------------------------------------
     # Mock shortcut (used strictly when MOCK_SCRAPING=true in tests)
@@ -798,6 +762,7 @@ class BaseScraperAgent(BaseAgent):
                 "platform": self.platform_name, "status": "circuit_open",
                 "reason": "circuit_open", "match_score": 0.0,
                 "unverified_match": True, "data_source": "estimated_fallback",
+                "failure_kind": "circuit_open",
                 "latency_ms": 1.0,
             }
 
@@ -837,7 +802,10 @@ class BaseScraperAgent(BaseAgent):
                 _relaxed_query, _target_domain, product_name, brand)),
         ]
 
+        from app.services.agentic.circuit_breaker import FailureKind
         last_reason = "no_tier_produced_a_verified_match"
+        last_kind = FailureKind.NO_MATCH
+
         for tier_name, tier_fn in tiers:
             self.record_decision(
                 task_id=task_id, decision_point=f"Tier: {tier_name}",
@@ -848,15 +816,26 @@ class BaseScraperAgent(BaseAgent):
                 raw_result = await tier_fn()
             except (PlatformRateLimitError, BotDetectionEncountered) as bde:
                 last_reason = str(bde)
+                last_kind = FailureKind.BLOCKED
                 logger.warning(f"[{self.platform_name}] tier {tier_name} hit bot defense: {bde}")
                 continue  # NEVER break early; cascade to next tier / search index fallback
+            except asyncio.TimeoutError as te:
+                last_reason = f"{tier_name}_timeout: {te}"
+                last_kind = FailureKind.TIMEOUT
+                logger.warning(f"[{self.platform_name}] tier {tier_name} timed out: {te}")
+                continue
             except Exception as ex:
+                if "timeout" in str(ex).lower():
+                    last_kind = FailureKind.TIMEOUT
+                else:
+                    last_kind = FailureKind.PARSE_ERROR
                 logger.warning(f"[{self.platform_name}] tier {tier_name} error: {ex}")
                 last_reason = f"{tier_name}_exception: {ex}"
                 continue
 
             if raw_result is None:
                 last_reason = f"{tier_name}_no_match"
+                last_kind = FailureKind.NO_MATCH
                 continue
 
             try:
@@ -864,6 +843,7 @@ class BaseScraperAgent(BaseAgent):
             except ValidationError as ve:
                 logger.warning(f"[{self.platform_name}] tier {tier_name} produced invalid offer: {ve}")
                 last_reason = f"{tier_name}_validation_failed: {ve}"
+                last_kind = FailureKind.PARSE_ERROR
                 continue
 
             result = validated.model_dump(mode="json")
@@ -885,6 +865,7 @@ class BaseScraperAgent(BaseAgent):
                     result["status"] = "unverified"
                     result["match_score"] = min(float(result.get("match_score", 0.5)), 0.40)
                     last_reason = f"price_out_of_bounds_ratio_{ratio:.2f}"
+                    last_kind = FailureKind.NO_MATCH
                     continue
 
             self._record_scrape_success()
@@ -899,17 +880,19 @@ class BaseScraperAgent(BaseAgent):
             return result
 
         # All tiers exhausted or blocked
-        self._record_scrape_failure(last_reason)
+        self._record_scrape_failure(last_reason, kind=last_kind)
         latency_ms = round((time.perf_counter() - start_time) * 1000, 1)
+        failure_kind_val = getattr(last_kind, "value", str(last_kind))
         await self.emit_event(
             task_id=task_id, product_id=product_id, organization_id=organization_id,
             event_type="scraper_failed",
             message=f"{self.platform_name} failed across all tiers: {last_reason}",
-            payload={"platform": self.platform_name, "error": last_reason},
+            payload={"platform": self.platform_name, "error": last_reason, "failure_kind": failure_kind_val},
         )
         return {
             "platform": self.platform_name, "status": "unreachable",
             "reason": last_reason, "match_score": 0.0,
             "unverified_match": True, "data_source": "estimated_fallback",
+            "failure_kind": failure_kind_val,
             "latency_ms": latency_ms,
         }
