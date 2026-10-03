@@ -135,26 +135,80 @@ class PricingReasoningAgent(BaseAgent):
         )
 
         # -------------------------------------------------------------
+        # Optional TURN 2.5: Bounded LLM Strategy Proposer ("LLM proposes, code disposes")
+        # -------------------------------------------------------------
+        from app.config import settings
+        from app.services.agentic.strategy_proposer import propose, verify_proposal
+
+        evidence = {}
+        evidence_platforms = []
+        for p_name, p_data in platforms.items():
+            if isinstance(p_data, dict) and p_data.get("verified") and not p_data.get("unverified_match"):
+                p_val = float(p_data.get("price", 0.0) or 0.0)
+                if p_val > 0:
+                    evidence[p_name] = p_val
+                    evidence_platforms.append({
+                        "platform": p_name,
+                        "price": p_val,
+                        "match_score": float(p_data.get("match_score", 1.0)),
+                        "in_stock": p_data.get("stock_status") != "out_of_stock"
+                    })
+
+        llm_used = False
+        proposer_errors = []
+        proposal_rationale = None
+
+        if getattr(settings, "AGENTIC_LLM_PROPOSER", False) and verified_count >= 1:
+            proposal = await propose(
+                cost=cost_price,
+                floor=margin_floor,
+                current_price=current_price,
+                inventory_quantity=inventory_qty,
+                evidence_platforms=evidence_platforms
+            )
+            proposer_errors = verify_proposal(proposal, evidence, margin_floor, current_price) if proposal else ["no_proposal"]
+            if not proposer_errors:
+                candidate = proposal.proposed_price
+                llm_used = True
+                proposal_rationale = proposal.rationale
+            else:
+                candidate = agent_b_target
+                llm_used = False
+        else:
+            candidate = agent_b_target
+
+        task_mgr.add_decision_trace(
+            task_id=task_id,
+            agent="StrategyProposer",
+            decision_point="Bounded LLM Proposal Verification",
+            rationale=f"LLM proposer used: {'yes' if llm_used else 'no'}, validation errors: {proposer_errors}",
+            action_taken=f"Target candidate evaluated: ₹{candidate:,.2f}"
+        )
+
+        # -------------------------------------------------------------
         # TURN 3: Debate Exchange & Consensus Synthesis
         # Reconciles Agent A & Agent B arguments into a binding decision
         # -------------------------------------------------------------
         margin_floor_applied = False
-        if agent_b_target < margin_floor:
+        if candidate < margin_floor:
             # Agent A asserts hard veto to protect profitability
             agreed_price = margin_floor
             margin_floor_applied = True
             consensus_detail = (
-                f"Agent A intervened: Agent B's market target of ₹{agent_b_target:,.2f} falls below mandatory margin floor ₹{margin_floor:,.2f}. "
+                f"Agent A intervened: Proposed target of ₹{candidate:,.2f} falls below mandatory margin floor ₹{margin_floor:,.2f}. "
                 f"Clamped consensus price to margin floor of ₹{margin_floor:,.2f} to guarantee unit profitability."
             )
             action_summary = f"Hard-clamped consensus price to margin floor ₹{margin_floor:,.2f}"
         else:
-            agreed_price = agent_b_target
+            agreed_price = candidate
             consensus_detail = (
-                f"Consensus reached: Agent A verified that Agent B's market target of ₹{agent_b_target:,.2f} safely preserves the required "
+                f"Consensus reached: Agent A verified that target of ₹{candidate:,.2f} safely preserves the required "
                 f"{min_margin_pct:.1f}% margin floor (₹{margin_floor:,.2f}). Both agents agree to execute ₹{agreed_price:,.2f}."
             )
             action_summary = f"Adopted balanced consensus price of ₹{agreed_price:,.2f}"
+
+        if llm_used and proposal_rationale:
+            consensus_detail += f" Strategy rationale: {proposal_rationale}"
 
         # Assign confidence based on verification coverage
         if verified_count >= 2:
@@ -225,6 +279,8 @@ class PricingReasoningAgent(BaseAgent):
             "margin_floor_applied": margin_floor_applied,
             "margin_floor_value": margin_floor,
             "sanity_bound_flagged": sanity_bound_flagged,
+            "llm_proposer_used": llm_used,
+            "proposer_validation_errors": proposer_errors,
             "created_at": datetime.now(timezone.utc).isoformat(),
         }
 

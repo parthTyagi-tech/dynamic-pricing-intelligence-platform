@@ -68,6 +68,12 @@ class BaseConfig:
     )
     MOCK_SCRAPING = os.environ.get("MOCK_SCRAPING", "false").lower() == "true"
 
+    # Agentic Proposer Flag (Phase 4: LLM proposes, code disposes)
+    AGENTIC_LLM_PROPOSER = os.environ.get("AGENTIC_LLM_PROPOSER", "false").lower() == "true"
+
+
+AGENTIC_LLM_PROPOSER = os.environ.get("AGENTIC_LLM_PROPOSER", "false").lower() == "true"
+
 
 def _normalize_database_url(raw_url: str | None) -> str | None:
     """Normalize hosted PostgreSQL URLs for short-lived Vercel functions and dev environments.

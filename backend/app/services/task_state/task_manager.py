@@ -160,6 +160,12 @@ class TaskManager:
             task.decision_traces.append(trace)
             task.updated_at = datetime.now(timezone.utc).isoformat()
 
+    def get_decision_traces(self, task_id: str) -> List[Dict[str, Any]]:
+        """Retrieve recorded decision traces for a task."""
+        with self._lock:
+            task = self._tasks.get(task_id)
+            return list(task.decision_traces) if task else []
+
     def update_status(self, task_id: str, status: str, error_message: Optional[str] = None) -> None:
         with self._lock:
             task = self._tasks.get(task_id)
