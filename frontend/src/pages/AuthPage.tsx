@@ -108,13 +108,14 @@ export default function AuthPage({ defaultForgot = false }: { defaultForgot?: bo
   // Google credential callback
   const handleGoogleCredentialResponse = useCallback(
     async (response: any) => {
-      if (!response?.credential) {
+      const token = response?.credential || response?.access_token;
+      if (!token) {
         push("Google sign-in returned no credential.", "error");
         return;
       }
       setGoogleBusy(true);
       try {
-        const authenticatedUser = await loginWithGoogle({ credential: response.credential });
+        const authenticatedUser = await loginWithGoogle({ credential: response?.credential, token: response?.access_token });
         push(`Welcome back, ${authenticatedUser.name}!`, "success");
         const products = await getCatalogProducts().catch(() => []);
         navigate(products.length ? "/dashboard" : "/onboarding", { replace: true });
@@ -129,8 +130,9 @@ export default function AuthPage({ defaultForgot = false }: { defaultForgot?: bo
 
   // Initialize Google Identity Services (GIS)
   useEffect(() => {
-    const clientId = (import.meta.env.VITE_GOOGLE_CLIENT_ID as string) || "";
-    if (!clientId) return;
+    const clientId =
+      (import.meta.env.VITE_GOOGLE_CLIENT_ID as string) ||
+      "795228555040-equthg6jmnl92mro4ad16ovqo1ki95h2.apps.googleusercontent.com";
 
     const initGsi = () => {
       const g = (window as any).google;
@@ -142,14 +144,6 @@ export default function AuthPage({ defaultForgot = false }: { defaultForgot?: bo
           auto_select: false,
           cancel_on_tap_outside: true,
         });
-
-        if (hiddenGoogleRef.current) {
-          hiddenGoogleRef.current.innerHTML = "";
-          g.accounts.id.renderButton(hiddenGoogleRef.current, {
-            type: "standard",
-            size: "large",
-          });
-        }
       } catch (err) {
         console.warn("[GSI] Init notice:", err);
       }
@@ -178,7 +172,7 @@ export default function AuthPage({ defaultForgot = false }: { defaultForgot?: bo
       if (idToken || accessToken) {
         window.history.replaceState(null, "", window.location.pathname);
         setGoogleBusy(true);
-        loginWithGoogle({ token: idToken || accessToken || undefined })
+        loginWithGoogle({ credential: idToken || undefined, token: accessToken || undefined })
           .then(async (user) => {
             push(`Welcome back, ${user.name}!`, "success");
             const products = await getCatalogProducts().catch(() => []);
@@ -193,41 +187,56 @@ export default function AuthPage({ defaultForgot = false }: { defaultForgot?: bo
   // Trigger Google Sign-In
   const handleGoogleClick = () => {
     if (busy || googleBusy) return;
+    setGoogleBusy(true);
 
-    // 1. Try triggering the Google rendered button
-    const renderedBtn = hiddenGoogleRef.current?.querySelector("div[role=button], iframe, button") as HTMLElement | null;
-    if (renderedBtn) {
-      renderedBtn.click();
-      return;
-    }
+    const clientId =
+      (import.meta.env.VITE_GOOGLE_CLIENT_ID as string) ||
+      "795228555040-equthg6jmnl92mro4ad16ovqo1ki95h2.apps.googleusercontent.com";
 
-    // 2. Try Google One-Tap prompt
     const g = (window as any).google;
-    if (g?.accounts?.id) {
-      g.accounts.id.prompt((notification: any) => {
-        if (notification.isNotDisplayed?.() || notification.isSkippedMoment?.()) {
-          launchGoogleOAuthRedirect();
-        }
-      });
-      return;
+
+    // 1. If Google OAuth2 Token Client is available, launch the account chooser popup
+    if (g?.accounts?.oauth2?.initTokenClient) {
+      try {
+        const client = g.accounts.oauth2.initTokenClient({
+          client_id: clientId,
+          scope: "openid email profile",
+          callback: async (tokenResponse: any) => {
+            if (tokenResponse?.error) {
+              setGoogleBusy(false);
+              if (tokenResponse.error !== "popup_closed_by_user") {
+                push(`Google sign-in notice: ${tokenResponse.error}`, "info");
+              }
+              return;
+            }
+            if (tokenResponse?.access_token) {
+              try {
+                const authenticatedUser = await loginWithGoogle({ token: tokenResponse.access_token });
+                push(`Welcome back, ${authenticatedUser.name}!`, "success");
+                const products = await getCatalogProducts().catch(() => []);
+                navigate(products.length ? "/dashboard" : "/onboarding", { replace: true });
+              } catch (err) {
+                push(getAuthErrorMessage(err), "error");
+              } finally {
+                setGoogleBusy(false);
+              }
+            }
+          },
+        });
+        client.requestAccessToken({ prompt: "select_account" });
+        return;
+      } catch (err) {
+        console.warn("initTokenClient failed, launching redirect fallback:", err);
+      }
     }
 
-    // 3. Fallback to standard Google OAuth 2.0 flow
-    launchGoogleOAuthRedirect();
-  };
-
-  const launchGoogleOAuthRedirect = () => {
-    const clientId = (import.meta.env.VITE_GOOGLE_CLIENT_ID as string) || "";
-    if (!clientId) {
-      push("Google OAuth client is not configured for this environment.", "error");
-      return;
-    }
+    // 2. Direct OAuth 2.0 authorization redirect fallback
     const redirectUri = window.location.origin;
     const oauthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(
       clientId
     )}&redirect_uri=${encodeURIComponent(
       redirectUri
-    )}&response_type=token%20id_token&scope=openid%20email%20profile&nonce=${Date.now()}`;
+    )}&response_type=token%20id_token&scope=openid%20email%20profile&nonce=${Date.now()}&prompt=select_account`;
     window.location.href = oauthUrl;
   };
 
@@ -440,17 +449,6 @@ export default function AuthPage({ defaultForgot = false }: { defaultForgot?: bo
           </div>
 
           <div className="oauth-grid">
-            <div
-              ref={hiddenGoogleRef}
-              style={{
-                position: "absolute",
-                opacity: 0,
-                pointerEvents: "none",
-                width: 0,
-                height: 0,
-                overflow: "hidden",
-              }}
-            />
             <Button
               variant="secondary"
               onClick={handleGoogleClick}

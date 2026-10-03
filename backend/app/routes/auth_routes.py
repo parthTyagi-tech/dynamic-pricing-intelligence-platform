@@ -471,10 +471,11 @@ def google_auth():
     except Exception as e:
         print(f"[Google Auth] verify_oauth2_token failed, trying tokeninfo endpoint: {e}")
 
-    # Step 2: Fallback to Google's official tokeninfo endpoint
+    # Step 2: Fallback to Google's official tokeninfo and userinfo endpoints
     if not google_data:
         try:
             import requests as py_requests
+            # Check if token is an id_token
             resp = py_requests.get(
                 f"https://oauth2.googleapis.com/tokeninfo?id_token={token}",
                 timeout=8
@@ -482,22 +483,34 @@ def google_auth():
             if resp.status_code == 200:
                 google_data = resp.json()
             else:
-                # Also try userinfo endpoint in case access_token was passed
+                # Check if token is an access_token
+                acc_resp = py_requests.get(
+                    f"https://oauth2.googleapis.com/tokeninfo?access_token={token}",
+                    timeout=8
+                )
+                if acc_resp.status_code == 200:
+                    google_data = acc_resp.json()
+
+                # Also retrieve user profile information via userinfo
                 userinfo_resp = py_requests.get(
                     "https://www.googleapis.com/oauth2/v3/userinfo",
                     headers={"Authorization": f"Bearer {token}"},
                     timeout=8
                 )
                 if userinfo_resp.status_code == 200:
-                    google_data = userinfo_resp.json()
+                    u_info = userinfo_resp.json()
+                    if google_data:
+                        google_data.update(u_info)
+                    else:
+                        google_data = u_info
         except Exception as e:
-            print(f"[Google Auth] tokeninfo request failed: {e}")
+            print(f"[Google Auth] tokeninfo/userinfo request failed: {e}")
 
     if not google_data:
         return {"success": False, "message": "Invalid or expired Google token"}, 401
 
-    # Verify audience when client_id is set
-    aud = google_data.get("aud")
+    # Verify audience when client_id is set and aud is in payload
+    aud = google_data.get("aud") or google_data.get("audience")
     if client_id and aud and aud != client_id:
         return {"success": False, "message": "Token was not issued for this application"}, 401
 
