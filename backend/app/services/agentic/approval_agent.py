@@ -45,13 +45,16 @@ class ApprovalAgent(BaseAgent):
             organization_id=organization_id
         ).first()
 
-        if not rec:
-            raise ValueError(f"No pending recommendation found for task {task_id}")
+        now = datetime.now(timezone.utc)
+        updated = PricingRecommendation.query.filter_by(
+            id=rec.id,
+            organization_id=organization_id,
+            status=RecommendationStatus.PENDING
+        ).update({"status": RecommendationStatus.APPROVED, "decided_by": user_id, "decided_at": now})
 
-        product = Product.query.filter_by(
-            id=rec.product_id,
-            organization_id=organization_id
-        ).first()
+        if updated == 0:
+            from app.services.pricing.price_writer import AlreadyDecidedError
+            raise AlreadyDecidedError(f"Recommendation {rec.id} has already been decided or is not pending")
 
         old_price = float(product.current_price)
 
@@ -111,10 +114,18 @@ class ApprovalAgent(BaseAgent):
 
         safe_reason = self.sanitize_output(reason or "Price rejected by user.")
 
+        now = datetime.now(timezone.utc)
+        updated = PricingRecommendation.query.filter_by(
+            id=rec.id,
+            organization_id=organization_id,
+            status=RecommendationStatus.PENDING
+        ).update({"status": RecommendationStatus.REJECTED, "decided_by": user_id, "decided_at": now})
+
+        if updated == 0:
+            from app.services.pricing.price_writer import AlreadyDecidedError
+            raise AlreadyDecidedError(f"Recommendation {rec.id} has already been decided or is not pending")
+
         try:
-            rec.status = RecommendationStatus.REJECTED
-            rec.decided_at = datetime.now(timezone.utc)
-            rec.decided_by = user_id
 
             # SEC-8: Audit log rejection
             audit_record = AuditLog(

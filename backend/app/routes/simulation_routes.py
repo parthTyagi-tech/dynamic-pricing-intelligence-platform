@@ -6,6 +6,7 @@ from app.extensions import db
 from app.models.user import User
 from app.models.product import Product
 from app.models.audit_loging import PricingRule
+from app.utils.security_guardrails import compute_price_floor, effective_min_margin_pct
 
 simulation_bp = Blueprint("simulation", __name__)
 
@@ -102,10 +103,11 @@ def run_simulation():
         next_ai_price = round(price_ai * (1.0 + composite_adj / 100.0), 2)
 
         # Compliance adjustment checks
-        margin_at_ai = ((next_ai_price - cost) / next_ai_price) if next_ai_price > 0 else 0.0
-        if margin_at_ai < min_margin:
+        eff_pct = effective_min_margin_pct(product.min_margin_percentage, min_margin)
+        floor_price = compute_price_floor(cost, eff_pct)
+        if next_ai_price < floor_price:
             # Shift price to meet compliance floor
-            next_ai_price = round(cost / (1.0 - min_margin), 2)
+            next_ai_price = floor_price
 
         # 4. Calculate Sales Volume Quantities (using log-linear Price Elasticity model)
         # Baseline sales volume

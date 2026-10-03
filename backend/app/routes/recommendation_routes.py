@@ -42,6 +42,14 @@ from app.services.recommendation_job_service import (
     mark_job_succeeded,
     execute_auto_approval,
 )
+from app.utils.security_guardrails import compute_price_floor, effective_min_margin_pct
+from app.services.pricing.price_writer import (
+    apply_price_change,
+    StalePriceError,
+    BelowFloorError,
+    SanityBoundError,
+    PriceGuardrailError,
+)
 
 from app.services.ai_pricing_service import (
     MarketIntelligenceAgent,
@@ -184,8 +192,10 @@ def recalculate_recommendations():
             for pdata in rec_snapshot.platform_prices_snapshot.values():
                 if isinstance(pdata, dict) and pdata.get("price", 0) > 0 and pdata.get("data_source") != "estimated_fallback":
                     competitor_prices.append(float(pdata["price"]))
-        average_competitor = sum(competitor_prices) / len(competitor_prices) if competitor_prices else float(product.current_price)
-        margin_floor = float(product.cost_price or 0) / max(1 - minimum_margin, 0.01)
+        average_competitor = sum(competitor_prices) / len(competitor_prices) if competitor_prices else float(product.current_price or 0.0)
+        cost_val = float(product.cost_price or 0.0)
+        eff_margin = effective_min_margin_pct(product.min_margin_percentage, minimum_margin)
+        margin_floor = compute_price_floor(cost_val, eff_margin)
         recommended_price = round(max(margin_floor, average_competitor * 0.99), 2)
         if product.current_price:
             recommended_price = round(max(recommended_price, float(product.current_price) * 0.90), 2)
@@ -196,8 +206,20 @@ def recalculate_recommendations():
             recommendation.confidence_score = confidence
             recommendation.rationale = "Recalculated from the latest normalized competitor prices and organization margin guardrail."
             recommendation.ai_summary = "Market signal recalculation completed."
+            if product.current_price is not None:
+                recommendation.base_price = float(product.current_price)
         else:
-            recommendation = PricingRecommendation(product_id=product.id, recommended_price=recommended_price, confidence_score=confidence, rationale="Recalculated from the latest normalized competitor prices and organization margin guardrail.", status=RecommendationStatus.PENDING, ai_summary="Market signal recalculation completed.", created_by_agent="PricingRecalculationEngine", organization_id=current_user.organization_id)
+            recommendation = PricingRecommendation(
+                product_id=product.id,
+                recommended_price=recommended_price,
+                base_price=float(product.current_price) if product.current_price is not None else None,
+                confidence_score=confidence,
+                rationale="Recalculated from the latest normalized competitor prices and organization margin guardrail.",
+                status=RecommendationStatus.PENDING,
+                ai_summary="Market signal recalculation completed.",
+                created_by_agent="PricingRecalculationEngine",
+                organization_id=current_user.organization_id,
+            )
             db.session.add(recommendation)
         product.recommendation_status = RecommendationStatus.PENDING
         recalculated.append({"product_id": product.id, "current_price": product.current_price, "recommended_price": recommended_price, "competitor_count": len(competitor_prices), "confidence": confidence})
@@ -318,56 +340,64 @@ def approve_recommendation(recommendation_id):
             "message": "Recommendation not found"
         }, 404
 
+    product = Product.query.get(recommendation.product_id)
+    if not product:
+        return {"success": False, "message": "Product not found"}, 404
+
+    payload = request.get_json(silent=True) or {}
+    reason = payload.get("reason", "")
+    sanity_override = False
+
+    if recommendation.sanity_bound_flagged:
+        if current_user.role != "admin":
+            return {"success": False, "message": "Sanity-bound flagged recommendations require admin approval"}, 403
+        if not reason or not str(reason).strip():
+            return {"success": False, "message": "Reason is required to approve a sanity-bound flagged recommendation"}, 422
+        sanity_override = True
+
+    now = datetime.now(timezone.utc)
+    updated = PricingRecommendation.query.filter_by(
+        id=recommendation.id,
+        organization_id=current_user.organization_id,
+        status=RecommendationStatus.PENDING
+    ).update({"status": RecommendationStatus.APPROVED, "decided_by": current_user.id, "decided_at": now})
+
+    if updated == 0:
+        return {"success": False, "message": "Recommendation already decided or not pending"}, 409
+
     try:
-
-        recommendation.status = (
-            RecommendationStatus.APPROVED
+        res = apply_price_change(
+            product=product,
+            new_price=recommendation.recommended_price,
+            actor_user_id=current_user.id,
+            source="manual_approval",
+            recommendation=recommendation,
+            expected_base_price=recommendation.base_price,
+            sanity_override=sanity_override,
+            reason=str(reason) if reason else "Manual approval via recommendation route",
         )
 
-        product = Product.query.get(
-            recommendation.product_id
+        approval_action = ApprovalAction(
+            recommendation_id=recommendation.id,
+            action_type=ApprovalActionType.APPROVE,
+            previous_price=res["old_price"],
+            executed_price=res["new_price"],
+            approved_by=current_user.id
         )
-
-        if product:
-
-            previous_price = (
-                product.current_price
-            )
-
-            product.current_price = (
-                recommendation.recommended_price
-            )
-
-            approval_action = ApprovalAction(
-
-                recommendation_id=recommendation.id,
-
-                action_type=ApprovalActionType.APPROVE,
-
-                previous_price=previous_price,
-
-                executed_price=(
-                    recommendation.recommended_price
-                ),
-
-                approved_by=current_user.id
-            )
-
-            db.session.add(
-                approval_action
-            )
-
+        db.session.add(approval_action)
         db.session.commit()
 
         return {
-
             "success": True,
-
-            "message":
-            "Recommendation approved successfully"
-
+            "message": "Recommendation approved successfully"
         }, 200
 
+    except StalePriceError as e:
+        db.session.rollback()
+        return {"success": False, "message": str(e)}, 409
+    except (BelowFloorError, SanityBoundError, PriceGuardrailError) as e:
+        db.session.rollback()
+        return {"success": False, "message": str(e)}, 422
     except Exception as e:
         db.session.rollback()
         return {

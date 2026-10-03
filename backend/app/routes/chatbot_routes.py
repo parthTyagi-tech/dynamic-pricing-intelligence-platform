@@ -56,23 +56,9 @@ def _trigger_agent_analysis(product, current_user):
     db.session.add(recommendation)
     db.session.flush()
 
-    if execution_route == "auto_execute":
-        recommendation.status = RecommendationStatus.EXECUTED
-        previous_price = product.current_price
-        product.current_price = ai_result["recommended_price"]
-        product.recommendation_status = RecommendationStatus.APPROVED
-
-        action = ApprovalAction(
-            recommendation_id=recommendation.id,
-            action_type=ApprovalActionType.AUTO_EXECUTE,
-            previous_price=previous_price,
-            executed_price=ai_result["recommended_price"],
-            approved_by=None  # System auto-executed
-        )
-        db.session.add(action)
-    else:
-        recommendation.status = RecommendationStatus.PENDING
-        product.recommendation_status = RecommendationStatus.PENDING
+    recommendation.status = RecommendationStatus.PENDING
+    recommendation.base_price = float(product.current_price) if product.current_price is not None else None
+    product.recommendation_status = RecommendationStatus.PENDING
 
     db.session.commit()
 

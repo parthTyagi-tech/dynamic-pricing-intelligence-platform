@@ -55,9 +55,18 @@ def create_recommendation_job(
     organization_id: str,
     requested_platforms: list[str] | None = None
 ) -> tuple[PricingRecommendation, RecommendationJob]:
+    from app.models.recommendation import RecommendationStatus
+    # Supersede older PENDING recommendations at creation time (single active pending invariant)
+    PricingRecommendation.query.filter_by(
+        product_id=product.id,
+        organization_id=organization_id,
+        status=RecommendationStatus.PENDING
+    ).update({"status": RecommendationStatus.SUPERSEDED})
+
     recommendation = PricingRecommendation(
         product_id=product.id,
         recommended_price=float(product.current_price or 0),
+        base_price=float(product.current_price or 0) if product.current_price is not None else None,
         confidence_score=0.0,
         rationale="Initializing evidence-backed pricing analysis.",
         ai_summary="Queued for asynchronous marketplace research.",
@@ -122,58 +131,51 @@ def execute_auto_approval(recommendation: PricingRecommendation, product: Produc
     """
     Single source of truth for the auto-execute path. Returns True if the
     recommendation was auto-executed, False if it was downgraded to PENDING
-    (e.g. SEC-10 violation) instead. Called from both task_worker.py and
+    (e.g. SEC-10 violation or floor guardrail) instead. Called from both task_worker.py and
     recommendation_routes.py — must never be reimplemented at either call site.
     """
     import logging
     logger = logging.getLogger(__name__)
-    from app.models.price_history import PriceHistory
     from app.models.recommendation import ApprovalAction, ApprovalActionType, RecommendationStatus
-    from app.utils.security_guardrails import atomic_ledger_write, check_sanity_bound
+    from app.services.pricing.price_writer import apply_price_change, PriceGuardrailError
 
-    flagged, delta_pct = check_sanity_bound(product.current_price, recommendation.recommended_price)
-
-    if flagged:
+    try:
+        res = apply_price_change(
+            product=product,
+            new_price=recommendation.recommended_price,
+            actor_user_id=None,
+            source="auto_approval",
+            recommendation=recommendation,
+            expected_base_price=recommendation.base_price,
+            sanity_override=False,
+            reason="Auto-executed due to high confidence and passing guardrails",
+        )
+    except PriceGuardrailError as e:
         recommendation.status = RecommendationStatus.PENDING
         recommendation.sanity_bound_flagged = True
         recommendation.rationale = (
             (recommendation.rationale or "")
-            + f" [SEC-10 SANITY BOUND FLAGGED: {delta_pct:.1%} exceeds 50%. "
-              "Auto-execution blocked; requires human review.]"
+            + f" [GUARDRAIL BLOCKED: {e}. Auto-execution blocked; requires human review.]"
         )
         logger.warning(
-            f"[auto_approval] Blocked auto-execute for recommendation {recommendation.id}: "
-            f"delta {delta_pct:.1%} exceeds SEC-10 bound."
+            f"[auto_approval] Blocked auto-execute for recommendation {recommendation.id}: {e}"
         )
         db.session.commit()
         return False
 
-    with atomic_ledger_write():
-        previous_price = product.current_price
-        recommendation.status = RecommendationStatus.APPROVED
-        recommendation.sanity_bound_flagged = False
-        product.current_price = recommendation.recommended_price
+    recommendation.status = RecommendationStatus.APPROVED
+    recommendation.sanity_bound_flagged = False
+    recommendation.decided_at = utcnow()
 
-        approval_action = ApprovalAction(
-            recommendation_id=recommendation.id,
-            action_type=ApprovalActionType.AUTO_EXECUTE,
-            previous_price=previous_price,
-            executed_price=recommendation.recommended_price,
-            approved_by=None,
-            timestamp=recommendation.created_at,
-        )
-        db.session.add(approval_action)
-
-        db.session.add(PriceHistory(
-            product_id=product.id,
-            organization_id=product.organization_id,
-            old_price=previous_price,
-            new_price=recommendation.recommended_price,
-            platform_prices=recommendation.platform_prices_snapshot or {},
-            approved_by=None,
-            recommendation_id=recommendation.id,
-        ))
-        db.session.flush()
+    approval_action = ApprovalAction(
+        recommendation_id=recommendation.id,
+        action_type=ApprovalActionType.AUTO_EXECUTE,
+        previous_price=res["old_price"],
+        executed_price=res["new_price"],
+        approved_by=None,
+        timestamp=utcnow(),
+    )
+    db.session.add(approval_action)
 
     recommendation.ai_summary = (recommendation.ai_summary or "") + \
         " (AUTOPILOT: Automatically executed due to high confidence)"

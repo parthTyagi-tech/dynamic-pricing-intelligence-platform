@@ -82,9 +82,6 @@ def simulate_ab_test(test_id):
     ab_test.status = "completed"
     ab_test.completed_at = datetime.now(timezone.utc)
 
-    product = Product.query.get(ab_test.product_id)
-    product.current_price = winning_price
-
     db.session.commit()
 
     return {

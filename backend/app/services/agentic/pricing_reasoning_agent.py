@@ -54,11 +54,13 @@ class PricingReasoningAgent(BaseAgent):
         ]
         avg_match_score = (sum(match_scores) / len(match_scores)) if match_scores else 0.85
 
+        from app.utils.security_guardrails import compute_price_floor
+
         # -------------------------------------------------------------
         # TURN 1: Agent A (Market & Inventory Analyst)
         # Assesses internal COGS, inventory velocity & applies margin floor
         # -------------------------------------------------------------
-        margin_floor = round(cost_price * (1.0 + (min_margin_pct / 100.0)), 2)
+        margin_floor = compute_price_floor(cost_price, min_margin_pct)
         
         # Inventory velocity assessment
         if inventory_qty > 75:

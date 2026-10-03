@@ -1,3 +1,3 @@
-from app.models.audit_loging import AuditLog
+from app.models.audit_loging import AuditLog, PricingRule
 
-__all__ = ["AuditLog"]
+__all__ = ["AuditLog", "PricingRule"]

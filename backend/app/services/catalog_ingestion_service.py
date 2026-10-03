@@ -95,11 +95,24 @@ def parse_and_ingest_catalog_csv(
                 existing.description = description
                 existing.brand = brand
                 existing.barcode = barcode
-                existing.current_price = current_price
                 existing.cost_price = cost_price
                 existing.inventory_quantity = inventory
+                if current_price != float(existing.current_price or 0.0):
+                    from app.services.pricing.price_writer import apply_price_change
+                    apply_price_change(
+                        product=existing,
+                        new_price=current_price,
+                        actor_user_id=None,
+                        source="catalog_csv_ingestion",
+                        sanity_override=True,
+                        reason="CSV ingestion price update",
+                    )
                 updated_count += 1
             else:
+                from app.utils.security_guardrails import compute_price_floor
+                floor_val = compute_price_floor(cost_price, 0.0)
+                if current_price < floor_val:
+                    current_price = floor_val
                 new_prod = Product(
                     id=str(uuid.uuid4()),
                     sku=sku,

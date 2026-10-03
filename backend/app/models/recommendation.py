@@ -23,13 +23,16 @@ class RecommendationStatus:
 
     FAILED = "failed"
 
+    SUPERSEDED = "superseded"
+
     ALL = [
         PENDING,
         APPROVED,
         REJECTED,
         MODIFIED,
         EXECUTED,
-        FAILED
+        FAILED,
+        SUPERSEDED
     ]
 
 
@@ -79,6 +82,11 @@ class PricingRecommendation(db.Model):
     recommended_price = db.Column(
         db.Float,
         nullable=False
+    )
+
+    base_price = db.Column(
+        db.Float,
+        nullable=True
     )
 
     confidence_score = db.Column(
@@ -335,6 +343,11 @@ class PricingRecommendation(db.Model):
             "margin_floor_applied": bool(self.margin_floor_applied),
             "margin_floor_value": self.margin_floor_value,
             "sanity_bound_flagged": bool(self.sanity_bound_flagged),
+            "base_price": (
+                round(float(self.base_price), 2)
+                if self.base_price is not None
+                else None
+            ),
         }
 
 

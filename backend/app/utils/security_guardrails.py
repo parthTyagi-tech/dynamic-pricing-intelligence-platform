@@ -212,8 +212,9 @@ def atomic_ledger_write():
     without requiring the caller to manage nested-transaction bookkeeping.
 
     Usage:
+        # Used internally by price_writer.apply_price_change():
         with atomic_ledger_write():
-            product.current_price = new_price
+            product.current_price = target_price
             db.session.add(PriceHistory(...))
             db.session.add(AuditLog(...))
         # commits together on exit; on exception, the SAVEPOINT rolls back
@@ -227,6 +228,23 @@ def atomic_ledger_write():
     except Exception:
         db.session.rollback()
         raise
+
+
+# =========================================================================
+# SEC-9 — Price Floor: Single source of truth for margin floor.
+# Canonical price floor: cost * (1 + min_margin_pct / 100.0) (markup on cost).
+# =========================================================================
+
+def compute_price_floor(cost_price: float, min_margin_pct: float) -> float:
+    """Canonical price floor: cost * (1 + pct/100). Single source of truth."""
+    if cost_price is None or cost_price < 0 or min_margin_pct is None:
+        raise ValueError("invalid floor inputs")
+    return round(float(cost_price) * (1.0 + float(min_margin_pct) / 100.0), 2)
+
+
+def effective_min_margin_pct(product_pct: float | None, org_rule_fraction: float | None) -> float:
+    """Stricter of product-level % and org-level fraction (0.15 -> 15.0)."""
+    return max(product_pct or 0.0, (org_rule_fraction or 0.0) * 100.0)
 
 
 # =========================================================================

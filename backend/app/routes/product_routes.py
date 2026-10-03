@@ -183,6 +183,9 @@ def update_product(product_id):
         product.name
     )
 
+    if "cost_price" in data:
+        product.cost_price = data.get("cost_price", product.cost_price)
+
     product.category = data.get(
         "category",
         product.category
@@ -193,20 +196,27 @@ def update_product(product_id):
         product.description
     )
 
-    product.current_price = data.get(
-        "current_price",
-        product.current_price
-    )
-
-    product.cost_price = data.get(
-        "cost_price",
-        product.cost_price
-    )
-
     product.inventory_quantity = data.get(
         "inventory_quantity",
         product.inventory_quantity
     )
+
+    if "current_price" in data and data["current_price"] is not None:
+        target_price = float(data["current_price"])
+        if target_price != float(product.current_price or 0.0):
+            from app.services.pricing.price_writer import apply_price_change, PriceGuardrailError
+            try:
+                apply_price_change(
+                    product=product,
+                    new_price=target_price,
+                    actor_user_id=current_user.id,
+                    source="product_update_route",
+                    sanity_override=True,
+                    reason="Manual product update",
+                )
+            except PriceGuardrailError as e:
+                db.session.rollback()
+                return {"success": False, "message": str(e)}, 422
 
     db.session.commit()
 
@@ -377,7 +387,6 @@ def import_csv():
             existing = Product.query.filter_by(sku=sku, organization_id=current_user.organization_id).first()
             if existing:
                 existing.name = name
-                existing.current_price = current_price
                 existing.cost_price = cost_price
                 existing.category = category
                 existing.brand = brand
@@ -387,6 +396,16 @@ def import_csv():
                 existing.category_hint = category_hint
                 existing.normalized_query = normalized_query
                 existing.attributes = attrs_val
+                if current_price != float(existing.current_price or 0.0):
+                    from app.services.pricing.price_writer import apply_price_change
+                    apply_price_change(
+                        product=existing,
+                        new_price=current_price,
+                        actor_user_id=current_user.id,
+                        source="csv_import",
+                        sanity_override=True,
+                        reason="CSV import price update",
+                    )
             elif sku in seen_skus_in_batch:
                 # Update the already mapped object in memory instead of inserting again
                 mapping = seen_skus_in_batch[sku]

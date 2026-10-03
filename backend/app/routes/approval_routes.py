@@ -25,6 +25,13 @@ from flask import current_app
 from itsdangerous import URLSafeSerializer, BadSignature
 
 import asyncio
+from app.services.pricing.price_writer import (
+    apply_price_change,
+    StalePriceError,
+    BelowFloorError,
+    SanityBoundError,
+    PriceGuardrailError,
+)
 
 approval_bp = Blueprint(
     "approvals",
@@ -116,22 +123,70 @@ def approve_recommendation(recommendation_id):
         }, 404
 
     if recommendation.status != RecommendationStatus.PENDING:
-
         return {
             "success": False,
-            "message": "Recommendation already processed"
-        }, 400
+            "message": "Recommendation already decided or not pending"
+        }, 409
 
     product = Product.query.get(
         recommendation.product_id
     )
+    if not product:
+        return {"success": False, "message": "Product not found"}, 404
 
-    previous_price = product.current_price
+    payload = request.get_json(silent=True) or {}
+    reason = payload.get("reason", "")
+    sanity_override = False
+
+    if recommendation.sanity_bound_flagged:
+        if current_user.role != "admin":
+            return {
+                "success": False,
+                "message": "Sanity-bound flagged recommendations require admin approval"
+            }, 403
+        if not reason or not str(reason).strip():
+            return {
+                "success": False,
+                "message": "Reason is required to approve a sanity-bound flagged recommendation"
+            }, 422
+        sanity_override = True
+
+    # Atomic Compare-and-Swap
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc)
+    updated = PricingRecommendation.query.filter_by(
+        id=recommendation.id,
+        organization_id=current_user.organization_id,
+        status=RecommendationStatus.PENDING
+    ).update({"status": RecommendationStatus.APPROVED, "decided_by": current_user.id, "decided_at": now})
+
+    if updated == 0:
+        return {
+            "success": False,
+            "message": "Recommendation already decided or not pending"
+        }, 409
+
+    try:
+        res = apply_price_change(
+            product=product,
+            new_price=recommendation.recommended_price,
+            actor_user_id=current_user.id,
+            source="manual_approval",
+            recommendation=recommendation,
+            expected_base_price=recommendation.base_price,
+            sanity_override=sanity_override,
+            reason=str(reason) if reason else "Manual human approval",
+        )
+    except StalePriceError as e:
+        db.session.rollback()
+        return {"success": False, "message": str(e)}, 409
+    except (BelowFloorError, SanityBoundError, PriceGuardrailError) as e:
+        db.session.rollback()
+        return {"success": False, "message": str(e)}, 422
 
     # =====================================
     # PHYSICAL EXECUTION (BROWSER USE)
     # =====================================
-    # Trigger the AI agent to log in and update the real platform
     try:
         from app.services.agents.price_execution_agent import execute_price_change
         loop = asyncio.new_event_loop()
@@ -146,35 +201,18 @@ def approve_recommendation(recommendation_id):
         print(f"[Approval Route] Browser Agent Result: {agent_result}")
     except Exception as e:
         print(f"[Approval Route] Browser Agent Failed: {e}")
-        # In a real system, you might want to fail the request here.
-        # For this prototype, we'll log it and continue updating the local DB.
 
     # =====================================
-    # UPDATE PRODUCT PRICE
+    # CREATE APPROVAL ACTION
     # =====================================
 
-    product.current_price = recommendation.recommended_price
-
-    # =====================================
-    # UPDATE RECOMMENDATION STATUS
-    # =====================================
-
-    recommendation.status = RecommendationStatus.APPROVED
-
-    # =====================================
-    # CREATE AUDIT LOG
-    # =====================================
+    previous_price = res["old_price"]
 
     approval_action = ApprovalAction(
-
         recommendation_id=recommendation.id,
-
         action_type=ApprovalActionType.APPROVE,
-
         previous_price=previous_price,
-
-        executed_price=recommendation.recommended_price,
-
+        executed_price=res["new_price"],
         approved_by=current_user.id
     )
 
@@ -257,29 +295,34 @@ def reject_recommendation(recommendation_id):
             "message": "Recommendation not found"
         }, 404
 
-    if recommendation.status != RecommendationStatus.PENDING:
+    body = request.get_json(silent=True) or {}
+    rejection_reason = body.get("rejection_reason")
 
+    product = Product.query.filter_by(
+        id=recommendation.product_id,
+        organization_id=current_user.organization_id
+    ).first()
+
+    # Atomic Compare-and-Swap
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc)
+    updated = PricingRecommendation.query.filter_by(
+        id=recommendation.id,
+        organization_id=current_user.organization_id,
+        status=RecommendationStatus.PENDING
+    ).update({"status": RecommendationStatus.REJECTED, "decided_by": current_user.id, "decided_at": now})
+
+    if updated == 0:
         return {
             "success": False,
-            "message": "Recommendation already processed"
-        }, 400
-
-    product = Product.query.get(
-        recommendation.product_id
-    )
-
-    payload = request.get_json(silent=True) or {}
-    rejection_reason = str(payload.get("rejection_reason") or payload.get("reason") or "Rejected by admin").strip()[:2000]
-
-    # =====================================
-    # UPDATE STATUS
-    # =====================================
-
-    recommendation.status = RecommendationStatus.REJECTED
+            "message": "Recommendation already decided or not pending"
+        }, 409
 
     # =====================================
     # CREATE AUDIT LOG
     # =====================================
+
+    prev_price = product.current_price if product else (recommendation.base_price or 0.0)
 
     rejection_action = ApprovalAction(
 
@@ -287,7 +330,7 @@ def reject_recommendation(recommendation_id):
 
         action_type=ApprovalActionType.REJECT,
 
-        previous_price=product.current_price,
+        previous_price=prev_price,
 
         executed_price=recommendation.recommended_price,
 
@@ -299,10 +342,10 @@ def reject_recommendation(recommendation_id):
     db.session.add(rejection_action)
     db.session.commit()
 
-    product_details = {"name": product.name, "sku": product.sku, "category": product.category}
-    rec_details = {"id": recommendation.id, "previous_price": product.current_price, "executed_price": recommendation.recommended_price, "rationale": recommendation.rationale, "confidence_score": recommendation.confidence_score}
+    product_details = {"name": product.name, "sku": product.sku, "category": product.category} if product else {}
+    rec_details = {"id": recommendation.id, "previous_price": prev_price, "executed_price": recommendation.recommended_price, "rationale": recommendation.rationale, "confidence_score": recommendation.confidence_score}
     try:
-        _finalize_action_email(rejection_action, current_user, product, recommendation, "reject", product.current_price, recommendation.recommended_price)
+        _finalize_action_email(rejection_action, current_user, product, recommendation, "reject", prev_price, recommendation.recommended_price)
     except Exception as e:
         rejection_action.email_sent_status = "failed"
         rejection_action.email_error = str(e)
@@ -427,9 +470,21 @@ def rollback_approval(action_id):
     if not product:
         return {"success": False, "message": "Associated product not found"}, 404
 
-    original_price = product.current_price
-    restored_price = target_action.previous_price
-    product.current_price = restored_price
+    original_price = float(product.current_price or 0.0)
+    restored_price = float(target_action.previous_price)
+
+    try:
+        apply_price_change(
+            product=product,
+            new_price=restored_price,
+            actor_user_id=current_user.id,
+            source="manual_rollback",
+            recommendation=recommendation,
+            sanity_override=True,
+            reason="Manual rollback to previous approved price",
+        )
+    except Exception as e:
+        return {"success": False, "message": f"Rollback failed: {e}"}, 422
 
     rollback_action = ApprovalAction(
         recommendation_id=recommendation.id,
@@ -531,9 +586,21 @@ def email_rollback(token):
     if not product:
         return "<h1>Associated product not found.</h1>", 404
 
-    original_price = product.current_price
-    restored_price = target_action.previous_price
-    product.current_price = restored_price
+    original_price = float(product.current_price or 0.0)
+    restored_price = float(target_action.previous_price)
+
+    try:
+        apply_price_change(
+            product=product,
+            new_price=restored_price,
+            actor_user_id=None,
+            source="email_rollback",
+            recommendation=recommendation,
+            sanity_override=True,
+            reason="Rolled back via Email one-click",
+        )
+    except Exception as e:
+        return f"<h1>Rollback failed: {e}</h1>", 422
 
     rollback_action = ApprovalAction(
         recommendation_id=recommendation.id,

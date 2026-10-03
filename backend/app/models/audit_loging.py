@@ -39,6 +39,8 @@ class AuditLog(db.Model):
     before_value = db.Column(db.JSON, nullable=True)
     after_value = db.Column(db.JSON, nullable=True)
     extra_metadata = db.Column(db.JSON, nullable=True)
+    storefront_sync_status = db.Column(db.String(32), default="pending", nullable=True)
+    storefront_synced_at = db.Column(db.DateTime, nullable=True)
     timestamp = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), index=True)
 
     @property
@@ -71,5 +73,7 @@ class AuditLog(db.Model):
             "entity_type": self.entity_type,
             "entity_id": self.entity_id,
             "metadata": self.extra_metadata,
-            "timestamp": self.timestamp.isoformat(),
+            "storefront_sync_status": self.storefront_sync_status,
+            "storefront_synced_at": self.storefront_synced_at.isoformat() if self.storefront_synced_at else None,
+            "timestamp": self.timestamp.isoformat() if self.timestamp else None,
         }
