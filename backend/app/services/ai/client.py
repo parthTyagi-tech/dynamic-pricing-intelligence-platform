@@ -1,6 +1,7 @@
 import os
 import json
 import time
+import logging
 import asyncio
 from typing import Any, Dict, Optional, Type
 from pydantic import BaseModel, ValidationError
@@ -9,6 +10,8 @@ from flask_jwt_extended import get_jwt_identity
 from app.extensions import db
 from app.models.user import User
 from app.models.ai_call_log import AICallLog
+
+logger = logging.getLogger(__name__)
 
 
 def get_ai_client():
@@ -136,7 +139,7 @@ def _log_call(
         db.session.add(log)
         db.session.commit()
     except Exception as e:
-        print(f"[AI Observability Log Error]: {e}")
+        logger.warning(f"[AI Observability Log Error]: {e}")
 
 
 def chat_completion(
@@ -190,7 +193,7 @@ def chat_completion(
         return result_text
     except Exception as e:
         latency = int((time.time() - start_time) * 1000)
-        print(f"[AI Client] Error: {e}")
+        logger.error(f"[AI Client] Error: {e}")
         _log_call(
             agent_name=agent_name,
             model_name=model,
@@ -312,11 +315,11 @@ async def async_chat_completion(
                 
                 if is_rate_limit and attempt < max_retries:
                     backoff_time = retry_delay * (2 ** attempt)
-                    print(f"[AI Async Client] Rate limit hit for model {model}. Retrying in {backoff_time}s...")
+                    logger.warning(f"[AI Async Client] Rate limit hit for model {model}. Retrying in {backoff_time}s...")
                     await asyncio.sleep(backoff_time)
                     continue
                 
-                print(f"[AI Async Client] Model {model} failed: {err_msg}. Trying next backup model/provider...")
+                logger.warning(f"[AI Async Client] Model {model} failed: {err_msg}. Trying next backup model/provider...")
                 break
                 
     latency = int((time.time() - start_time) * 1000)
@@ -359,7 +362,7 @@ def structured_json_completion(
             cleaned = "\n".join(lines[1:-1])
         return json.loads(cleaned)
     except Exception as e:
-        print(f"[AI Client] JSON parse error: {e}\nRaw: {raw}")
+        logger.error(f"[AI Client] JSON parse error: {e}\nRaw: {raw}")
         return None
 
 
@@ -389,7 +392,7 @@ async def async_structured_json_completion(
             cleaned = "\n".join(lines[1:-1])
         return json.loads(cleaned)
     except Exception as e:
-        print(f"[AI Async Client] JSON parse error: {e}\nRaw: {raw}")
+        logger.error(f"[AI Async Client] JSON parse error: {e}\nRaw: {raw}")
         return None
 
 
@@ -423,9 +426,11 @@ async def async_guarded_json_completion(
             validated = response_model.model_validate(raw_json)
             return validated.model_dump()
         except ValidationError as e:
-            error_msg = f"Guardrail Validation Failed:\\n{e.json()}\\nPlease fix these errors and return valid JSON."
-            print(f"[{agent_name}] Guardrail hit! Retrying (Attempt {attempt+1}/{max_retries})... Error: {e}")
-            current_user_prompt += f"\\n\\nERROR ON PREVIOUS ATTEMPT:\\n{error_msg}"
+            error_details = json.dumps(e.errors()) if hasattr(e, "errors") else str(e)
+            error_msg = f"Guardrail Validation Failed:\n{error_details}\nPlease fix these errors and return valid JSON."
+            logger.warning(f"[{agent_name}] Guardrail hit! Retrying (Attempt {attempt+1}/{max_retries})... Error: {e}")
+            raw_snippet = json.dumps(raw_json)[:500]
+            current_user_prompt += f"\n\nERROR ON PREVIOUS ATTEMPT:\n{error_msg}\nInvalid JSON provided:\n{raw_snippet}"
             
-    print(f"[{agent_name}] Failed to pass guardrails after {max_retries} attempts.")
+    logger.error(f"[{agent_name}] Failed to pass guardrails after {max_retries} attempts.")
     return None

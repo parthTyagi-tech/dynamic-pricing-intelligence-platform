@@ -35,7 +35,8 @@ class GCPPubSubEventBus(EventBus):
             return
 
         try:
-            data = json.dumps(message.dict()).encode("utf-8")
+            msg_dict = message.model_dump() if hasattr(message, "model_dump") else message.dict()
+            data = json.dumps(msg_dict).encode("utf-8")
             # Pub/Sub attributes for message filtering (Gap #3)
             attributes = {
                 "agent": message.agent,

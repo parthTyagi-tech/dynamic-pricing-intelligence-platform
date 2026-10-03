@@ -1,7 +1,11 @@
 
 from datetime import datetime, timezone, timedelta
 import os
+import logging
+import uuid
 from flask import Blueprint, request
+
+logger = logging.getLogger(__name__)
 
 from flask_jwt_extended import (
     jwt_required,
@@ -542,7 +546,6 @@ def process_task():
             organization_id=product.organization_id
         )
 
-        db.session.add(competitor_data)
         db.session.add(demand_signal)
 
         if job:

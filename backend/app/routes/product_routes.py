@@ -36,28 +36,25 @@ def create_product():
     data = request.get_json()
 
     required_fields = [
-        
         "name",
-        
         "current_price",
-        
+        "sku",
+        "cost_price",
     ]
 
     for field in required_fields:
-
-        if field not in data:
-
+        if field not in data or data[field] is None or str(data[field]).strip() == "":
             return {
                 "success": False,
                 "message": f"{field} is required"
             }, 400
 
     existing_product = Product.query.filter_by(
-        sku=data.get("sku", "AUTO-SKU"),
+        sku=str(data["sku"]).strip(),
+        organization_id=current_user.organization_id,
     ).first()
 
     if existing_product:
-
         return {
             "success": False,
             "message": "SKU already exists"

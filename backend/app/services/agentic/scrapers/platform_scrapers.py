@@ -43,6 +43,7 @@ class AmazonScraperAgent(BaseScraperAgent):
                 if item.select_one(".puis-sponsored-label-text, .s-sponsored-label-text, .AdHolder"):
                     continue
 
+                title_node = item.find("h2")
                 recipe_node = item.select_one('[data-cy="title-recipe"], .s-title-instructions-style')
                 headers = [h.get_text(separator=' ', strip=True) for h in (recipe_node.find_all(["h2", "h3"]) if recipe_node else item.find_all(["h2", "h3"])) if h.get_text(strip=True)]
                 if len(headers) >= 2 and len(headers[0]) < 25:
@@ -52,7 +53,6 @@ class AmazonScraperAgent(BaseScraperAgent):
                 elif headers:
                     title = headers[0]
                 else:
-                    title_node = item.find("h2")
                     if not title_node:
                         continue
                     title = title_node.get_text(separator=' ', strip=True)
@@ -110,7 +110,7 @@ class AmazonScraperAgent(BaseScraperAgent):
                 url_verified = False
                 link_node = (
                     item.select_one("a.a-link-normal.s-no-outline[href]")
-                    or title_node.find("a", href=True)
+                    or (title_node.find("a", href=True) if title_node else None)
                     or item.select_one("a.a-link-normal.s-underline-text[href]")
                     or item.select_one("a.a-link-normal[href]")
                 )
@@ -154,7 +154,7 @@ class AmazonScraperAgent(BaseScraperAgent):
 
             return best_candidate
         except Exception as e:
-            logger.debug(f"[AmazonScraperAgent] parsing error: {e}")
+            logger.warning(f"[AmazonScraperAgent] parsing error: {e}", exc_info=True)
             return None
 
     _extract_cards = _extract_amazon_cards

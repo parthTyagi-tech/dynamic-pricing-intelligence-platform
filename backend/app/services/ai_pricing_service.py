@@ -14,10 +14,13 @@ from app.services.agents import (
 from app.services.notification_service import send_slack_alert
 from app.services.orchestration.langflow_client import trigger_pricing_flow
 import os
+import logging
+import asyncio
+
+logger = logging.getLogger(__name__)
 
 
 async def _run_pipeline_async(product):
-    """Executes the Market, Demand, and Inventory agents concurrently with live scraped data."""
     # 1. Fetch fresh live competitor prices from agentic pipeline or recommendation snapshot
     import uuid
     from app.models.recommendation import PricingRecommendation
@@ -69,11 +72,43 @@ async def _run_pipeline_async(product):
         "demand_signals": demand_signals
     }
     
+    # Pre-initialize variables before branching (Item 1.5)
+    market_res = {
+        "competitor_price": product.current_price,
+        "avg_competitor_price": product.current_price,
+        "lowest_competitor_price": product.current_price,
+        "market_position": "stable",
+        "market_trend": "stable"
+    }
+    demand_res = {
+        "demand_score": 50,
+        "avg_trend_score": 0.5,
+        "seasonal_factor": 1.0,
+        "avg_velocity": 1.0,
+        "trend": "stable"
+    }
+    inventory_res = {
+        "stock_status": "healthy",
+        "inventory_status": "healthy",
+        "inventory_level": product.inventory_quantity,
+        "days_to_stockout": 30.0
+    }
+    compliance_res = {
+        "compliant": True,
+        "final_recommended_price": product.current_price,
+        "compliance_notes": ""
+    }
+    fallback_used = False
+    strategy_res = {}
+
+    rule = PricingRule.query.filter_by(organization_id=product.organization_id).first()
+    rule_dict = rule.to_dict() if rule else {"auto_execute_threshold": 0.90, "minimum_margin": 0.15}
+
     # Check if we should use Langflow (feature flag)
     use_langflow = os.environ.get("USE_LANGFLOW", "false").lower() == "true"
     
     if use_langflow:
-        print(f"[AI Orchestrator] Triggering Langflow pipeline for {product.name}...")
+        logger.info(f"[AI Orchestrator] Triggering Langflow pipeline for {product.name}...")
         langflow_result = await trigger_pricing_flow(product_dict, market_data_summary)
         
         # Parse result from Langflow
@@ -94,26 +129,9 @@ async def _run_pipeline_async(product):
                 "langflow_raw_output": langflow_result
             }
         }
-        
-        # 3. Retrieve organizational rules for auto-execution
-        rule = PricingRule.query.filter_by(organization_id=product.organization_id).first()
-        rule_dict = rule.to_dict() if rule else {"auto_execute_threshold": 0.90, "minimum_margin": 0.15}
-        
-        threshold = rule_dict.get("auto_execute_threshold", 0.90)
-        from app.utils.security_guardrails import check_sanity_bound
-        flagged, delta_pct = check_sanity_bound(product.current_price, float(recommended_price))
-        strategy_res["sanity_bound_flagged"] = flagged
-        strategy_res["delta_pct"] = delta_pct
-        if flagged:
-            strategy_res["execution_route"] = "human_review"
-            strategy_res["rationale"] += (
-                f" [SEC-10 SANITY BOUND FLAGGED: {delta_pct:.1%} exceeds 50%. "
-                "Auto-execution blocked; requires human review.]"
-            )
-        elif strategy_res["confidence_score"] >= threshold:
-            strategy_res["execution_route"] = "auto_execute"
-        else:
-            strategy_res["execution_route"] = "human_review"
+        compliance_res["final_recommended_price"] = float(recommended_price)
+        if "Langflow Error" in rationale or "Langflow unavailable" in rationale:
+            fallback_used = True
             
     else:
         # Fallback to legacy local python asyncio agents if Langflow is disabled
@@ -208,6 +226,8 @@ async def _run_pipeline_async(product):
         "inventory_agent": inventory_res,
         "compliance_agent": compliance_res
     }
+    if use_langflow and "langflow_result" in locals():
+        strategy_res["agent_analysis"]["langflow_raw_output"] = langflow_result
 
     # Trigger Slack alert for high-impact recommendations
     send_slack_alert(

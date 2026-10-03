@@ -271,14 +271,15 @@ def stream_task_events(task_id: str):
         if hasattr(event_bus, "get_history"):
             past = event_bus.get_history(task_id, organization_id=user.organization_id)
             for msg in past:
-                yield f"data: {json.dumps(msg.dict())}\n\n"
+                d = msg.model_dump() if hasattr(msg, "model_dump") else (msg.dict() if hasattr(msg, "dict") else msg)
+                yield f"data: {json.dumps(d)}\n\n"
 
-        queue = asyncio.Queue()
-        loop = asyncio.new_event_loop()
+        import queue
+        q = queue.Queue()
 
         def listener(msg):
             try:
-                loop.call_soon_threadsafe(queue.put_nowait, msg)
+                q.put(msg)
             except Exception:
                 pass
 
@@ -289,17 +290,21 @@ def stream_task_events(task_id: str):
             # Stream for up to 60 seconds or until completed
             while time.time() - start_time < 60:
                 try:
-                    # Non-blocking poll with sleep
-                    msg = queue.get_nowait()
-                    yield f"data: {json.dumps(msg.dict())}\n\n"
-                    if msg.event_type in ("recommendation_ready_for_approval", "recommendation_served_from_cache", "task_failed"):
+                    msg = q.get(timeout=0.5)
+                    d = msg.model_dump() if hasattr(msg, "model_dump") else (msg.dict() if hasattr(msg, "dict") else msg)
+                    yield f"data: {json.dumps(d)}\n\n"
+                    ev_type = getattr(msg, "event_type", None) or (msg.get("event_type") if isinstance(msg, dict) else None)
+                    if ev_type in ("recommendation_ready_for_approval", "recommendation_served_from_cache", "task_failed"):
                         break
-                except asyncio.QueueEmpty:
+                except queue.Empty:
                     # Yield heartbeat keepalive
                     yield ": keepalive\n\n"
-                    time.sleep(0.5)
         finally:
-            event_bus.unsubscribe(task_id, listener)
+            if hasattr(event_bus, "unsubscribe"):
+                try:
+                    event_bus.unsubscribe(task_id, listener)
+                except Exception:
+                    pass
 
     return Response(stream_with_context(event_generator()), mimetype="text/event-stream")
 
