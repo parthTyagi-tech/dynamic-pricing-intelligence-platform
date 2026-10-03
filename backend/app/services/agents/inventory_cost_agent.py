@@ -10,20 +10,36 @@ from app.services.ai.prompts import INVENTORY_COST_SYSTEM, inventory_cost_prompt
 
 def _mock_inventory_analysis(product: dict) -> dict:
     """Fallback mock calculations when AI is unavailable. Generate realistic cost margin insights."""
-    current_price = product.get("current_price", 0.0)
-    cost = product.get("cost_price", 0.0)
+    current_price = float(product.get("current_price", 0.0) or 0.0)
+    cost = float(product.get("cost_price", 0.0) or 0.0)
     margin_pct = ((current_price - cost) / current_price * 100) if current_price > 0 else 0.0
-    qty = product.get("inventory_quantity", 10)
-    status = "oversell" if qty < 10 else ("overstock" if qty > 100 else "healthy")
-    adj = 1.0 if status == "oversell" else (-1.0 if status == "overstock" else 0.0)
-    return {
+    qty = int(product.get("inventory_quantity", 10) or 0)
+    
+    # Must be Literal["overstock", "healthy", "low_stock", "out_of_stock"]
+    if qty <= 0:
+        status = "out_of_stock"
+        adj = 2.0
+    elif qty < 10:
+        status = "low_stock"
+        adj = 1.0
+    elif qty > 100:
+        status = "overstock"
+        adj = -1.0
+    else:
+        status = "healthy"
+        adj = 0.0
+
+    mock_dict = {
         "inventory_status": status,
         "current_margin_pct": round(margin_pct, 2),
         "min_viable_price": round(cost * 1.15, 2),
         "inventory_pressure_adjustment_pct": adj,
         "insights": f"Inventory level is {qty} units ({status} state). Sane margin bounds maintained above raw COGS of ₹{cost:,.2f}.",
-        "llm_failed": False
     }
+    validated = InventoryAnalysisSchema.model_validate(mock_dict).model_dump()
+    validated["llm_failed"] = True
+    validated["degraded"] = True
+    return validated
 
 
 async def run(product: dict) -> Dict[str, Any]:
@@ -55,6 +71,9 @@ async def run(product: dict) -> Dict[str, Any]:
 
     if not result:
         result = _mock_inventory_analysis(product)
+    else:
+        result["llm_failed"] = False
+        result["degraded"] = False
 
     result["agent"] = "inventory_cost"
     return result

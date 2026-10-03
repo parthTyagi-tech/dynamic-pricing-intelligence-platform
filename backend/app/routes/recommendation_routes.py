@@ -595,7 +595,13 @@ def process_task():
             "market_agent": market_data,
             "demand_agent": demand_data,
             "inventory_agent": inventory_data,
-            "fallback_used": ai_result.get("fallback_used", False)
+            "fallback_used": ai_result.get("fallback_used", False),
+            "provenance": ai_result.get("agent_analysis", {}).get("provenance") or {
+                "provider": "groq",
+                "model": "llama-3.3-70b-versatile",
+                "degraded": bool(ai_result.get("fallback_used", False)),
+                "failover_attempts": 0
+            }
         }
         recommendation.status = RecommendationStatus.PENDING
 

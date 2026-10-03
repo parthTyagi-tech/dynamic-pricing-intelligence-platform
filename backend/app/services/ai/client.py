@@ -4,6 +4,7 @@ import time
 import logging
 import asyncio
 from typing import Any, Dict, Optional, Type
+from contextvars import ContextVar
 from pydantic import BaseModel, ValidationError
 from flask import has_request_context
 from flask_jwt_extended import get_jwt_identity
@@ -12,6 +13,28 @@ from app.models.user import User
 from app.models.ai_call_log import AICallLog
 
 logger = logging.getLogger(__name__)
+
+_last_ai_meta: ContextVar[Optional[Dict[str, Any]]] = ContextVar("_last_ai_meta", default=None)
+
+
+def get_last_ai_meta() -> Dict[str, Any]:
+    """Retrieve metadata provenance from the most recent AI completion call."""
+    meta = _last_ai_meta.get()
+    if meta is None:
+        provider = os.environ.get("AI_PROVIDER", "groq").lower()
+        model = get_model_name(provider)
+        return {
+            "provider": provider,
+            "model": model,
+            "degraded": False,
+            "failover_attempts": 0
+        }
+    return dict(meta)
+
+
+def set_last_ai_meta(meta: Dict[str, Any]) -> None:
+    """Explicitly set AI metadata provenance for the current execution context."""
+    _last_ai_meta.set(meta)
 
 
 def get_ai_client():
@@ -189,7 +212,12 @@ def chat_completion(
             latency_ms=latency,
             status="success"
         )
-        
+        _last_ai_meta.set({
+            "provider": provider_name,
+            "model": model,
+            "degraded": False,
+            "failover_attempts": 0
+        })
         return result_text
     except Exception as e:
         latency = int((time.time() - start_time) * 1000)
@@ -203,6 +231,12 @@ def chat_completion(
             status="failure",
             error_msg=str(e)
         )
+        _last_ai_meta.set({
+            "provider": provider_name,
+            "model": model,
+            "degraded": True,
+            "failover_attempts": 0
+        })
         return None
 
 
@@ -259,6 +293,7 @@ async def async_chat_completion(
     if not attempts_to_try:
         attempts_to_try.append((provider_pref, get_model_name(provider_pref)))
 
+    failover_attempts = 0
     for provider, model in attempts_to_try:
         max_retries = 2
         retry_delay = 1.0
@@ -306,7 +341,12 @@ async def async_chat_completion(
                     latency_ms=latency,
                     status="success"
                 )
-                
+                _last_ai_meta.set({
+                    "provider": provider,
+                    "model": model,
+                    "degraded": False,
+                    "failover_attempts": failover_attempts
+                })
                 return result_text
                 
             except Exception as e:
@@ -314,11 +354,13 @@ async def async_chat_completion(
                 is_rate_limit = "rate limit" in err_msg.lower() or "429" in err_msg or "rate_limit_exceeded" in err_msg
                 
                 if is_rate_limit and attempt < max_retries:
+                    failover_attempts += 1
                     backoff_time = retry_delay * (2 ** attempt)
                     logger.warning(f"[AI Async Client] Rate limit hit for model {model}. Retrying in {backoff_time}s...")
                     await asyncio.sleep(backoff_time)
                     continue
                 
+                failover_attempts += 1
                 logger.warning(f"[AI Async Client] Model {model} failed: {err_msg}. Trying next backup model/provider...")
                 break
                 
@@ -332,6 +374,12 @@ async def async_chat_completion(
         status="failure",
         error_msg="All configured AI models and providers failed."
     )
+    _last_ai_meta.set({
+        "provider": provider_pref,
+        "model": get_model_name(provider_pref),
+        "degraded": True,
+        "failover_attempts": failover_attempts
+    })
     return None
 
 
@@ -419,6 +467,9 @@ async def async_guarded_json_completion(
             max_tokens=max_tokens,
         )
         if not raw_json:
+            curr = get_last_ai_meta()
+            curr["degraded"] = True
+            _last_ai_meta.set(curr)
             return None
             
         try:
@@ -433,4 +484,7 @@ async def async_guarded_json_completion(
             current_user_prompt += f"\n\nERROR ON PREVIOUS ATTEMPT:\n{error_msg}\nInvalid JSON provided:\n{raw_snippet}"
             
     logger.error(f"[{agent_name}] Failed to pass guardrails after {max_retries} attempts.")
+    curr = get_last_ai_meta()
+    curr["degraded"] = True
+    _last_ai_meta.set(curr)
     return None

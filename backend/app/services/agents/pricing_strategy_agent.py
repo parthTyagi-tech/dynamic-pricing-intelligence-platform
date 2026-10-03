@@ -16,37 +16,46 @@ def _mock_strategy_generation(
     pricing_rules: dict
 ) -> dict:
     """Fallback mock strategy synthesis when AI is unavailable. Generates a realistic, dynamic recommendation."""
-    current_price = product.get("current_price", 0.0)
-    cost = product.get("cost_price", 0.0)
-    avg_comp = market_analysis.get("avg_competitor_price", current_price)
-    suggested_adj_market = market_analysis.get("suggested_adjustment_pct", 0.0)
-    suggested_adj_demand = demand_analysis.get("demand_based_price_adjustment_pct", 0.0)
-    suggested_adj_inv = inventory_analysis.get("inventory_pressure_adjustment_pct", 0.0)
+    current_price = float(product.get("current_price", 0.0) or 0.0)
+    cost = float(product.get("cost_price", 0.0) or 0.0)
+    avg_comp = float(market_analysis.get("avg_competitor_price", current_price) or current_price)
+    suggested_adj_market = float(market_analysis.get("suggested_adjustment_pct", 0.0) or 0.0)
+    suggested_adj_demand = float(demand_analysis.get("demand_based_price_adjustment_pct", 0.0) or 0.0)
+    suggested_adj_inv = float(inventory_analysis.get("inventory_pressure_adjustment_pct", 0.0) or 0.0)
     composite_adj = (suggested_adj_market * 0.5) + (suggested_adj_demand * 0.3) + (suggested_adj_inv * 0.2)
     composite_adj = max(-0.05, min(0.05, composite_adj / 100.0))
     recommended = round(current_price * (1.0 + composite_adj), 2)
     min_price = cost * 1.10
     if recommended < min_price:
         recommended = round(min_price, 2)
-    change_pct = round(((recommended - current_price) / current_price) * 100, 2)
-    strategy = "match" if change_pct == 0.0 else ("increase" if change_pct > 0.0 else "undercut")
-    if strategy == "match":
-        rationale = f"Market index average is ₹{avg_comp:,.2f}. Recommend matching index to maintain sales volume while preserving a strong {inventory_analysis.get('current_margin_pct', 0)}% margin."
-    elif strategy == "increase":
-        rationale = f"Consumer demand signals are strong and competitor index is trading higher at ₹{avg_comp:,.2f}. Recommend matching index to increase overall margin capture by +{change_pct}%."
+    change_pct = round(((recommended - current_price) / current_price) * 100, 2) if current_price > 0 else 0.0
+
+    # Strategy must be one of: "penetration", "competitive", "premium", "clearance", "maintain"
+    if change_pct == 0.0:
+        strategy = "maintain"
+        rationale = f"Market index average is ₹{avg_comp:,.2f}. Recommend maintaining price to preserve current sales volume."
+    elif change_pct > 0.0:
+        strategy = "premium"
+        rationale = f"Consumer demand signals are strong and competitor index is trading higher at ₹{avg_comp:,.2f}. Recommend adjustment to increase overall margin capture by +{change_pct}%."
     else:
+        strategy = "competitive"
         rationale = f"Competitors are currently undercutting us at ₹{avg_comp:,.2f}. Recommend matching price adjustment to ₹{recommended:,.2f} to protect market share while preserving profit cushion."
-    return {
+
+    mock_dict = {
         "recommended_price": recommended,
         "price_change_pct": change_pct,
         "strategy": strategy,
         "rationale": rationale,
-        "confidence_score": 0.94,
+        "confidence_score": 0.0,
         "risk_level": "low",
-        "projected_volume_increase_pct": 5.0 if strategy == "undercut" else 0.0,
+        "projected_volume_increase_pct": 5.0 if strategy == "competitive" else 0.0,
         "projected_monthly_profit_lift": round(recommended * 0.05 * 100, 2),
-        "llm_failed": False
     }
+
+    validated = PricingStrategySchema.model_validate(mock_dict).model_dump()
+    validated["llm_failed"] = True
+    validated["degraded"] = True
+    return validated
 
 
 async def run(
@@ -60,9 +69,9 @@ async def run(
     """
     Run strategy synthesis.
     """
-    if (market_analysis.get("llm_failed") or 
-        demand_analysis.get("llm_failed") or 
-        inventory_analysis.get("llm_failed")):
+    if (market_analysis.get("llm_failed") or market_analysis.get("degraded") or 
+        demand_analysis.get("llm_failed") or demand_analysis.get("degraded") or 
+        inventory_analysis.get("llm_failed") or inventory_analysis.get("degraded")):
         result = _mock_strategy_generation(
             product,
             market_analysis,
@@ -96,6 +105,9 @@ async def run(
             inventory_analysis,
             pricing_rules
         )
+    else:
+        result["llm_failed"] = False
+        result["degraded"] = False
 
     result["agent"] = "pricing_strategy"
     return result

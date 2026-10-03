@@ -49,7 +49,14 @@ def _trigger_agent_analysis(product, current_user):
             "market_agent": market_data,
             "demand_agent": demand_data,
             "inventory_agent": inventory_data,
-            "compliance_agent": ai_result.get("compliance", {})
+            "compliance_agent": ai_result.get("compliance", {}),
+            "fallback_used": ai_result.get("fallback_used", False),
+            "provenance": ai_result.get("agent_analysis", {}).get("provenance") or {
+                "provider": "groq",
+                "model": "llama-3.3-70b-versatile",
+                "degraded": bool(ai_result.get("fallback_used", False)),
+                "failover_attempts": 0
+            }
         },
         organization_id=current_user.organization_id
     )

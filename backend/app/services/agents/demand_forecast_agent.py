@@ -10,18 +10,26 @@ from app.services.ai.prompts import DEMAND_FORECASTING_SYSTEM, demand_forecastin
 
 def _mock_demand_analysis(product: dict, demand_signals: list) -> dict:
     """Fallback mock calculations when AI is unavailable. Generate realistic demand factors."""
-    velocities = [s.get("velocity", 1.2) for s in demand_signals] if demand_signals else [1.5]
+    velocities = [float(s.get("velocity", 1.2) or 1.2) for s in demand_signals] if demand_signals else [1.5]
     avg_vel = sum(velocities) / len(velocities)
-    return {
-        "demand_level": "high" if avg_vel > 2.0 else "medium",
-        "trend_direction": "upward" if avg_vel > 1.8 else "stable",
+    
+    # Must be Literal["rising", "stable", "declining"]
+    trend_dir = "rising" if avg_vel > 1.8 else ("declining" if avg_vel < 1.0 else "stable")
+    demand_lvl = "high" if avg_vel > 2.0 else ("low" if avg_vel < 1.0 else "medium")
+
+    mock_dict = {
+        "demand_level": demand_lvl,
+        "trend_direction": trend_dir,
         "avg_trend_score": 0.72 if avg_vel > 1.8 else 0.55,
         "avg_seasonal_factor": 1.05,
         "avg_velocity": round(avg_vel, 2),
         "demand_based_price_adjustment_pct": 1.5 if avg_vel > 1.8 else 0.0,
         "insights": "Demand metrics indicate solid, stable purchasing velocity. Consumer sentiment supports minor price elasticity adjustments.",
-        "llm_failed": False
     }
+    validated = DemandAnalysisSchema.model_validate(mock_dict).model_dump()
+    validated["llm_failed"] = True
+    validated["degraded"] = True
+    return validated
 
 
 async def run(product: dict, demand_signals: List[dict]) -> Dict[str, Any]:
@@ -45,6 +53,9 @@ async def run(product: dict, demand_signals: List[dict]) -> Dict[str, Any]:
 
     if not result:
         result = _mock_demand_analysis(product, demand_signals)
+    else:
+        result["llm_failed"] = False
+        result["degraded"] = False
 
     result["agent"] = "demand_forecast"
     return result

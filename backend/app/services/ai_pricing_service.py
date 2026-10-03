@@ -171,14 +171,13 @@ async def _run_pipeline_async(product):
         )
 
         fallback_used = (
-            market_res.get("llm_failed", False) or
-            demand_res.get("llm_failed", False) or
-            inventory_res.get("llm_failed", False) or
-            strategy_res.get("llm_failed", False) or
-            compliance_res.get("llm_failed", False)
+            market_res.get("llm_failed", False) or market_res.get("degraded", False) or
+            demand_res.get("llm_failed", False) or demand_res.get("degraded", False) or
+            inventory_res.get("llm_failed", False) or inventory_res.get("degraded", False) or
+            strategy_res.get("llm_failed", False) or strategy_res.get("degraded", False) or
+            compliance_res.get("llm_failed", False) or compliance_res.get("degraded", False)
         )
         strategy_res["fallback_used"] = fallback_used
-
 
     if fallback_used:
         strategy_res["recommended_price"] = product.current_price
@@ -186,7 +185,8 @@ async def _run_pipeline_async(product):
         strategy_res["execution_route"] = "human_review"
         strategy_res["strategy"] = "maintain"
         strategy_res["rationale"] = "LLM agent execution failed. Safe fallback applied: maintaining current catalog price."
-        strategy_res["confidence_score"] = 1.0
+        strategy_res["confidence_score"] = 0.0
+        strategy_res["fallback_used"] = True
     else:
         # Format recommendations
         final_price = compliance_res["final_recommended_price"]
@@ -219,12 +219,24 @@ async def _run_pipeline_async(product):
     strategy_res["ai_summary"] = strategy_res.get("ai_summary") or f"Recommended price update generated for {product.name}"
     strategy_res["compliance"] = compliance_res
     
-    # Store sub-agent analysis details inside result
+    # Store sub-agent analysis details inside result with provenance
+    from app.services.ai.client import get_last_ai_meta
+    meta = get_last_ai_meta()
+    if fallback_used:
+        meta["degraded"] = True
+
     strategy_res["agent_analysis"] = {
         "market_agent": market_res,
         "demand_agent": demand_res,
         "inventory_agent": inventory_res,
-        "compliance_agent": compliance_res
+        "compliance_agent": compliance_res,
+        "strategy_agent": dict(strategy_res),
+        "provenance": {
+            "provider": meta.get("provider", "groq"),
+            "model": meta.get("model", "llama-3.3-70b-versatile"),
+            "degraded": bool(meta.get("degraded", fallback_used)),
+            "failover_attempts": int(meta.get("failover_attempts", 0))
+        }
     }
     if use_langflow and "langflow_result" in locals():
         strategy_res["agent_analysis"]["langflow_raw_output"] = langflow_result
@@ -362,11 +374,11 @@ class PricingStrategyAgent:
 
         # Detect fallback status across all agents
         fallback_used = (
-            market_data.get("llm_failed", False) or
-            demand_data.get("llm_failed", False) or
-            inventory_data.get("llm_failed", False) or
-            strategy_res.get("llm_failed", False) or
-            compliance_res.get("llm_failed", False)
+            market_data.get("llm_failed", False) or market_data.get("degraded", False) or
+            demand_data.get("llm_failed", False) or demand_data.get("degraded", False) or
+            inventory_data.get("llm_failed", False) or inventory_data.get("degraded", False) or
+            strategy_res.get("llm_failed", False) or strategy_res.get("degraded", False) or
+            compliance_res.get("llm_failed", False) or compliance_res.get("degraded", False)
         )
         strategy_res["fallback_used"] = fallback_used
 
@@ -376,7 +388,8 @@ class PricingStrategyAgent:
             strategy_res["execution_route"] = "human_review"
             strategy_res["strategy"] = "maintain"
             strategy_res["rationale"] = "LLM agent execution failed. Safe fallback applied: maintaining current catalog price."
-            strategy_res["confidence_score"] = 1.0
+            strategy_res["confidence_score"] = 0.0
+            strategy_res["fallback_used"] = True
         else:
             final_price = compliance_res["final_recommended_price"]
             strategy_res["recommended_price"] = final_price
@@ -407,11 +420,24 @@ class PricingStrategyAgent:
 
         strategy_res["ai_summary"] = strategy_res.get("ai_summary") or f"Recommended price update generated for {product.name}"
         strategy_res["compliance"] = compliance_res
+
+        from app.services.ai.client import get_last_ai_meta
+        meta = get_last_ai_meta()
+        if fallback_used:
+            meta["degraded"] = True
+
         strategy_res["agent_analysis"] = {
             "market_agent": market_data,
             "demand_agent": demand_data,
             "inventory_agent": inventory_data,
-            "compliance_agent": compliance_res
+            "compliance_agent": compliance_res,
+            "strategy_agent": dict(strategy_res),
+            "provenance": {
+                "provider": meta.get("provider", "groq"),
+                "model": meta.get("model", "llama-3.3-70b-versatile"),
+                "degraded": bool(meta.get("degraded", fallback_used)),
+                "failover_attempts": int(meta.get("failover_attempts", 0))
+            }
         }
 
         # Trigger Slack alert for high-impact recommendations

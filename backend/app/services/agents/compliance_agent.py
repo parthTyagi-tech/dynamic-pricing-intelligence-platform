@@ -30,15 +30,18 @@ def _mock_compliance_check(product: dict, recommended_price: float, pricing_rule
         )
         notes = f"Price adjusted from ₹{recommended_price:.2f} to ₹{final_price:.2f} to enforce minimum margin constraints."
 
-    return {
+    mock_dict = {
         "compliant": floor_met,
         "margin_at_recommended": round(margin_at_rec * 100, 2),
         "margin_floor_met": floor_met,
         "violations": violations,
         "final_recommended_price": final_price,
         "compliance_notes": notes,
-        "llm_failed": False
     }
+    validated = ComplianceSchema.model_validate(mock_dict).model_dump()
+    validated["llm_failed"] = True
+    validated["degraded"] = True
+    return validated
 
 
 async def run(product: dict, recommended_price: float, pricing_rules: dict) -> Dict[str, Any]:
@@ -64,6 +67,9 @@ async def run(product: dict, recommended_price: float, pricing_rules: dict) -> D
 
     if not result:
         result = _mock_compliance_check(product, recommended_price, pricing_rules)
+    else:
+        result["llm_failed"] = False
+        result["degraded"] = False
 
     # Mathematically verify and override to prevent LLM calculation/decimal errors
     result["margin_at_recommended"] = round(margin_at_rec * 100, 2)

@@ -11,30 +11,41 @@ from app.services.ai.prompts import MARKET_INTELLIGENCE_SYSTEM, market_intellige
 
 def _mock_market_analysis(product: dict, competitor_prices: list) -> dict:
     """Fallback mock when AI is unavailable. Generate realistic competitor alignment."""
-    current_price = product.get("current_price", 0.0)
-    valid_prices = [c.get("competitor_price") for c in competitor_prices if c.get("competitor_price", 0) > 0]
+    current_price = float(product.get("current_price", 0.0) or 0.0)
+    valid_prices = [float(c.get("competitor_price", 0.0) or 0.0) for c in competitor_prices if float(c.get("competitor_price", 0.0) or 0.0) > 0]
     if valid_prices:
         avg_price = sum(valid_prices) / len(valid_prices)
         min_price = min(valid_prices)
         max_price = max(valid_prices)
     else:
-        avg_price = current_price * 1.015
-        min_price = current_price * 0.98
-        max_price = current_price * 1.04
+        avg_price = current_price * 1.015 if current_price > 0 else 100.0
+        min_price = current_price * 0.98 if current_price > 0 else 98.0
+        max_price = current_price * 1.04 if current_price > 0 else 104.0
     
-    price_gap = round(((current_price - avg_price) / avg_price) * 100, 1)
-    suggested_adj = round(((avg_price - current_price) / current_price) * 100, 1)
+    price_gap = round(((current_price - avg_price) / avg_price) * 100, 1) if avg_price > 0 else 0.0
+    suggested_adj = round(((avg_price - current_price) / current_price) * 100, 1) if current_price > 0 else 0.0
     
-    return {
-        "market_position": "undercut" if current_price > avg_price else "competitive",
+    # Must be Literal["leader", "competitive", "lagging"]
+    if current_price < avg_price:
+        pos = "leader"
+    elif current_price > avg_price:
+        pos = "lagging"
+    else:
+        pos = "competitive"
+
+    mock_dict = {
+        "market_position": pos,
         "avg_competitor_price": round(avg_price, 2),
         "min_competitor_price": round(min_price, 2),
         "max_competitor_price": round(max_price, 2),
         "price_gap_pct": price_gap,
         "insights": f"Competitors are currently trading around ₹{avg_price:,.2f}. Recommend matching market index to protect volume.",
         "suggested_adjustment_pct": suggested_adj,
-        "llm_failed": False
     }
+    validated = MarketAnalysisSchema.model_validate(mock_dict).model_dump()
+    validated["llm_failed"] = True
+    validated["degraded"] = True
+    return validated
 
 
 async def run(product: dict, competitor_prices: List[dict]) -> Dict[str, Any]:
@@ -49,15 +60,19 @@ async def run(product: dict, competitor_prices: List[dict]) -> Dict[str, Any]:
         Structured analysis dict
     """
     if not competitor_prices:
+        base_p = float(product.get("current_price", 0.0) or 0.0)
         return {
-            "market_position": "unknown",
-            "avg_competitor_price": product.get("current_price", 0),
-            "min_competitor_price": product.get("current_price", 0),
-            "max_competitor_price": product.get("current_price", 0),
+            "market_position": "competitive",
+            "avg_competitor_price": base_p,
+            "min_competitor_price": base_p,
+            "max_competitor_price": base_p,
             "price_gap_pct": 0.0,
             "insights": "No competitor data available.",
             "suggested_adjustment_pct": 0.0,
             "agent": "market_intelligence",
+            "competitors": [],
+            "llm_failed": False,
+            "degraded": False
         }
 
     prompt = market_intelligence_prompt(product, competitor_prices)
@@ -70,6 +85,9 @@ async def run(product: dict, competitor_prices: List[dict]) -> Dict[str, Any]:
 
     if not result:
         result = _mock_market_analysis(product, competitor_prices)
+    else:
+        result["llm_failed"] = False
+        result["degraded"] = False
 
     result["agent"] = "market_intelligence"
     result["competitors"] = competitor_prices
