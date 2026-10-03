@@ -697,7 +697,7 @@ class BaseScraperAgent(BaseAgent):
                         score = self.compute_match_score(
                             title or snippet, product_name, brand
                         )
-                        if score >= MATCH_THRESHOLD or score >= 0.70:
+                        if score >= MATCH_THRESHOLD:
                             final_url = clean_url if clean_url.startswith("http") else f"https://{clean_url.lstrip('/')}"
                             return {
                                 "platform": self.platform_name,
@@ -711,10 +711,10 @@ class BaseScraperAgent(BaseAgent):
                                     title or f"Verified {self.platform_name} listing"
                                 ),
                                 "scraped_at": datetime.now(timezone.utc).isoformat(),
-                                "match_score": max(score, 0.75),
+                                "match_score": score,
                                 "unverified_match": False,
                                 "scrape_mode": "search_index_fallback",
-                                "data_source": "live_scrape",
+                                "data_source": "search_index_snippet",
                             }
         except Exception as e:
             logger.debug(f"[{self.platform_name}] search_engine_fallback error: {e}")
