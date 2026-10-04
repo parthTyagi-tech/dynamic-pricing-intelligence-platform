@@ -213,7 +213,8 @@ def approve_recommendation(recommendation_id):
         action_type=ApprovalActionType.APPROVE,
         previous_price=previous_price,
         executed_price=res["new_price"],
-        approved_by=current_user.id
+        approved_by=current_user.id,
+        sku=product.sku
     )
 
     db.session.add(approval_action)

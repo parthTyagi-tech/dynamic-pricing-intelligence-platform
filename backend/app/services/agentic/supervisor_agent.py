@@ -144,31 +144,11 @@ class SupervisorAgent(BaseAgent):
             except Exception:
                 platforms_to_run = self.resolve_platforms(category)
 
-        # Force refresh: Reset circuit breakers in database and bypass cooldowns
-        if force_refresh:
-            for p_name in platforms_to_run:
-                try:
-                    rel = ScraperReliability.query.filter_by(platform=p_name).first()
-                    if rel:
-                        rel.circuit_state = CircuitState.CLOSED
-                        rel.failure_count_last_hour = 0
-                        rel.circuit_opened_at = None
-                        rel.last_failure_reason = None
-                        rel.backoff_minutes = 15
-                    db.session.commit()
-                except Exception as ex:
-                    logger.debug(f"[SupervisorAgent] Force refresh reset error for {p_name}: {ex}")
-
         active_platforms = []
         raw_results = []
 
         for p_name in platforms_to_run:
-            if force_refresh:
-                should_attempt = True
-                remaining_cd = 0
-                c_state = CircuitState.CLOSED
-            else:
-                should_attempt, remaining_cd, c_state = self.check_circuit_breaker(p_name)
+            should_attempt, remaining_cd, c_state = self.check_circuit_breaker(p_name)
 
             if not should_attempt:
                 self.record_decision(
@@ -209,6 +189,20 @@ class SupervisorAgent(BaseAgent):
                 agent = get_scraper_for_platform(p_name)
             except Exception as val_err:
                 logger.warning(f"[SupervisorAgent] Unknown or unsupported platform: {p_name} - {val_err}")
+                self.record_decision(
+                    task_id=task_id,
+                    decision_point="Platform Resolution",
+                    rationale=f"Platform '{p_name}' has no registered scraper: {val_err}",
+                    action_taken="Marked as unsupported platform without silent fallback"
+                )
+                await self.emit_event(
+                    task_id=task_id,
+                    product_id=product.get("id", ""),
+                    organization_id=organization_id,
+                    event_type="platform_not_found",
+                    message=f"Platform '{p_name}' is unsupported by scraper registry.",
+                    payload={"platform": p_name, "error": str(val_err)}
+                )
                 raw_results.append({
                     "platform": p_name,
                     "status": "unreachable",
@@ -220,19 +214,58 @@ class SupervisorAgent(BaseAgent):
 
             sim_fail = (p_name == simulate_failure_platform)
             dispatched_agents.append(p_name)
+
+            # Phase 8: Wrap each platform scrape in a per-platform deadline
+            from flask import current_app
+            platform_deadline = current_app.config.get("PLATFORM_DEADLINE_SECONDS", 25) if current_app else 25
             scraper_tasks.append(
-                agent.scrape(
-                    task_id=task_id,
-                    product=product,
-                    organization_id=organization_id,
-                    simulate_failure=sim_fail
+                asyncio.wait_for(
+                    agent.scrape(
+                        task_id=task_id,
+                        product=product,
+                        organization_id=organization_id,
+                        simulate_failure=sim_fail
+                    ),
+                    timeout=platform_deadline,
                 )
             )
 
         if scraper_tasks:
-            scraped_outputs = await asyncio.gather(*scraper_tasks, return_exceptions=True)
+            # Phase 8: Wrap entire gather in global deadline
+            from flask import current_app as _app
+            global_deadline = _app.config.get("SCRAPE_GLOBAL_DEADLINE_SECONDS", 40) if _app else 40
+            try:
+                scraped_outputs = await asyncio.wait_for(
+                    asyncio.gather(*scraper_tasks, return_exceptions=True),
+                    timeout=global_deadline,
+                )
+            except asyncio.TimeoutError:
+                logger.error(f"[SupervisorAgent] Global scrape deadline ({global_deadline}s) exceeded")
+                scraped_outputs = []
+                for p_name in dispatched_agents:
+                    self.update_circuit_breaker_result(p_name, success=False, reason="global_timeout")
+                    raw_results.append({
+                        "platform": p_name,
+                        "status": "unreachable",
+                        "reason": "global_timeout",
+                        "match_score": 0.0,
+                        "unverified_match": True,
+                        "failure_kind": "timeout",
+                    })
+
             for p_name, out in zip(dispatched_agents, scraped_outputs):
-                if isinstance(out, dict):
+                if isinstance(out, asyncio.TimeoutError):
+                    logger.error(f"[SupervisorAgent] Platform {p_name} exceeded {platform_deadline}s deadline")
+                    self.update_circuit_breaker_result(p_name, success=False, reason="platform_timeout")
+                    raw_results.append({
+                        "platform": p_name,
+                        "status": "unreachable",
+                        "reason": "platform_timeout",
+                        "match_score": 0.0,
+                        "unverified_match": True,
+                        "failure_kind": "timeout",
+                    })
+                elif isinstance(out, dict):
                     raw_results.append(out)
                 else:
                     logger.error(f"[SupervisorAgent] Scraper task exception for {p_name}: {out}")
@@ -249,6 +282,7 @@ class SupervisorAgent(BaseAgent):
         force_refresh: bool = False,
         simulate_failure_platform: Optional[str] = None,
         target_platforms: Optional[List[str]] = None,
+        recommendation_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         task_mgr = get_task_manager()
 
@@ -274,7 +308,7 @@ class SupervisorAgent(BaseAgent):
             )
 
         # 2. Idempotency Check
-        if not force_refresh:
+        if not force_refresh and not recommendation_id:
             cached_rec = self.check_idempotency_cache(product_id, organization_id)
             if cached_rec:
                 self.record_decision(
@@ -383,23 +417,52 @@ class SupervisorAgent(BaseAgent):
             organization_id=organization_id
         )
 
-        # 9. Persist Recommendation to Postgres
-        rec_model = PricingRecommendation(
-            id=str(uuid.uuid4()),
-            product_id=product_id,
-            organization_id=organization_id,
-            task_id=task_id,
-            recommended_price=rec_data["recommended_price"],
-            confidence_score=rec_data.get("confidence_score", 0.85),
-            reasoning_text=rec_data["reasoning_text"],
-            platform_prices_snapshot=rec_data["platform_prices_snapshot"],
-            margin_floor_applied=rec_data["margin_floor_applied"],
-            margin_floor_value=rec_data["margin_floor_value"],
-            sanity_bound_flagged=rec_data["sanity_bound_flagged"],
-            status=RecommendationStatus.PENDING,
-            decided_by=None
-        )
-        db.session.add(rec_model)
+        # 9. Persist Recommendation to Postgres (Reuse existing if recommendation_id provided)
+        rec_model = None
+        if recommendation_id:
+            rec_model = PricingRecommendation.query.filter_by(
+                id=recommendation_id,
+                organization_id=organization_id
+            ).first()
+
+        if rec_model:
+            rec_model.task_id = task_id
+            rec_model.recommended_price = rec_data["recommended_price"]
+            rec_model.confidence_score = rec_data.get("confidence_score", 0.85)
+            rec_model.reasoning_text = rec_data["reasoning_text"]
+            rec_model.platform_prices_snapshot = rec_data["platform_prices_snapshot"]
+            rec_model.margin_floor_applied = rec_data["margin_floor_applied"]
+            rec_model.margin_floor_value = rec_data["margin_floor_value"]
+            rec_model.sanity_bound_flagged = rec_data["sanity_bound_flagged"]
+            rec_model.status = RecommendationStatus.PENDING
+            if product.current_price is not None:
+                rec_model.base_price = float(product.current_price)
+        else:
+            # Supersede older pending recommendations for this product
+            PricingRecommendation.query.filter_by(
+                product_id=product_id,
+                organization_id=organization_id,
+                status=RecommendationStatus.PENDING
+            ).update({"status": RecommendationStatus.SUPERSEDED})
+
+            rec_model = PricingRecommendation(
+                id=recommendation_id or str(uuid.uuid4()),
+                product_id=product_id,
+                organization_id=organization_id,
+                task_id=task_id,
+                recommended_price=rec_data["recommended_price"],
+                base_price=float(product.current_price) if product.current_price is not None else None,
+                confidence_score=rec_data.get("confidence_score", 0.85),
+                reasoning_text=rec_data["reasoning_text"],
+                platform_prices_snapshot=rec_data["platform_prices_snapshot"],
+                margin_floor_applied=rec_data["margin_floor_applied"],
+                margin_floor_value=rec_data["margin_floor_value"],
+                sanity_bound_flagged=rec_data["sanity_bound_flagged"],
+                status=RecommendationStatus.PENDING,
+                decided_by=None
+            )
+            db.session.add(rec_model)
+
         db.session.flush()
 
         # 10. Persist MarketplaceOffer rows linked to active RecommendationJob (Requirement 5)
@@ -418,6 +481,12 @@ class SupervisorAgent(BaseAgent):
             )
             db.session.add(job)
             db.session.flush()
+        else:
+            job.status = RecommendationJobStatus.SUCCEEDED
+            job.progress = 100
+            job.completed_at = datetime.now(timezone.utc)
+
+        MarketplaceOffer.query.filter_by(job_id=job.id).delete()
 
         # Save scraped offers with fully-qualified HTTPS URLs, specifications JSON, and live_scrape source
         for out in raw_results:

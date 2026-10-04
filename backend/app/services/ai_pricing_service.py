@@ -20,6 +20,19 @@ import asyncio
 logger = logging.getLogger(__name__)
 
 
+def _safe_get_loop():
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_closed():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        return loop
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        return loop
+
+
 async def _run_pipeline_async(product):
     # 1. Fetch fresh live competitor prices from agentic pipeline or recommendation snapshot
     import uuid
@@ -259,11 +272,7 @@ class MarketIntelligenceAgent:
     @staticmethod
     def analyze(product):
         # Fallback helper: runs async loop synchronously
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
+        loop = _safe_get_loop()
             
         competitor_prices = [cp.to_dict() for cp in product.competitor_prices.all()]
         product_dict = product.to_dict()
@@ -277,11 +286,7 @@ class MarketIntelligenceAgent:
 class DemandForecastAgent:
     @staticmethod
     def analyze(product):
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
+        loop = _safe_get_loop()
             
         demand_signals = [ds.to_dict() for ds in product.demand_signals.all()]
         product_dict = product.to_dict()
@@ -295,11 +300,7 @@ class DemandForecastAgent:
 class InventoryAgent:
     @staticmethod
     def analyze(product):
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
+        loop = _safe_get_loop()
             
         product_dict = product.to_dict()
         result = loop.run_until_complete(inventory_cost_agent.run(product_dict))
@@ -322,12 +323,7 @@ class PricingStrategyAgent:
     ):
         # If any upstream data is missing, launch parallel async execution
         if market_data is None or demand_data is None or inventory_data is None:
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                
+            loop = _safe_get_loop()
             return loop.run_until_complete(_run_pipeline_async(product))
 
         # Synchronous legacy synthesis (used when precalculated metrics are supplied)
@@ -343,11 +339,7 @@ class PricingStrategyAgent:
         }
 
         # Run legacy strategy & compliance logic synchronously
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
+        loop = _safe_get_loop()
             
         # Fetch actual sales records
         from app.models.market_data import Sale

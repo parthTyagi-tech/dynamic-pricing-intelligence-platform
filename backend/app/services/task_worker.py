@@ -101,6 +101,9 @@ def _process_pricing_job(recommendation_id: str, product_id: str):
         
         try:
             loop = asyncio.get_event_loop()
+            if loop.is_closed():
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
         except RuntimeError:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
@@ -114,7 +117,8 @@ def _process_pricing_job(recommendation_id: str, product_id: str):
                 product_id=product.id,
                 organization_id=product.organization_id,
                 force_refresh=True,
-                target_platforms=target_platforms
+                target_platforms=target_platforms,
+                recommendation_id=recommendation.id,
             )
         )
         

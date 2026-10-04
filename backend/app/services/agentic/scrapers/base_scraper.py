@@ -52,6 +52,22 @@ class BotDetectionEncountered(ScraperException):
 _PRODUCT_PATH_MARKERS = ("/dp/", "/p/", "/product/", "/itm/", "pid=", "/shop/", "/prn/")
 _HREF_RE = re.compile(r'href="([^"]+)"', re.IGNORECASE)
 
+# Phase 8: Limit concurrent Playwright browser instances to prevent memory exhaustion
+_playwright_semaphore: Optional[asyncio.Semaphore] = None
+
+
+def _get_playwright_semaphore() -> asyncio.Semaphore:
+    """Lazy-init semaphore using MAX_PLAYWRIGHT_BROWSERS from app config."""
+    global _playwright_semaphore
+    if _playwright_semaphore is None:
+        try:
+            from flask import current_app
+            max_browsers = getattr(current_app.config, "MAX_PLAYWRIGHT_BROWSERS", 2) if current_app else 2
+        except RuntimeError:
+            max_browsers = 2
+        _playwright_semaphore = asyncio.Semaphore(max_browsers)
+    return _playwright_semaphore
+
 
 class ProxyManager:
     """
@@ -466,115 +482,118 @@ class BaseScraperAgent(BaseAgent):
 
         # Memory-safe Playwright lifecycle: explicit try/finally with pw.stop()
         # to prevent orphaned Chromium zombie processes during batch execution.
-        pw_instance = None
-        browser = None
-        try:
-            pw_instance = await async_playwright().start()
-            browser = await pw_instance.chromium.launch(
-                headless=True,
-                args=[
-                    "--disable-blink-features=AutomationControlled",
-                    "--no-sandbox",
-                    "--disable-dev-shm-usage",
-                    "--disable-gpu",
-                    "--window-size=1366,768",
-                ]
-            )
-            context = await browser.new_context(
-                user_agent=(
-                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                    "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-                ),
-                viewport={"width": 1366, "height": 768},
-                locale="en-IN",
-                timezone_id="Asia/Kolkata",
-            )
-
-            # Stealth evasions: hide navigator.webdriver, emulate realistic
-            # plugins array, and set expected language list so anti-bot
-            # fingerprinters (Amazon, Flipkart) see a normal Chrome session.
-            await context.add_init_script("""
-                Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
-                window.chrome = { runtime: {} };
-                Object.defineProperty(navigator, 'plugins', {
-                    get: () => [1, 2, 3, 4, 5],
-                });
-                Object.defineProperty(navigator, 'languages', {
-                    get: () => ['en-IN', 'en-US', 'en'],
-                });
-            """)
-
-            page = await context.new_page()
-
-            # Block heavy assets (images, fonts) to speed up execution
-            await page.route(
-                re.compile(r"\.(png|jpg|jpeg|gif|webp|svg|ico|woff|woff2)(\?.*)?$"),
-                lambda r: r.abort()
-            )
-
-            await page.goto(search_url, timeout=25000, wait_until="domcontentloaded")
-
-            # Dismiss Flipkart / Amazon login modals if present
+        # Phase 8: Acquire semaphore to limit concurrent browser instances
+        sem = _get_playwright_semaphore()
+        async with sem:
+            pw_instance = None
+            browser = None
             try:
-                await page.keyboard.press("Escape")
-                close_btn = page.locator(
-                    "button._2KpZ6l._2doB4z, span._30XB9F, button:has-text('✕')"
-                ).first
-                if await close_btn.is_visible(timeout=1500):
-                    await close_btn.click()
-            except Exception:
-                pass
+                pw_instance = await async_playwright().start()
+                browser = await pw_instance.chromium.launch(
+                    headless=True,
+                    args=[
+                        "--disable-blink-features=AutomationControlled",
+                        "--no-sandbox",
+                        "--disable-dev-shm-usage",
+                        "--disable-gpu",
+                        "--window-size=1366,768",
+                    ]
+                )
+                context = await browser.new_context(
+                    user_agent=(
+                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                        "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+                    ),
+                    viewport={"width": 1366, "height": 768},
+                    locale="en-IN",
+                    timezone_id="Asia/Kolkata",
+                )
 
-            # Give dynamic cards 2.5s to render
-            await page.wait_for_timeout(2500)
+                # Stealth evasions: hide navigator.webdriver, emulate realistic
+                # plugins array, and set expected language list so anti-bot
+                # fingerprinters (Amazon, Flipkart) see a normal Chrome session.
+                await context.add_init_script("""
+                    Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+                    window.chrome = { runtime: {} };
+                    Object.defineProperty(navigator, 'plugins', {
+                        get: () => [1, 2, 3, 4, 5],
+                    });
+                    Object.defineProperty(navigator, 'languages', {
+                        get: () => ['en-IN', 'en-US', 'en'],
+                    });
+                """)
 
-            html_text = await page.content()
-            landed_url = page.url
-            self.check_bot_detection(200, html_text)
-        except (PlatformRateLimitError, BotDetectionEncountered) as bde:
-            logger.warning(f"[{self.platform_name}] tier3 anti-bot detected: {bde}")
-            raise bde
-        except Exception as ex:
-            logger.warning(f"[{self.platform_name}] tier3 playwright failed: {ex}")
-            return None
-        finally:
-            if browser:
+                page = await context.new_page()
+
+                # Block heavy assets (images, fonts) to speed up execution
+                await page.route(
+                    re.compile(r"\.(png|jpg|jpeg|gif|webp|svg|ico|woff|woff2)(\?.*)?$"),
+                    lambda r: r.abort()
+                )
+
+                await page.goto(search_url, timeout=25000, wait_until="domcontentloaded")
+
+                # Dismiss Flipkart / Amazon login modals if present
                 try:
-                    await browser.close()
+                    await page.keyboard.press("Escape")
+                    close_btn = page.locator(
+                        "button._2KpZ6l._2doB4z, span._30XB9F, button:has-text('✕')"
+                    ).first
+                    if await close_btn.is_visible(timeout=1500):
+                        await close_btn.click()
                 except Exception:
                     pass
-            if pw_instance:
-                try:
-                    await pw_instance.stop()
-                except Exception:
-                    pass
 
-        card_res = self._invoke_extract_cards(html_text, product_name, brand, barcode, landed_url, catalog_price)
-        if card_res:
-            card_res["scrape_mode"] = "playwright_stealth"
-            return card_res
+                # Give dynamic cards 2.5s to render
+                await page.wait_for_timeout(2500)
 
-        price, title = self._extract_price_and_title(html_text)
-        match_score = self.compute_match_score(title, product_name, brand, barcode)
-        if match_score < MATCH_THRESHOLD or price <= 0:
-            return None
+                html_text = await page.content()
+                landed_url = page.url
+                self.check_bot_detection(200, html_text)
+            except (PlatformRateLimitError, BotDetectionEncountered) as bde:
+                logger.warning(f"[{self.platform_name}] tier3 anti-bot detected: {bde}")
+                raise bde
+            except Exception as ex:
+                logger.warning(f"[{self.platform_name}] tier3 playwright failed: {ex}")
+                return None
+            finally:
+                if browser:
+                    try:
+                        await browser.close()
+                    except Exception:
+                        pass
+                if pw_instance:
+                    try:
+                        await pw_instance.stop()
+                    except Exception:
+                        pass
 
-        product_url, url_verified = self._extract_product_link(html_text, fallback_url=landed_url)
+            card_res = self._invoke_extract_cards(html_text, product_name, brand, barcode, landed_url, catalog_price)
+            if card_res:
+                card_res["scrape_mode"] = "playwright_stealth"
+                return card_res
 
-        return {
-            "platform": self.platform_name,
-            "price": price,
-            "currency": "INR",
-            "in_stock": True,
-            "product_url": product_url,
-            "url_verified": url_verified,
-            "product_title": self.sanitize_output(title),
-            "scraped_at": datetime.now(timezone.utc).isoformat(),
-            "match_score": match_score,
-            "unverified_match": False,
-            "scrape_mode": "playwright_stealth",
-            "data_source": "live_scrape",
-        }
+            price, title = self._extract_price_and_title(html_text)
+            match_score = self.compute_match_score(title, product_name, brand, barcode)
+            if match_score < MATCH_THRESHOLD or price <= 0:
+                return None
+
+            product_url, url_verified = self._extract_product_link(html_text, fallback_url=landed_url)
+
+            return {
+                "platform": self.platform_name,
+                "price": price,
+                "currency": "INR",
+                "in_stock": True,
+                "product_url": product_url,
+                "url_verified": url_verified,
+                "product_title": self.sanitize_output(title),
+                "scraped_at": datetime.now(timezone.utc).isoformat(),
+                "match_score": match_score,
+                "unverified_match": False,
+                "scrape_mode": "playwright_stealth",
+                "data_source": "live_scrape",
+            }
 
     # ------------------------------------------------------------------
     # Search engine index fallback (zero-failure guarantee)

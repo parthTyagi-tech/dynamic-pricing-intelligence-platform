@@ -78,7 +78,8 @@ def simulate_ab_test(test_id):
         ab_test.winner = "B"
         winning_price = ab_test.price_b
 
-    # End test and lock in the winning price
+    # Phase 9: End test but do NOT mutate Product.current_price.
+    # The winning price is returned for human approval via the approvals panel.
     ab_test.status = "completed"
     ab_test.completed_at = datetime.now(timezone.utc)
 
@@ -86,6 +87,9 @@ def simulate_ab_test(test_id):
 
     return {
         "success": True,
-        "message": f"A/B Test completed. Branch {ab_test.winner} won!",
+        "simulated": True,
+        "message": f"A/B Test completed. Branch {ab_test.winner} won with price ₹{winning_price:.2f}.",
+        "disclaimer": "No production prices were modified. Submit the winning price for approval to apply it.",
+        "winning_price": winning_price,
         "ab_test": ab_test.to_dict()
     }, 200

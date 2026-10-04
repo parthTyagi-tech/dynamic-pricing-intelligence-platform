@@ -79,7 +79,8 @@ class Organization(db.Model):
     audit_logs = db.relationship(
         "AuditLog",
         back_populates="organization",
-        lazy="dynamic"
+        lazy="dynamic",
+        cascade="all, delete-orphan"
     )
 
     pricing_rules = db.relationship(

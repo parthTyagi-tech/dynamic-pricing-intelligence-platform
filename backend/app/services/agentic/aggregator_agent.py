@@ -83,7 +83,7 @@ class AggregatorAgent(BaseAgent):
                     "is_estimated": is_fallback,
                 }
                 missing_platforms[platform] = {
-                    "reason": f"{data_source}_unverified_excluded",
+                    "reason": "estimated_fallback_excluded" if is_fallback else f"{data_source}_unverified_excluded",
                     "match_score": match_score,
                     "verified": False,
                     "data_source": data_source,

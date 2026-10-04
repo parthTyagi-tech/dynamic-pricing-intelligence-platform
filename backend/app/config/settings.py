@@ -71,6 +71,11 @@ class BaseConfig:
     # Agentic Proposer Flag (Phase 4: LLM proposes, code disposes)
     AGENTIC_LLM_PROPOSER = os.environ.get("AGENTIC_LLM_PROPOSER", "false").lower() == "true"
 
+    # Phase 8: Latency Budget — per-platform and global scrape deadlines
+    PLATFORM_DEADLINE_SECONDS = int(os.environ.get("PLATFORM_DEADLINE_SECONDS", "25"))
+    SCRAPE_GLOBAL_DEADLINE_SECONDS = int(os.environ.get("SCRAPE_GLOBAL_DEADLINE_SECONDS", "40"))
+    MAX_PLAYWRIGHT_BROWSERS = int(os.environ.get("MAX_PLAYWRIGHT_BROWSERS", "2"))
+
 
 AGENTIC_LLM_PROPOSER = os.environ.get("AGENTIC_LLM_PROPOSER", "false").lower() == "true"
 

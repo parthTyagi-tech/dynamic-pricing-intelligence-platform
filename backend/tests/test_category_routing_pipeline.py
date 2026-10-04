@@ -92,12 +92,13 @@ def test_category_hint_pharmacy_routes_through_task_worker(test_setup, monkeypat
         from app.services.agentic.supervisor_agent import SupervisorAgent
         original_execute = SupervisorAgent.execute
 
-        async def spy_execute(self, task_id, product_id, organization_id, force_refresh=True, target_platforms=None, simulate_failure_platform=None):
+        async def spy_execute(self, task_id, product_id, organization_id, force_refresh=True, target_platforms=None, simulate_failure_platform=None, **kwargs):
             dispatched_targets.append(target_platforms)
             return await original_execute(
                 self, task_id, product_id, organization_id,
                 force_refresh=force_refresh, target_platforms=target_platforms,
-                simulate_failure_platform=simulate_failure_platform
+                simulate_failure_platform=simulate_failure_platform,
+                **kwargs
             )
 
         monkeypatch.setattr("app.services.agentic.supervisor_agent.SupervisorAgent.execute", spy_execute)

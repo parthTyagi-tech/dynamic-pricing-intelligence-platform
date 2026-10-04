@@ -153,6 +153,8 @@ def run_simulation():
 
     return {
         "success": True,
+        "simulated": True,
+        "disclaimer": "This is a simulation using mathematical models. No production prices were modified.",
         "product": {
             "id": product.id,
             "name": product.name,

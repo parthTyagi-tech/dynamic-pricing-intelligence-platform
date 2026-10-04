@@ -130,7 +130,18 @@ def test_authenticated_pricing_pipeline_end_to_end(monkeypatch):
         assert history.get_json()["count"] >= 1
 
         from app.models.price_alert import PriceAlert
+        from app.models.audit_loging import AuditLog
+        from app.models.price_history import PriceHistory
+        from app.models.recommendation import ApprovalAction
+        from app.models.pricing_recommendation import PricingRecommendation
+        from app.models.recommendation_job import RecommendationJob
         PriceAlert.query.filter_by(product_id=product.id).delete()
+        AuditLog.query.filter_by(organization_id=organization.id).delete()
+        ApprovalAction.query.filter_by(recommendation_id=recommendation_id).delete()
+        ApprovalAction.query.filter_by(sku=product.sku).delete()
+        PriceHistory.query.filter_by(product_id=product.id).delete()
+        RecommendationJob.query.filter_by(organization_id=organization.id).delete()
+        PricingRecommendation.query.filter_by(organization_id=organization.id).delete()
         db.session.delete(product)
         db.session.delete(user)
         db.session.delete(organization)

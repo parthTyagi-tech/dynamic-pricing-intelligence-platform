@@ -56,6 +56,13 @@ class ApprovalAgent(BaseAgent):
             from app.services.pricing.price_writer import AlreadyDecidedError
             raise AlreadyDecidedError(f"Recommendation {rec.id} has already been decided or is not pending")
 
+        product = Product.query.filter_by(
+            id=rec.product_id,
+            organization_id=organization_id
+        ).first()
+        if not product:
+            raise ValueError(f"Product {rec.product_id} not found for organization {organization_id}")
+
         old_price = float(product.current_price)
 
         # 1. Apply price update in database atomically (CatalogUpdateAgent)

@@ -261,10 +261,11 @@ async def test_supervisor_circuit_breaker(client, org_and_product):
         # Set Flipkart circuit state to OPEN
         rel = ScraperReliability.query.filter_by(platform="Flipkart").first()
         if not rel:
-            rel = ScraperReliability(platform="Flipkart", circuit_state=CircuitState.OPEN, failure_count_last_hour=6)
+            rel = ScraperReliability(platform="Flipkart", circuit_state=CircuitState.OPEN, failure_count_last_hour=6, circuit_opened_at=datetime.now(timezone.utc))
             db.session.add(rel)
         else:
             rel.circuit_state = CircuitState.OPEN
+            rel.circuit_opened_at = datetime.now(timezone.utc)
             rel.failure_count_last_hour = 6
         db.session.commit()
 
@@ -290,6 +291,7 @@ async def test_supervisor_circuit_breaker(client, org_and_product):
 
         # Cleanup
         rel.circuit_state = CircuitState.CLOSED
+        rel.circuit_opened_at = None
         db.session.commit()
 
 

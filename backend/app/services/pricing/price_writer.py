@@ -49,6 +49,7 @@ def apply_price_change(
     expected_base_price: Optional[float] = None,
     sanity_override: bool = False,
     reason: str = "",
+    action: Optional[str] = None,
 ) -> dict[str, Any]:
     """
     The canonical and ONLY mutator of Product.current_price in the system.
@@ -137,11 +138,12 @@ def apply_price_change(
         db.session.add(history)
 
         # AuditLog
+        audit_action = action or ("price_approved" if source in ("catalog_update_agent", "approval_routes", "approval") else "price_changed")
         audit = AuditLog(
             id=audit_id,
             user_id=actor_user_id,
             organization_id=product.organization_id,
-            action="price_changed",
+            action=audit_action,
             entity_type="product",
             entity_id=product.id,
             before_value={"current_price": old_price},

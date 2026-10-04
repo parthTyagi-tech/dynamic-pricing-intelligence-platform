@@ -35,8 +35,13 @@ def client():
 
         yield app.test_client()
 
+        try:
+            db.session.delete(user)
+            db.session.delete(org)
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
         db.session.remove()
-        db.drop_all()
 
 
 def test_forgot_password_success(client):

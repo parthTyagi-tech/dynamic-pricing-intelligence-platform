@@ -1,10 +1,11 @@
-import random
+from datetime import datetime, timedelta, timezone
 from flask import Blueprint, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
+from sqlalchemy import func
 from app.extensions import db
 from app.models.user import User
 from app.models.product import Product, RecommendationStatus
-from app.models.market_data import DemandSignal
+from app.models.market_data import DemandSignal, Sale
 from app.models.recommendation import PricingRecommendation, ApprovalAction, ApprovalActionType
 from app.services.ai_pricing_service import (
     MarketIntelligenceAgent,
@@ -26,10 +27,20 @@ def _trigger_agent_analysis(product, current_user):
     demand_data = ai_result["agent_analysis"]["demand_agent"]
     inventory_data = ai_result["agent_analysis"]["inventory_agent"]
 
+    # Phase 9: Compute real SKU velocity from Sale records (14-day window)
+    cutoff_14d = datetime.now(timezone.utc) - timedelta(days=14)
+    total_sold = db.session.query(
+        func.coalesce(func.sum(Sale.quantity), 0)
+    ).filter(
+        Sale.product_id == product.id,
+        Sale.timestamp >= cutoff_14d,
+    ).scalar()
+    sku_velocity = float(total_sold) / 14.0
+
     demand_signal = DemandSignal(
         trend_score=demand_data["demand_score"] / 100,
-        seasonal_factor=1.1,
-        sku_velocity=random.uniform(10, 100),
+        seasonal_factor=demand_data.get("seasonal_factor", 1.0),
+        sku_velocity=sku_velocity,
         product_id=product.id,
         organization_id=current_user.organization_id
     )

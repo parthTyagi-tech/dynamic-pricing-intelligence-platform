@@ -281,12 +281,26 @@ def get_recommendations():
             "message": "User not found"
         }, 404
 
-    recommendations = PricingRecommendation.query.filter_by(
-    organization_id=current_user.organization_id,
-    status=RecommendationStatus.PENDING
-).order_by(
-    PricingRecommendation.created_at.desc()
-).all()
+    pending_recs = PricingRecommendation.query.filter_by(
+        organization_id=current_user.organization_id,
+        status=RecommendationStatus.PENDING
+    ).order_by(
+        PricingRecommendation.created_at.desc()
+    ).all()
+
+    seen_products = set()
+    recommendations = []
+    need_commit = False
+    for r in pending_recs:
+        if r.product_id in seen_products:
+            r.status = RecommendationStatus.SUPERSEDED
+            need_commit = True
+        else:
+            seen_products.add(r.product_id)
+            recommendations.append(r)
+
+    if need_commit:
+        db.session.commit()
 
     return {
 
@@ -482,7 +496,8 @@ def process_task():
                 product_id=product.id,
                 organization_id=product.organization_id,
                 force_refresh=True,
-                target_platforms=target_platforms
+                target_platforms=target_platforms,
+                recommendation_id=recommendation.id,
             ))
 
             rec_dict = res.get("recommendation") or {}

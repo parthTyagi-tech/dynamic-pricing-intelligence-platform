@@ -57,14 +57,19 @@ class CircuitBreaker:
             return True, CircuitState.CLOSED, 0
 
         # OPEN state: check if backoff period has elapsed
-        backoff_until = None
-        if rel.circuit_opened_at:
-            opened_at = rel.circuit_opened_at
-            if opened_at.tzinfo is None:
-                opened_at = opened_at.replace(tzinfo=timezone.utc)
-            backoff_until = opened_at + timedelta(minutes=rel.backoff_minutes or self.BASE_BACKOFF)
+        opened_at = rel.circuit_opened_at
+        if opened_at is None:
+            opened_at = getattr(rel, "updated_at", None) or now
+            rel.circuit_opened_at = opened_at
+            try:
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+        if opened_at.tzinfo is None:
+            opened_at = opened_at.replace(tzinfo=timezone.utc)
+        backoff_until = opened_at + timedelta(minutes=rel.backoff_minutes or self.BASE_BACKOFF)
 
-        if backoff_until and now < backoff_until:
+        if now < backoff_until:
             retry_after = max(1, int((backoff_until - now).total_seconds()))
             return False, CircuitState.OPEN, retry_after
 

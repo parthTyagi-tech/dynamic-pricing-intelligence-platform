@@ -23,10 +23,15 @@ class ABTest(db.Model):
     
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     completed_at = db.Column(db.DateTime, nullable=True)
+    is_simulated = db.Column(db.Boolean, default=True, nullable=False)
 
     # Relationships
     product = db.relationship("Product", backref="ab_tests")
     organization = db.relationship("Organization")
+
+    def __init__(self, **kwargs):
+        kwargs.setdefault("is_simulated", True)
+        super().__init__(**kwargs)
 
     def to_dict(self):
         return {
@@ -40,6 +45,7 @@ class ABTest(db.Model):
             "revenue_b": self.revenue_b,
             "status": self.status,
             "winner": self.winner,
+            "is_simulated": self.is_simulated,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "completed_at": self.completed_at.isoformat() if self.completed_at else None
         }
