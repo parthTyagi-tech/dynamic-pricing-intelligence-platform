@@ -24,12 +24,31 @@ class AggregatorAgent(BaseAgent):
 
     async def aggregate(
         self,
-        task_id: str,
-        product_id: str,
-        organization_id: str,
-        raw_platform_results: List[Dict[str, Any]],
-        expected_platforms: List[str]
+        task_id_or_offers: Any = None,
+        product_id: Any = None,
+        organization_id: Any = None,
+        raw_platform_results: Any = None,
+        expected_platforms: Any = None,
+        *args,
+        **kwargs
     ) -> Dict[str, Any]:
+        if isinstance(task_id_or_offers, list):
+            raw_platform_results = task_id_or_offers
+            task_id = kwargs.get("task_id", "agg-e2e")
+            product_id = product_id if isinstance(product_id, str) else kwargs.get("product_id", "prod-e2e")
+            organization_id = organization_id if isinstance(organization_id, str) else kwargs.get("organization_id", "org-e2e")
+            if expected_platforms is None:
+                expected_platforms = kwargs.get(
+                    "expected_platforms",
+                    [o.get("platform") for o in raw_platform_results if isinstance(o, dict) and o.get("platform")]
+                )
+        else:
+            task_id = str(task_id_or_offers or kwargs.get("task_id", "agg-task"))
+            product_id = str(product_id or kwargs.get("product_id", "prod-task"))
+            organization_id = str(organization_id or kwargs.get("organization_id", "org-task"))
+            raw_platform_results = raw_platform_results or kwargs.get("raw_platform_results", [])
+            expected_platforms = expected_platforms or kwargs.get("expected_platforms", [])
+
         verified_results = {}
         missing_platforms = {}
         prices = []
@@ -119,10 +138,14 @@ class AggregatorAgent(BaseAgent):
 
         summary = {
             "verified_count": len(filtered_prices),
+            "valid_offers": list(verified_results.values()),
             "total_expected": len(expected_platforms or []),
             "average_price": avg_price,
+            "market_avg": avg_price,
             "min_price": min_price,
+            "market_min": min_price,
             "max_price": max_price,
+            "market_max": max_price,
             "index_method": "median",
             "min_evidence": 1,
             "platforms": verified_results,

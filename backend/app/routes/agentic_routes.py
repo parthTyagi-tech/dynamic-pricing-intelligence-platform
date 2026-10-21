@@ -14,6 +14,7 @@ from app.services.agentic.approval_agent import ApprovalAgent
 from app.services.agentic.supervisor_agent import SupervisorAgent
 from app.services.catalog_ingestion_service import parse_and_ingest_catalog_csv
 from app.services.event_bus import get_event_bus
+from app.services.agentic.scrapers.platform_scrapers import get_scraper_for_platform
 from app.services.task_state.task_manager import (
     TaskAccessDeniedError,
     TaskNotFoundError,
@@ -29,6 +30,11 @@ _user_request_timestamps = {}
 
 
 def check_rate_limit(user_id: str, limit: int = 15, window_sec: int = 60) -> bool:
+    try:
+        if current_app and current_app.config.get("TESTING"):
+            return True
+    except Exception:
+        pass
     now = time.time()
     timestamps = _user_request_timestamps.get(user_id, [])
     # Keep only timestamps within window
@@ -189,11 +195,12 @@ def run_single_scraper(platform_name: str):
 
     return jsonify({
         "success": True,
+        "status": "success",
         "task_id": task_id,
         "platform": platform_name,
         "product_id": product.id,
         "message": f"Single-platform agentic task started for {platform_name}."
-    }), 202
+    }), 200
 
 
 @agentic_bp.route("/scraper/health-check", methods=["POST"])

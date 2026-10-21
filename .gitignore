@@ -36,4 +36,4 @@ backend/emails/
 backend/whatsapp_logs/
 scratch/
 *.pdf
-*code_dump.txt
+*code_dump*.txt

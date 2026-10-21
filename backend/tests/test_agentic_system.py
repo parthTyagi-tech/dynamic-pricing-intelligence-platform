@@ -1,5 +1,6 @@
 import asyncio
 import os
+os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 import uuid
 import pytest
 from datetime import datetime, timezone

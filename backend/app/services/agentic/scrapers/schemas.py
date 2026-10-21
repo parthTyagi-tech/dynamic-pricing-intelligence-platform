@@ -10,7 +10,7 @@ never reaches the debate agents or the DB.
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class ScrapedOffer(BaseModel):
@@ -20,6 +20,7 @@ class ScrapedOffer(BaseModel):
     mrp: Optional[float] = None
     currency: str = "INR"
     in_stock: bool
+    stock_status: str = "in_stock"
     product_url: str
     match_score: float = Field(ge=0.0, le=1.0)
     scraped_at: datetime
@@ -59,3 +60,13 @@ class ScrapedOffer(BaseModel):
             # error (wrong DOM node), not a real discount > 100%.
             raise ValueError(f"mrp ({v}) is below price ({price}) — likely a scrape error")
         return v
+
+    @model_validator(mode="after")
+    def sync_stock_status(self):
+        if not self.in_stock:
+            self.stock_status = "out_of_stock"
+        elif self.stock_status == "out_of_stock":
+            self.in_stock = False
+        elif not self.stock_status:
+            self.stock_status = "in_stock"
+        return self

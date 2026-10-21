@@ -24,3 +24,5 @@ stripe
 openpyxl
 google-cloud-tasks
 google-auth
+curl_cffi
+playwright

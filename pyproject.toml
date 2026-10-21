@@ -30,6 +30,8 @@ dependencies = [
   "Jinja2",
   "MarkupSafe",
   "itsdangerous",
+  "curl_cffi",
+  "playwright",
 ]
 
 [tool.vercel]

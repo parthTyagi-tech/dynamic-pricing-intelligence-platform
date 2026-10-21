@@ -53,6 +53,7 @@ Werkzeug
 google-cloud-tasks
 playwright
 browser-use
+curl_cffi
 supabase
 langchain-openai
 stripe
