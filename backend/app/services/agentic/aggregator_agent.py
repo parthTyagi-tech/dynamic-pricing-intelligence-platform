@@ -1,3 +1,4 @@
+import os
 import statistics
 from datetime import datetime, timezone
 from typing import Any, Dict, List
@@ -54,7 +55,7 @@ class AggregatorAgent(BaseAgent):
         prices = []
 
         priceable_sources = {"live_scrape"}
-        if getattr(settings, "MOCK_SCRAPING", False):
+        if getattr(settings, "MOCK_SCRAPING", False) or os.environ.get("MOCK_SCRAPING", "").lower() == "true":
             priceable_sources.add("mock_simulation")
 
         for item in raw_platform_results:
