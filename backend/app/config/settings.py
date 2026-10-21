@@ -89,6 +89,13 @@ def _normalize_database_url(raw_url: str | None) -> str | None:
     if not raw_url:
         return raw_url
     url = raw_url.replace("postgres://", "postgresql://", 1)
+    try:
+        import psycopg  # noqa: F401
+    except ImportError:
+        if url.startswith("postgresql+psycopg://"):
+            url = url.replace("postgresql+psycopg://", "postgresql+psycopg2://", 1)
+        elif url.startswith("postgresql://") and not url.startswith("postgresql+"):
+            url = url.replace("postgresql://", "postgresql+psycopg2://", 1)
     url = url.replace("?pgbouncer=true", "").replace("&pgbouncer=true", "")
     parsed = urlsplit(url)
     host = parsed.hostname or ""

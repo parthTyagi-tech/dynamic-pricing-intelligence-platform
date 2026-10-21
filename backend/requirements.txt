@@ -16,6 +16,7 @@ openai
 groq
 pydantic
 psycopg2-binary
+psycopg[binary]>=3.1.18
 python-dotenv
 requests
 SQLAlchemy
