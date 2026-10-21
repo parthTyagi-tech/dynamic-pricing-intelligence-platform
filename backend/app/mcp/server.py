@@ -117,6 +117,8 @@ def _get_tenant_context() -> Tuple[str, str]:
 # Initialize FastMCP Server
 # ---------------------------------------------------------------------------
 mcp = FastMCP("Klypup-Pricing-Intelligence")
+if hasattr(mcp.settings, "transport_security"):
+    mcp.settings.transport_security.enable_dns_rebinding_protection = False
 
 
 # ===========================================================================
@@ -942,6 +944,8 @@ def main():
         # FastMCP settings
         mcp.settings.host = args.host
         mcp.settings.port = args.port
+        if hasattr(mcp.settings, "transport_security"):
+            mcp.settings.transport_security.enable_dns_rebinding_protection = False
 
         # Build Starlette app with auth middleware
         sse_app = mcp.sse_app()
