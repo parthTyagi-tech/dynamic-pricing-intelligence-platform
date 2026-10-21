@@ -118,14 +118,9 @@ def _normalize_database_url(raw_url: str | None) -> str | None:
 
 class DevelopmentConfig(BaseConfig):
     DEBUG = True
-    _dev_db_url = os.environ.get(
+    _dev_db_url = _normalize_database_url(os.environ.get(
         "DATABASE_URL", "sqlite:///pricing_dashboard.db"
-    )
-    if _dev_db_url:
-        if _dev_db_url.startswith("postgres://"):
-            _dev_db_url = _dev_db_url.replace("postgres://", "postgresql://", 1)
-        _dev_db_url = _dev_db_url.replace("?pgbouncer=true", "")
-        _dev_db_url = _dev_db_url.replace("&pgbouncer=true", "")
+    ))
     SQLALCHEMY_DATABASE_URI = _dev_db_url
     SQLALCHEMY_ECHO = False
 
