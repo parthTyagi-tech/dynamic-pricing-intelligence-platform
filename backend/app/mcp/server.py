@@ -375,6 +375,26 @@ async def approve_or_reject_recommendation(
         action_uuid = str(uuid.uuid4())
 
         if action_clean == "approve":
+            # Check and clamp to canonical margin floor if needed
+            from app.models.audit_loging import PricingRule
+            from app.utils.security_guardrails import compute_price_floor, effective_min_margin_pct
+
+            cost_price = float(product.cost_price or 0.0)
+            org_rule = PricingRule.query.filter_by(organization_id=org_id).first() if org_id else None
+            rule_fraction = org_rule.minimum_margin if org_rule else 0.15
+            effective_pct = effective_min_margin_pct(product.min_margin_percentage, rule_fraction)
+            floor = compute_price_floor(cost_price, effective_pct)
+
+            if target_price < floor:
+                logger.warning(
+                    f"[MCP] Recommended price {target_price:.2f} is below margin floor {floor:.2f}. "
+                    f"Clamping to floor {floor:.2f} on approval."
+                )
+                target_price = floor
+                rec.recommended_price = floor
+                rec.margin_floor_applied = True
+                rec.margin_floor_value = floor
+
             # Apply atomic price change via canonical ledger writer
             ledger_res = apply_price_change(
                 product=product,

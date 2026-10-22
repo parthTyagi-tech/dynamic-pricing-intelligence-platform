@@ -20,6 +20,12 @@ from app.services.task_state.task_manager import (
     TaskNotFoundError,
     get_task_manager,
 )
+from app.services.pricing.price_writer import (
+    BelowFloorError,
+    SanityBoundError,
+    StalePriceError,
+    AlreadyDecidedError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -342,6 +348,12 @@ def approve_recommendation(task_id: str):
         return jsonify({"success": True, "data": result, "message": "Price update approved and applied."}), 200
     except TaskAccessDeniedError:
         return jsonify({"success": False, "message": "Access forbidden: Task belongs to another organization."}), 403
+    except (BelowFloorError, SanityBoundError) as e:
+        logger.warning(f"[agentic_routes] Price guardrail prevented approval: {e}")
+        return jsonify({"success": False, "message": str(e)}), 422
+    except (StalePriceError, AlreadyDecidedError) as e:
+        logger.warning(f"[agentic_routes] Concurrency conflict during approval: {e}")
+        return jsonify({"success": False, "message": str(e)}), 409
     except Exception as e:
         logger.error(f"[agentic_routes] Approval error: {e}", exc_info=True)
         return jsonify({"success": False, "message": str(e)}), 500

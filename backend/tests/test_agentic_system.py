@@ -478,3 +478,80 @@ async def test_unknown_platform_no_silent_fallback(client, org_and_product):
         finally:
             supervisor.resolve_platforms = orig_resolve
 
+
+# ---------------------------------------------------------------------------
+# 13. SEC-9 Margin Floor Auto-Clamping on Approval
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_approval_below_floor_auto_clamping(client, org_and_product):
+    """
+    Verifies that approving a recommendation with a price below the computed margin
+    floor (e.g. 25.08 vs floor 25.30) safely clamps to the required margin floor
+    (25.30) instead of throwing BelowFloorError / 500 error.
+    """
+    from app.models.audit_loging import PricingRule
+
+    org_id = org_and_product["org_id"]
+    user_id = org_and_product["user_id"]
+
+    with app.app_context():
+        # Setup 15% org rule
+        rule = PricingRule(
+            id=str(uuid.uuid4()),
+            organization_id=org_id,
+            minimum_margin=0.15,
+            auto_execute_threshold=0.90,
+        )
+        db.session.add(rule)
+
+        # Setup test product: cost=22.0, product margin=10% (org rule=15% -> floor=25.30)
+        p_id = str(uuid.uuid4())
+        product = Product(
+            id=p_id,
+            sku=f"SKU-FLOOR-{p_id[:6]}",
+            name="Margin Test Item",
+            category="grocery",
+            current_price=30.0,
+            cost_price=22.0,
+            min_margin_percentage=10.0,
+            inventory_quantity=20,
+            organization_id=org_id,
+        )
+        db.session.add(product)
+
+        # Create recommendation with sub-floor price (25.08 < 25.30)
+        rec_id = str(uuid.uuid4())
+        rec = PricingRecommendation(
+            id=rec_id,
+            product_id=product.id,
+            organization_id=org_id,
+            task_id="task-subfloor-001",
+            recommended_price=25.08,
+            base_price=30.0,
+            confidence_score=0.90,
+            reasoning_text="Under-floor test price",
+            status=RecommendationStatus.PENDING,
+        )
+        db.session.add(rec)
+        db.session.commit()
+
+        task_mgr = get_task_manager()
+        task_mgr.create_task("task-subfloor-001", product.id, org_id, user_id, "grocery")
+
+        catalog_updater = CatalogUpdateAgent()
+        result = await catalog_updater.apply_price_change(
+            task_id="task-subfloor-001",
+            recommendation_id=rec_id,
+            organization_id=org_id,
+            user_id=user_id,
+        )
+
+        assert result["new_price"] == 25.30
+        assert result["old_price"] == 30.0
+        db.session.refresh(product)
+        assert product.current_price == 25.30
+        db.session.refresh(rec)
+        assert rec.status == RecommendationStatus.APPROVED
+        assert rec.recommended_price == 25.30
+
+

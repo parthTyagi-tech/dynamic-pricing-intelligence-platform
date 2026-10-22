@@ -166,10 +166,30 @@ def approve_recommendation(recommendation_id):
             "message": "Recommendation already decided or not pending"
         }, 409
 
+    target_price = float(recommendation.recommended_price)
+    from app.models.audit_loging import PricingRule
+    from app.utils.security_guardrails import compute_price_floor, effective_min_margin_pct
+
+    cost_price = float(product.cost_price or 0.0)
+    org_rule = (
+        PricingRule.query.filter_by(organization_id=current_user.organization_id).first()
+        if current_user.organization_id
+        else None
+    )
+    rule_fraction = org_rule.minimum_margin if org_rule else 0.15
+    effective_pct = effective_min_margin_pct(product.min_margin_percentage, rule_fraction)
+    floor = compute_price_floor(cost_price, effective_pct)
+
+    if target_price < floor:
+        target_price = floor
+        recommendation.recommended_price = floor
+        recommendation.margin_floor_applied = True
+        recommendation.margin_floor_value = floor
+
     try:
         res = apply_price_change(
             product=product,
-            new_price=recommendation.recommended_price,
+            new_price=target_price,
             actor_user_id=current_user.id,
             source="manual_approval",
             recommendation=recommendation,

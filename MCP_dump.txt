@@ -1,0 +1,121 @@
+================================================================================
+KLYPUP DYNAMIC PRICING INTELLIGENCE - MODEL CONTEXT PROTOCOL (MCP) CHEATSHEET
+================================================================================
+AI-FACING CONTEXT DUMP & ARCHITECTURAL SUMMARY
+Target Audience: Autonomous AI Agents, LLM Hosts (Cursor, Claude Desktop, Antigravity)
+
+1. SYSTEM OVERVIEW & ARCHITECTURE
+--------------------------------------------------------------------------------
+- Purpose: Connects external LLM hosts directly to Klypup's 18 marketplace scrapers,
+  multi-agent pricing swarm, and atomic CAS price ledger.
+- Framework: FastMCP (official Python `mcp` SDK v1.30.0).
+- Deployments:
+  * Local CLI: stdio mode (`python backend/app/mcp/server.py --transport stdio`).
+  * Cloud Server: SSE transport over HTTP on Render Web Service.
+- Live URL: https://dynamic-pricing-intelligence-platform-1.onrender.com/sse
+- Health Check: https://dynamic-pricing-intelligence-platform-1.onrender.com/health (200 OK, unauthenticated)
+- Transport Details:
+  * GET /sse : Server-Sent Events stream initialization.
+  * POST /messages?session_id=<id> : JSON-RPC 2.0 command submission.
+
+2. AUTHENTICATION & MULTI-TENANCY (SEC-1 & SEC-2)
+--------------------------------------------------------------------------------
+- Header: `Authorization: Bearer <KLYPUP_MCP_API_KEY>`
+- Tenant Resolution (Precedence Order):
+  1. Per-request HTTP headers: `X-Organization-Id`, `X-User-Id` (bound to Python contextvars).
+  2. Environment variables: `KLYPUP_MCP_ORG_ID`, `KLYPUP_MCP_USER_ID`.
+  3. Database fallback: Seeds/resolves primary active tenant and admin user.
+- Security: All database queries filter strictly by `organization_id`. Any attempt
+  to access another tenant's SKU raises a SEC-1 violation error.
+
+3. CRITICAL IMPLEMENTATION RULES
+--------------------------------------------------------------------------------
+- RULE 1: Stdout Pollution Protection.
+  External scrapers and loggers often print to sys.stdout. This corrupts JSON-RPC
+  in stdio mode. All tool calls execute inside `contextlib.redirect_stdout(sys.stderr)`.
+  Logging is configured strictly to sys.stderr.
+- RULE 2: Worker Process Isolation.
+  The Flask application instance is created with `create_app(start_worker=False)`.
+  MCP worker processes NEVER start Celery/APScheduler background threads.
+- RULE 3: Atomic CAS Price Ledger & Guardrails.
+  * SEC-9 Margin Floor: Price >= Cost + Margin (deterministic, non-negotiable).
+  * SEC-10 Sanity Bound: Flagged if proposed price deviates by > 50%.
+  * Optimistic CAS: Price mutations compare against expected base price to prevent
+    lost updates from concurrent edits.
+- RULE 4: Rollback Anti-Replay State Machine.
+  Approvals create an `ApprovalAction` with a unique UUID (`action_id`).
+  `rollback_price_change(action_id)` can only be executed ONCE per action.
+
+4. EXPOSED TOOLS (7 TOTAL)
+--------------------------------------------------------------------------------
+[1] scrape_marketplace(platform, product_name, brand="", barcode="", catalog_price=0.0)
+    - Probes any of the 18 supported e-commerce marketplaces (Amazon, Flipkart, Myntra,
+      Ajio, Nykaa, BigBasket, Blinkit, Zepto, Meesho, Croma, Purplle, JioMart, etc.).
+    - Returns: price, mrp, match_score, tier_used, in_stock, latency_ms.
+
+[2] scrape_category_swarm(product_id, force_refresh=False)
+    - Fans out parallel scraping across all category-relevant marketplaces for a SKU.
+    - Filters MAD statistical outliers (for n >= 4).
+    - Returns: market_avg, market_min, market_max, valid_offers, discarded_outliers.
+
+[3] run_full_pricing_swarm(product_id, force_refresh=False)
+    - Full multi-agent swarm: 20-min idempotency check -> parallel scraping ->
+      Dual-Agent Debate (Agent A Margin vs Agent B Elasticity) -> SEC-9 margin clamp ->
+      SEC-10 ±50% sanity check -> persists PricingRecommendation.
+    - Returns: recommendation_id, recommended_price, confidence_score, margin_floor_applied.
+
+[4] approve_or_reject_recommendation(recommendation_id, action, reason="")
+    - action: 'approve' or 'reject'.
+    - On approve: executes atomic CAS price mutation, writes immutable PriceHistory +
+      AuditLog, persists ApprovalAction, and returns unique `action_id`.
+    - On reject: transitions status and records rejection rationale.
+
+[5] rollback_price_change(action_id)
+    - Takes `action_id` from a previous approval, restores product price back to
+      `previous_price`, sets `is_rolled_back=True`, and writes audit log.
+    - Anti-replay protected: errors if called multiple times on the same action.
+
+[6] check_or_reset_circuit_breakers(reset=False, run_canaries=False)
+    - Inspects circuit breaker states across all 18 scraper platforms.
+    - If reset=True: clears failure counts, restores states to 'closed'.
+    - If run_canaries=True: triggers automated canary probes across all platforms.
+
+[7] simulate_price_elasticity(product_id, elasticity=-1.5, days=30)
+    - Non-mutating log-linear simulation testing revenue, volume, and profit under
+      different elasticity assumptions, bounded by SEC-9 cost floor.
+
+5. EXPOSED RESOURCES (4 TOTAL)
+--------------------------------------------------------------------------------
+- klypup://catalog/products
+  Live list of tenant SKUs, current prices, cost prices, margin floors, stock.
+- klypup://catalog/product/{sku}/history
+  Full audit log, past price changes, and historical events for a specific SKU.
+- klypup://scrapers/health
+  Live circuit breaker statuses, failure counts, and cooldown timers for 18 scrapers.
+- klypup://recommendations/pending
+  All AI pricing recommendations currently waiting for human approval.
+
+6. EXPOSED PROMPTS (2 TOTAL)
+--------------------------------------------------------------------------------
+- audit_sku_pricing(sku)
+  Workflow instructing host LLM to inspect history, run pricing swarm, evaluate
+  financial guardrails, and generate an executive pricing memo.
+- diagnose_platform_sensor(platform)
+  Workflow instructing host LLM to check circuit breaker health, run probe scrape,
+  and diagnose bot detection, selector health, and proxy latency.
+
+7. CLIENT INTEGRATION (CURSOR / CLAUDE DESKTOP)
+--------------------------------------------------------------------------------
+Add to `claude_desktop_config.json` or Cursor `mcp.json`:
+{
+  "mcpServers": {
+    "klypup": {
+      "url": "https://dynamic-pricing-intelligence-platform-1.onrender.com/sse",
+      "headers": {
+        "Authorization": "Bearer <YOUR_KLYPUP_MCP_API_KEY>",
+        "X-Organization-Id": "<OPTIONAL_ORG_UUID>"
+      }
+    }
+  }
+}
+================================================================================

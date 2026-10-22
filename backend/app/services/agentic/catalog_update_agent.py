@@ -56,6 +56,31 @@ class CatalogUpdateAgent(BaseAgent):
         old_price = float(product.current_price)
         new_price = float(rec.recommended_price)
 
+        # Enforce canonical SEC-9 margin floor compliance on approval
+        from app.models.audit_loging import PricingRule
+        from app.utils.security_guardrails import compute_price_floor, effective_min_margin_pct
+
+        cost_price = float(product.cost_price or 0.0)
+        org_rule = (
+            PricingRule.query.filter_by(organization_id=organization_id).first()
+            if organization_id
+            else None
+        )
+        rule_fraction = org_rule.minimum_margin if org_rule else 0.15
+        effective_pct = effective_min_margin_pct(product.min_margin_percentage, rule_fraction)
+        floor = compute_price_floor(cost_price, effective_pct)
+
+        if new_price < floor:
+            logger.warning(
+                f"[CatalogUpdateAgent] Recommended price {new_price:.2f} is below computed margin floor {floor:.2f} "
+                f"(cost: {cost_price:.2f}, min margin: {effective_pct:.1f}%). "
+                f"Clamping price to floor {floor:.2f} to guarantee SEC-9 compliance on approval."
+            )
+            new_price = floor
+            rec.recommended_price = floor
+            rec.margin_floor_applied = True
+            rec.margin_floor_value = floor
+
         try:
             from app.services.pricing.price_writer import apply_price_change as execute_price_change
             res = execute_price_change(

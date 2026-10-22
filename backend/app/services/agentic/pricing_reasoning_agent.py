@@ -39,8 +39,19 @@ class PricingReasoningAgent(BaseAgent):
         product_name = product.get("name", "Product")
         current_price = float(product.get("current_price", 0.0) or 0.0)
         cost_price = float(product.get("cost_price", 0.0) or 0.0)
-        min_margin_pct = float(product.get("min_margin_percentage", 10.0) or 10.0)
         inventory_qty = int(product.get("inventory_quantity", 0) or 0)
+
+        # Resolve effective margin percentage (SEC-9) using stricter of product vs organization rule
+        from app.models.audit_loging import PricingRule
+        from app.utils.security_guardrails import compute_price_floor, effective_min_margin_pct
+
+        org_rule = PricingRule.query.filter_by(organization_id=organization_id).first() if organization_id else None
+        rule_fraction = org_rule.minimum_margin if org_rule else 0.15
+        raw_prod_margin = product.get("min_margin_percentage")
+        eff_margin_pct = effective_min_margin_pct(
+            float(raw_prod_margin) if raw_prod_margin is not None else None,
+            rule_fraction
+        )
 
         verified_count = aggregated_data.get("verified_count", 0)
         avg_market_price = float(aggregated_data.get("average_price", 0.0))
@@ -54,18 +65,16 @@ class PricingReasoningAgent(BaseAgent):
         ]
         avg_match_score = (sum(match_scores) / len(match_scores)) if match_scores else 0.85
 
-        from app.utils.security_guardrails import compute_price_floor
-
         # -------------------------------------------------------------
         # TURN 1: Agent A (Market & Inventory Analyst)
         # Assesses internal COGS, inventory velocity & applies margin floor
         # -------------------------------------------------------------
-        margin_floor = compute_price_floor(cost_price, min_margin_pct)
+        margin_floor = compute_price_floor(cost_price, eff_margin_pct)
         
         # Inventory velocity assessment
         if inventory_qty > 75:
             velocity_assessment = f"High inventory pressure ({inventory_qty} units). Recommend competitive pricing to accelerate inventory turns."
-            agent_a_target = round(max(margin_floor, cost_price * (1.0 + (min_margin_pct + 4.0) / 100.0)), 2)
+            agent_a_target = round(max(margin_floor, cost_price * (1.0 + (eff_margin_pct + 4.0) / 100.0)), 2)
         elif inventory_qty < 20:
             velocity_assessment = f"Scarcity condition ({inventory_qty} units in stock). Recommend protecting margins and capturing scarcity premium."
             agent_a_target = round(max(margin_floor, current_price * 1.05 if current_price > 0 else margin_floor * 1.15), 2)
@@ -74,7 +83,7 @@ class PricingReasoningAgent(BaseAgent):
             agent_a_target = round(max(margin_floor, current_price if current_price > 0 else margin_floor), 2)
 
         agent_a_rationale = (
-            f"Evaluated internal economics for {product_name}: COGS ₹{cost_price:,.2f}, required margin {min_margin_pct:.1f}%. "
+            f"Evaluated internal economics for {product_name}: COGS ₹{cost_price:,.2f}, required margin {eff_margin_pct:.1f}%. "
             f"Established non-negotiable margin floor of ₹{margin_floor:,.2f}. {velocity_assessment} Initial internal target: ₹{agent_a_target:,.2f}."
         )
 
@@ -203,7 +212,7 @@ class PricingReasoningAgent(BaseAgent):
             agreed_price = candidate
             consensus_detail = (
                 f"Consensus reached: Agent A verified that target of ₹{candidate:,.2f} safely preserves the required "
-                f"{min_margin_pct:.1f}% margin floor (₹{margin_floor:,.2f}). Both agents agree to execute ₹{agreed_price:,.2f}."
+                f"{eff_margin_pct:.1f}% margin floor (₹{margin_floor:,.2f}). Both agents agree to execute ₹{agreed_price:,.2f}."
             )
             action_summary = f"Adopted balanced consensus price of ₹{agreed_price:,.2f}"
 
