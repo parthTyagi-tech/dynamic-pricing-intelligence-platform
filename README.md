@@ -9,8 +9,8 @@
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Supabase-336791?logo=postgresql&logoColor=white)
 ![MCP](https://img.shields.io/badge/MCP-FastMCP-8A2BE2)
 
-**Live demo:** https://dynamic-pricing-intelligence-platfo.vercel.app/login
-**Repository:** https://github.com/parthTyagi-tech/dynamic-pricing-intelligence-platform
+**Live demo:** https://dynamic-pricing-intelligence-platfo.vercel.app
+
 
 ---
 
