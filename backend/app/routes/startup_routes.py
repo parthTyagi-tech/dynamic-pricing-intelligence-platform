@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import os
 from datetime import datetime, timezone
 from flask import Blueprint, request, jsonify
@@ -6,6 +7,8 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.extensions import db
 from app.models.user import User
 from app.models.product import Product
+
+logger = logging.getLogger(__name__)
 
 startup_bp = Blueprint("startup", __name__)
 

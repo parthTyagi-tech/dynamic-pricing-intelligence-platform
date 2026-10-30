@@ -46,7 +46,7 @@ class PricingReasoningAgent(BaseAgent):
         from app.utils.security_guardrails import compute_price_floor, effective_min_margin_pct
 
         org_rule = PricingRule.query.filter_by(organization_id=organization_id).first() if organization_id else None
-        rule_fraction = org_rule.minimum_margin if org_rule else 0.15
+        rule_fraction = org_rule.minimum_margin if org_rule else 0.10
         raw_prod_margin = product.get("min_margin_percentage")
         eff_margin_pct = effective_min_margin_pct(
             float(raw_prod_margin) if raw_prod_margin is not None else None,

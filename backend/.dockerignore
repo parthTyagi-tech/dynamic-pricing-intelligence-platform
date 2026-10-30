@@ -1,0 +1,15 @@
+.env*
+.git
+node_modules
+venv
+env
+__pycache__
+*.pyc
+tests
+scratch
+*.db
+dist
+.pytest_cache
+.hypothesis
+.benchmarks
+reports

@@ -26,7 +26,7 @@ const cleanRationale = (text: string) => {
   if (!text) return "";
   return text
     .replace(/\(ID:\s*[a-f0-9-]{36}\)/gi, "")
-    .replace(/\(Gap\s*#\d+([^\)]*)\)/gi, "")
+    .replace(/\(Gap\s*#\d+([^)]*)\)/gi, "")
     .replace(/\(SEC-\d+\)/gi, "")
     .replace(/\(Problem\s*\d+\)/gi, "")
     .replace(/\s{2,}/g, " ")

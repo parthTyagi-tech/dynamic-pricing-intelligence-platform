@@ -28,3 +28,4 @@ google-auth
 curl_cffi
 playwright
 mcp[cli]>=1.2.0,<2
+twilio
