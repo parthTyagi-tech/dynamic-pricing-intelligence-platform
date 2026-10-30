@@ -20,7 +20,7 @@ dependencies = [
   "pydantic>=2.7.4",
   "psycopg2-binary==2.9.9",
   "python-dotenv==1.0.1",
-  "requests==2.32.3",
+  "requests==2.34.2",
   "SQLAlchemy==2.0.31",
   "supabase",
   "stripe",
