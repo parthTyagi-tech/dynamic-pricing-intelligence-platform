@@ -1,27 +1,33 @@
 """
-DeepSeek Self-Healing Automation for CI/CD Pipeline.
+DeepSeek & Groq Autonomous Self-Healing Automation for CI/CD Pipeline.
 
 When a CI/CD test failure occurs on a Pull Request, this script:
 1. Gathers failure logs and stack traces from pytest/junit XML and build logs.
 2. Implements a loop guard to prevent infinite healing cycles (max 2 attempts per PR).
-3. Prompts DeepSeek to analyze the failure, pinpoint the buggy file, and generate a minimal fix.
-4. Applies the fix to the source tree.
-5. Verifies the fix locally in the runner.
-6. If and ONLY if tests pass, commits and pushes to the PR branch and posts a summary comment.
+3. Connects to Groq / DeepSeek with automatic multi-key rotation and daily rate-limit failover:
+   - Tries Primary Key (Key 1).
+   - If HTTP 429 (Rate Limit / Daily Quota Reached), automatically fails over to Backup Key (Key 2).
+4. Generates a minimal surgical fix for the bug.
+5. Verifies the fix locally in the runner (pytest).
+6. If and ONLY if tests pass, commits with '[auto-heal]' and pushes to the PR branch.
 """
 
-import json
 import os
+import sys
+import json
 import re
 import subprocess
-import sys
-import urllib.error
 import urllib.request
+import urllib.error
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
+
 MAX_AUTO_HEAL_ATTEMPTS = 2
+GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
+GROQ_MODEL = "qwen/qwen3.8-27b"
 DEEPSEEK_API_URL = "https://api.deepseek.com/chat/completions"
+DEEPSEEK_MODEL = "deepseek-chat"
 
 
 def run_cmd(cmd: list[str] | str, check: bool = False, shell: bool = False) -> tuple[int, str]:
@@ -88,11 +94,10 @@ def parse_junit_report(report_path: Path) -> dict:
 
 
 def extract_failing_context() -> tuple[str, list[str]]:
-    """Collect failure context and candidate source file paths to provide to DeepSeek."""
+    """Collect failure context and candidate source file paths to provide to the model."""
     context_lines = []
     candidate_files = set()
 
-    # 1. Parse JUnit report
     junit_path = Path("backend/reports/junit.xml")
     junit_data = parse_junit_report(junit_path)
     if junit_data.get("failures"):
@@ -104,11 +109,9 @@ def extract_failing_context() -> tuple[str, list[str]]:
             if f.get("file"):
                 candidate_files.add(f["file"])
 
-    # 2. Check for manual failure log artifact if passed
     log_file = Path("ci_failure.log")
     if log_file.exists():
         raw_log = log_file.read_text(encoding="utf-8", errors="ignore")
-        # Extract referenced python/typescript files
         for match in re.findall(r'([a-zA-Z0-9_\-\./\\]+\.(?:py|tsx|ts|js|jsx))', raw_log):
             clean_path = match.replace("\\", "/")
             if Path(clean_path).exists() and not clean_path.startswith(".git"):
@@ -120,41 +123,96 @@ def extract_failing_context() -> tuple[str, list[str]]:
     return "\n".join(context_lines), sorted(candidate_files)
 
 
-def call_deepseek(api_key: str, prompt: str) -> str:
-    """Send diagnostic prompt to DeepSeek API."""
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {api_key}"
-    }
-    payload = {
-        "model": "deepseek-chat",
-        "messages": [
-            {
-                "role": "system",
-                "content": (
-                    "You are DeepSeek Harness Self-Healing Agent. You analyze software CI/CD failures and output "
-                    "precise, minimal bug fixes. Always preserve existing intended behavior. "
-                    "Return strictly valid JSON with no markdown wrapping or conversational prose."
-                )
-            },
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ],
-        "temperature": 0.2,
-        "max_tokens": 4096
-    }
+def get_available_api_keys() -> list[tuple[str, str, str]]:
+    """Return ordered list of (provider_name, api_url, model_name, api_key)."""
+    keys = []
 
-    req = urllib.request.Request(
-        DEEPSEEK_API_URL,
-        data=json.dumps(payload).encode("utf-8"),
-        headers=headers,
-        method="POST"
-    )
-    with urllib.request.urlopen(req, timeout=90) as response:
-        result = json.loads(response.read().decode("utf-8"))
-        return result["choices"][0]["message"]["content"]
+    # 1. Groq Keys (Priority with automatic failover)
+    raw_groq_keys = os.environ.get("GROQ_API_KEYS", "")
+    key1 = os.environ.get("GROQ_API_KEY", "")
+    key2 = os.environ.get("GROQ_API_KEY_BACKUP", "")
+
+    collected_groq = []
+    if raw_groq_keys:
+        collected_groq.extend([k.strip() for k in raw_groq_keys.split(",") if k.strip()])
+    if key1 and key1 not in collected_groq:
+        collected_groq.append(key1)
+    if key2 and key2 not in collected_groq:
+        collected_groq.append(key2)
+
+    for idx, gkey in enumerate(collected_groq, 1):
+        keys.append((f"Groq Key #{idx}", GROQ_API_URL, GROQ_MODEL, gkey))
+
+    # 2. DeepSeek API Key fallback
+    deepseek_key = os.environ.get("DEEPSEEK_API_KEY", "")
+    if deepseek_key:
+        keys.append(("DeepSeek API", DEEPSEEK_API_URL, DEEPSEEK_MODEL, deepseek_key))
+
+    return keys
+
+
+def call_ai_with_failover(prompt: str) -> str:
+    """Send prompt to LLM, automatically rotating through keys on 429 rate limit or quota errors."""
+    key_pool = get_available_api_keys()
+    if not key_pool:
+        raise RuntimeError("No Groq or DeepSeek API keys configured in environment.")
+
+    last_error = None
+    for label, api_url, model_name, api_key in key_pool:
+        masked_key = api_key[:7] + "..." + api_key[-4:] if len(api_key) > 12 else "***"
+        print(f"[self-heal] Attempting code repair using {label} ({masked_key}) with model '{model_name}'...")
+
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}",
+            "User-Agent": "DeepSeek-SelfHeal-Bot"
+        }
+        payload = {
+            "model": model_name,
+            "messages": [
+                {
+                    "role": "system",
+                    "content": (
+                        "You are an expert Autonomous CI/CD Self-Healing Agent. You analyze software test failures "
+                        "and output precise, minimal bug fixes. Always preserve existing intended behavior. "
+                        "Return strictly valid JSON with no markdown wrapping or conversational prose."
+                    )
+                },
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            "temperature": 0.2,
+            "max_tokens": 4096
+        }
+
+        req = urllib.request.Request(
+            api_url,
+            data=json.dumps(payload).encode("utf-8"),
+            headers=headers,
+            method="POST"
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=90) as response:
+                result = json.loads(response.read().decode("utf-8"))
+                content = result["choices"][0]["message"]["content"]
+                print(f"[self-heal] Successfully received diagnostic response from {label}!")
+                return content
+        except urllib.error.HTTPError as e:
+            error_body = e.read().decode("utf-8", errors="ignore")
+            print(f"[self-heal] HTTP Error {e.code} on {label}: {error_body}")
+            if e.code in (429, 403, 401) or "rate_limit" in error_body.lower() or "quota" in error_body.lower():
+                print(f"[self-heal] Quota/Rate limit reached on {label}. Seamlessly failing over to next available key...")
+                last_error = f"{label}: {error_body}"
+                continue
+            raise
+        except Exception as e:
+            print(f"[self-heal] Unexpected connection error on {label}: {e}")
+            last_error = str(e)
+            continue
+
+    raise RuntimeError(f"All configured API keys in pool failed or exhausted. Last error: {last_error}")
 
 
 def post_github_comment(pr_number: str, message: str, token: str, repo: str) -> None:
@@ -180,12 +238,7 @@ def post_github_comment(pr_number: str, message: str, token: str, repo: str) -> 
 
 
 def main() -> int:
-    print("=== [DeepSeek Harness] CI/CD Self-Healing Agent Starting ===")
-
-    api_key = os.environ.get("DEEPSEEK_API_KEY")
-    if not api_key:
-        print("[self-heal] Error: DEEPSEEK_API_KEY environment variable is missing. Skipping auto-heal.")
-        return 0
+    print("=== Autonomous CI/CD Self-Healing Agent Starting ===")
 
     head_ref = os.environ.get("GITHUB_HEAD_REF")
     if not head_ref:
@@ -202,13 +255,11 @@ def main() -> int:
 
     print(f"[self-heal] Identified {len(candidate_files)} relevant candidate file(s): {candidate_files}")
 
-    # Gather file contents for candidate files (up to 3 files to fit token window)
     file_snippets = []
     for fpath in candidate_files[:3]:
         p = Path(fpath)
         if p.exists() and p.is_file():
             content = p.read_text(encoding="utf-8", errors="ignore")
-            # Limit snippet size
             lines = content.splitlines()
             snippet = "\n".join(lines[:300])
             file_snippets.append(f"--- FILE: {fpath} ---\n{snippet}")
@@ -231,16 +282,14 @@ You MUST output ONLY a valid JSON object matching this schema:
 Do NOT include markdown code blocks around the JSON. Return raw JSON only.
 """
 
-    print("[self-heal] Querying DeepSeek for automated repair proposal...")
     try:
-        response_text = call_deepseek(api_key, prompt).strip()
-        # Clean potential markdown wrapping
+        response_text = call_ai_with_failover(prompt).strip()
         if response_text.startswith("```"):
             response_text = re.sub(r"^```[a-z]*\s*", "", response_text)
             response_text = re.sub(r"\s*```$", "", response_text)
         patch_data = json.loads(response_text)
     except Exception as e:
-        print(f"[self-heal] Failed to parse DeepSeek response: {e}")
+        print(f"[self-heal] Failed to get valid patch from AI: {e}")
         return 0
 
     target_file = Path(patch_data.get("file_path", ""))
@@ -262,7 +311,7 @@ Do NOT include markdown code blocks around the JSON. Return raw JSON only.
     target_file.write_text(patched_content, encoding="utf-8")
 
     # Local Verification Gate
-    print("[self-heal] Verifying fix locally before committing...")
+    print("[self-heal] Verifying fix locally in runner before committing...")
     test_code, _test_out = run_cmd(["pytest", "-m", "not live and not network", "-q"], shell=True)
     if test_code != 0:
         print(f"[self-heal] Local tests failed after patch (exit code {test_code}). Reverting changes.")
@@ -284,7 +333,7 @@ Do NOT include markdown code blocks around the JSON. Return raw JSON only.
         repo = os.environ.get("GITHUB_REPOSITORY", "")
         post_github_comment(
             pr_number,
-            f"### 🤖 DeepSeek Harness Self-Healing\n\nA test failure occurred in CI. DeepSeek diagnosed and applied the following fix:\n\n> {explanation}\n\n- **Modified File**: `{target_file}`\n- **Commit**: `{commit_msg}`\n- **Verification**: Local pytest suite confirmed 100% passing before push.",
+            f"### 🤖 Autonomous Self-Healing Fix Applied\n\nA CI test failed on this PR. The Self-Healing bot diagnosed and applied the following fix:\n\n> {explanation}\n\n- **Modified File**: `{target_file}`\n- **Commit**: `{commit_msg}`\n- **Verification**: Local pytest suite confirmed 100% passing before push.",
             gh_token,
             repo
         )
