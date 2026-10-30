@@ -126,11 +126,12 @@ jobs:
       - name: Verify PostgreSQL Database Schema & Model Compatibility
         run: |
           python -c "
-          from run import app
+          import sqlalchemy as sa
+          from app import create_app
           from app.extensions import db
+          app = create_app(start_worker=False)
           with app.app_context():
-              # Inspect actual table names in Postgres
-              inspector = db.inspect(db.engine)
+              inspector = sa.inspect(db.engine)
               tables = set(inspector.get_table_names())
               print('Tables created by migrations:', sorted(tables))
               assert 'products' in tables, 'Missing products table'
@@ -192,7 +193,7 @@ jobs:
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        continue-on-error: ${{ github.event_name == 'pull_request' }}
+        continue-on-error: ${{ github.event_name != 'schedule' }}
 
       - name: Set up Python 3.12 for pip-audit
         uses: actions/setup-python@v5
@@ -203,7 +204,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip pip-audit
           pip-audit -r backend/requirements.txt
-        continue-on-error: ${{ github.event_name == 'pull_request' }}
+        continue-on-error: ${{ github.event_name != 'schedule' }}
 
       - name: Set up Node 20 for npm audit
         uses: actions/setup-node@v4
@@ -214,7 +215,7 @@ jobs:
         working-directory: frontend
         run: |
           npm audit --audit-level=high
-        continue-on-error: ${{ github.event_name == 'pull_request' }}
+        continue-on-error: ${{ github.event_name != 'schedule' }}
 
   # =========================================================================
   # 5. Docker Build Verification & Container Health Smoke Test

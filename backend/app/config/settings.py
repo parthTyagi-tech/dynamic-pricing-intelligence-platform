@@ -145,7 +145,9 @@ class ProductionConfig(BaseConfig):
 
 class TestingConfig(BaseConfig):
     TESTING = True
-    SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
+    SQLALCHEMY_DATABASE_URI = _normalize_database_url(
+        os.environ.get("DATABASE_URL") or "sqlite:///:memory:"
+    )
     MOCK_SCRAPING = os.environ.get("MOCK_SCRAPING", "true").lower() == "true"
 
 
