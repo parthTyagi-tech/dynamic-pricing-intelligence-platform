@@ -88,10 +88,24 @@ Configure these in **GitHub Repository Settings > Secrets and variables > Action
 
 | Name | Type | Required? | Purpose |
 |---|---|---|---|
+| `DEEPSEEK_API_KEY` | Secret | Optional | DeepSeek API key powering the autonomous Self-Healing CI/CD Agent (`tools/deepseek_self_heal.py`). |
 | `COOLIFY_WEBHOOK_URL` | Secret | Optional | Webhook URL to trigger automatic redeployment on Coolify upon successful CI on `main`. |
 | `API_HEALTH_URL` | Variable | Optional | Public URL (e.g. `https://dynamic-pricing-intelligence-api.vercel.app/health`) used by the post-deployment verification step. |
 | `WORKER_CALLBACK_SECRET` | Secret | Optional | Shared authentication secret sent in `X-Klypup-Worker-Secret` for Cloud Tasks callbacks. |
 | `SUPABASE_KEY` / `DATABASE_URL` | Secret | Production | Production Supabase database credentials (never needed for CI; CI uses hermetic in-memory SQLite and local PostgreSQL service containers). |
+
+---
+
+## 5. Autonomous Self-Healing Pipeline (DeepSeek Harness)
+
+When a test failure occurs on a Pull Request:
+1. The `auto-heal` job activates in `.github/workflows/ci-cd.yml`.
+2. It parses the failure traceback and JUnit XML reports from `backend/reports/junit.xml`.
+3. A **loop-guard** verifies that no more than 2 consecutive `[auto-heal]` attempts have been made on the PR (preventing infinite loops).
+4. DeepSeek Harness analyzes the failing source code and generates a minimal, surgical fix.
+5. The runner runs the test suite locally against the patch.
+6. **Integrity Rule**: If and ONLY if tests pass locally, the bot commits with `fix(auto-heal): ... [auto-heal]`, pushes to the PR branch, and posts a detailed summary comment on the GitHub PR.
+7. If tests still fail, the patch is discarded without polluting git history.
 
 ---
 
