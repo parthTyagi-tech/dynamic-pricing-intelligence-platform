@@ -1,0 +1,11 @@
+{
+  "id": "bug_15_decay_window_logic",
+  "name": "Premature Sliding Window Decay in Circuit Breaker",
+  "category": "hard_ambiguous",
+  "difficulty": "hard",
+  "target_file": "backend/app/services/agentic/circuit_breaker.py",
+  "test_node": "tests/test_circuit_breaker_atomic.py::test_sliding_window_failure_decay_after_60_minutes",
+  "search_block": "            if now - w_start > timedelta(minutes=self.WINDOW_MINUTES):\n                rel.failure_count_last_hour = 0\n                rel.failure_window_started_at = now\n                if rel.circuit_state == CircuitState.CLOSED:",
+  "corrupt_block": "            if now - w_start < timedelta(minutes=self.WINDOW_MINUTES):\n                rel.failure_count_last_hour = 0\n                rel.failure_window_started_at = now\n                if rel.circuit_state == CircuitState.CLOSED:",
+  "description": "Hard bug: Reverses window decay expiration, retaining expired failures after 60m has elapsed while clearing them prematurely inside the active window."
+}

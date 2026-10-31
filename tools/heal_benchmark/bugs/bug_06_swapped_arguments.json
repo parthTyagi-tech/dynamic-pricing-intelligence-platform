@@ -1,0 +1,11 @@
+{
+  "id": "bug_06_swapped_arguments",
+  "name": "Swapped Base and Target Arguments in Price Change Evaluation",
+  "category": "swapped_arguments",
+  "difficulty": "standard",
+  "target_file": "backend/app/services/pricing/price_writer.py",
+  "test_node": "tests/test_price_writer.py::test_sanity_bound_rejection_and_flagging",
+  "search_block": "    sanity_flagged, delta_pct = check_sanity_bound(old_price, target_price)",
+  "corrupt_block": "    sanity_flagged, delta_pct = check_sanity_bound(target_price, old_price)",
+  "description": "Inverts current_price and recommended_price arguments, computing delta relative to recommended price (40% drop instead of 66% surge) and failing to flag sanity bound."
+}

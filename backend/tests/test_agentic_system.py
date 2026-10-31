@@ -1,5 +1,7 @@
 import asyncio
 import os
+os.environ["FLASK_ENV"] = "testing"
+os.environ["VERCEL"] = "1"
 os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 import uuid
 import pytest

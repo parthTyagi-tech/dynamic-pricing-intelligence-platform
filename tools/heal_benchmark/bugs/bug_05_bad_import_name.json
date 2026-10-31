@@ -1,0 +1,12 @@
+{
+  "id": "bug_05_bad_import_name",
+  "name": "Bad Model Import Name in Price Writer",
+  "category": "bad_import_name",
+  "difficulty": "standard",
+  "target_file": "backend/app/services/pricing/price_writer.py",
+  "test_node": "tests/test_price_writer.py::test_below_floor_rejection",
+  "search_block": "from app.models.price_history import PriceHistory",
+  "corrupt_block": "from app.models.price_history import PriceHistoryRecord",
+  "description": "Imports non-existent class PriceHistoryRecord, causing local ImportError caught as CODE_BUG by harness."
+}
+

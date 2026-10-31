@@ -1,0 +1,12 @@
+{
+  "id": "bug_12_broken_regex",
+  "name": "Inverted Character Class in Query Normalizer Regex",
+  "category": "broken_regex",
+  "difficulty": "standard",
+  "target_file": "backend/app/services/marketplace_normalizer.py",
+  "test_node": "tests/test_price_recommendation_design.py::test_marketplace_normalizer_standardizes_results",
+  "search_block": "    value = re.sub(r\"[^a-z0-9]+\", \" \", value)",
+  "corrupt_block": "    value = re.sub(r\"[a-z0-9]+\", \" \", value)",
+  "description": "Replaces alphanumeric characters instead of symbols, completely stripping meaningful search terms."
+}
+

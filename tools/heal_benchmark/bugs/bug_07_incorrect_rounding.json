@@ -1,0 +1,11 @@
+{
+  "id": "bug_07_incorrect_rounding",
+  "name": "Incorrect Rounding / Precision Offset in Target Price",
+  "category": "incorrect_rounding",
+  "difficulty": "standard",
+  "target_file": "backend/app/services/pricing/price_writer.py",
+  "test_node": "tests/test_price_writer.py::test_sanity_override_success",
+  "search_block": "    target_price = round(float(new_price), 2)",
+  "corrupt_block": "    target_price = round(float(new_price) - 0.50, 2)",
+  "description": "Applies an unauthorized half-dollar precision subtraction during target price rounding, corrupting ledger audit expectations."
+}

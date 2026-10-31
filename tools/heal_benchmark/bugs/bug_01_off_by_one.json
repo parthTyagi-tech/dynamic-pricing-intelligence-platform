@@ -1,0 +1,12 @@
+{
+  "id": "bug_01_off_by_one",
+  "name": "Off-by-One Bound Margin in Sanity Check",
+  "category": "off_by_one",
+  "difficulty": "standard",
+  "target_file": "backend/app/utils/security_guardrails.py",
+  "test_node": "tests/test_security_guardrails.py::test_check_sanity_bound",
+  "search_block": "    flagged = abs(delta_pct) > SANITY_BOUND_PCT",
+  "corrupt_block": "    flagged = abs(delta_pct) > SANITY_BOUND_PCT + 0.15",
+  "description": "Artificially shifts the sanity threshold by +15%, causing out-of-bounds 60% price swings to pass unflagged."
+}
+

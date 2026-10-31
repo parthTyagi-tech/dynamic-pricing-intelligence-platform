@@ -1,0 +1,12 @@
+{
+  "id": "bug_09_inverted_boolean",
+  "name": "Inverted Failure Kind Filter in Circuit Breaker",
+  "category": "inverted_boolean",
+  "difficulty": "standard",
+  "target_file": "backend/app/services/agentic/circuit_breaker.py",
+  "test_node": "tests/test_circuit_breaker_atomic.py::test_parse_and_no_match_errors_do_not_trip_circuit",
+  "search_block": "        if kind not in (FailureKind.BLOCKED, FailureKind.TIMEOUT):\n            return",
+  "corrupt_block": "        if kind in (FailureKind.BLOCKED, FailureKind.TIMEOUT):\n            return",
+  "description": "Inverts condition so parse errors count towards tripping circuit while blocked responses are ignored."
+}
+

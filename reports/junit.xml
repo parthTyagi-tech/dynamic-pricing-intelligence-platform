@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.851" timestamp="2026-10-30T17:13:24.847680+05:30" hostname="pashu"><testcase classname="tests.test_circuit_breaker_atomic" name="test_sliding_window_failure_decay_after_60_minutes" file="tests\test_circuit_breaker_atomic.py" line="87" time="0.252"><failure message="assert 4 == 0&#10; +  where 4 = &lt;ScraperReliability TestPlatform_Decay&gt;.failure_count_last_hour">def test_sliding_window_failure_decay_after_60_minutes():
+        """
+        Failures older than 60 minutes decay to 0 and do not contribute
+        towards tripping the circuit.
+        """
+        with app.app_context():
+            platform = "TestPlatform_Decay"
+            rel = ScraperReliability.query.filter_by(platform=platform).first()
+            if not rel:
+                rel = ScraperReliability(platform=platform)
+                db.session.add(rel)
+            rel.circuit_state = CircuitState.CLOSED
+            rel.failure_count_last_hour = 4
+            rel.failure_window_started_at = datetime.now(timezone.utc) - timedelta(minutes=65)
+            db.session.commit()
+    
+            # Calling allow() triggers window decay
+            allowed, state, _ = circuit_breaker.allow(platform)
+            assert allowed is True
+            assert state == CircuitState.CLOSED
+    
+            rel = ScraperReliability.query.filter_by(platform=platform).first()
+&gt;           assert rel.failure_count_last_hour == 0
+E           assert 4 == 0
+E            +  where 4 = &lt;ScraperReliability TestPlatform_Decay&gt;.failure_count_last_hour
+
+tests\test_circuit_breaker_atomic.py:110: AssertionError</failure></testcase></testsuite></testsuites>

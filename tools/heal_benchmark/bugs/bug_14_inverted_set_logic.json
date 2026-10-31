@@ -1,0 +1,12 @@
+{
+  "id": "bug_14_inverted_set_logic",
+  "name": "Set Difference Instead of Intersection in Tenant Scoping Defense",
+  "category": "hard_ambiguous",
+  "difficulty": "hard",
+  "target_file": "backend/app/utils/security_guardrails.py",
+  "test_node": "tests/test_security_guardrails.py::test_assert_no_client_supplied_org_id",
+  "search_block": "    found = suspicious_keys.intersection(payload.keys())",
+  "corrupt_block": "    found = suspicious_keys.difference(payload.keys())",
+  "description": "Hard bug: Replaces set intersection with difference, flagging clean payloads because absent forbidden keys appear in the result."
+}
+

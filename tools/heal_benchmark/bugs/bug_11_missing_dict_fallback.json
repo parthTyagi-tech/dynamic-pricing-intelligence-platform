@@ -1,0 +1,12 @@
+{
+  "id": "bug_11_missing_dict_fallback",
+  "name": "Missing Dictionary Key Fallback in Normalizer",
+  "category": "missing_dict_fallback",
+  "difficulty": "standard",
+  "target_file": "backend/app/services/marketplace_normalizer.py",
+  "test_node": "tests/test_price_recommendation_design.py::test_marketplace_normalizer_standardizes_results",
+  "search_block": "        \"base_price\": product.get(\"current_price\") or product.get(\"base_price\") or 0,",
+  "corrupt_block": "        \"base_price\": product[\"current_price\"],",
+  "description": "Accesses key directly without .get() fallback, raising KeyError when input uses 'base_price' or lacks 'current_price'."
+}
+

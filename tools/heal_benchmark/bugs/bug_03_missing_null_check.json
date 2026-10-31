@@ -1,0 +1,12 @@
+{
+  "id": "bug_03_missing_null_check",
+  "name": "Missing Null Check in Prompt Sanitizer",
+  "category": "missing_null_check",
+  "difficulty": "standard",
+  "target_file": "backend/app/utils/security_guardrails.py",
+  "test_node": "tests/test_security_guardrails.py::test_sanitize_for_prompt",
+  "search_block": "    if not value:\n        return \"\"",
+  "corrupt_block": "    if value is None:\n        return \"None\"",
+  "description": "Fails to return empty string on None/falsy inputs, causing string 'None' to bleed into sanitized prompts."
+}
+

@@ -6,6 +6,15 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number for branch verification'
+        required: false
+        default: ''
+      base_ref:
+        description: 'Target base branch (default: main)'
+        required: false
+        default: 'main'
   schedule:
     # Weekly audit run (Monday 06:00 UTC) with blocking security checks
     - cron: '0 6 * * 1'
@@ -62,7 +71,7 @@ jobs:
       - name: Run Hermetic Pytest Suite with Coverage
         run: |
           mkdir -p reports
-          pytest -m "not live and not network" --tb=short --junitxml=reports/junit.xml --cov=app --cov-report=xml:reports/coverage.xml
+          pytest -m "not live and not network" --tb=short --junitxml=reports/junit.xml -o junit_family=xunit1 --cov=app --cov-report=xml:reports/coverage.xml
 
       - name: Upload Test and Coverage Reports
         uses: actions/upload-artifact@v4
@@ -333,19 +342,23 @@ jobs:
   auto-heal:
     name: DeepSeek Harness Self-Healing
     needs: [backend-ci, backend-postgres, frontend-ci]
-    if: failure() && github.event_name == 'pull_request' && !contains(github.event.pull_request.title, '[skip auto-heal]')
+    if: failure() && ((github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) || (github.event_name == 'workflow_dispatch' && inputs.pr_number != '')) && !contains(github.event.pull_request.title || '', '[skip auto-heal]')
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    concurrency:
+      group: auto-heal-${{ github.event.pull_request.number || inputs.pr_number || github.ref }}
+      cancel-in-progress: false
     permissions:
       contents: write
       pull-requests: write
+      actions: write
     steps:
       - name: Checkout PR Branch
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.head_ref }}
-          fetch-depth: 10
-          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ github.head_ref || github.ref_name }}
+          fetch-depth: 0
+          persist-credentials: false
 
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
@@ -364,16 +377,37 @@ jobs:
           name: backend-test-reports
           path: backend/reports/
 
-      - name: Execute DeepSeek & Groq Self-Healing Diagnosis & Repair
+      - name: Execute DeepSeek & Groq Self-Healing Diagnosis & Local Verification
+        id: self_heal
         env:
+          PYTHONPATH: backend
+          FLASK_ENV: testing
+          MOCK_SCRAPING: "true"
+          DATABASE_URL: "sqlite:///:memory:"
+          SECRET_KEY: "ci-testing-secret-key-32-chars-minimum-safe!!"
+          JWT_SECRET_KEY: "ci-testing-jwt-secret-key-32-chars-safe!!"
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           GROQ_API_KEY_BACKUP: ${{ secrets.GROQ_API_KEY_BACKUP }}
           GROQ_API_KEYS: ${{ secrets.GROQ_API_KEYS }}
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
-          GITHUB_HEAD_REF: ${{ github.head_ref }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_BASE_REF: ${{ github.base_ref || inputs.base_ref || 'main' }}
+          GITHUB_HEAD_REF: ${{ github.head_ref || github.ref_name }}
+          GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
           GITHUB_REPOSITORY: ${{ github.repository }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr_number }}
         run: |
-          python tools/deepseek_self_heal.py
+          python tools/deepseek_self_heal.py --no-push
+
+      - name: Push Auto-Heal Fix to Remote PR Branch
+        if: steps.self_heal.outputs.healed == 'true'
+        env:
+          HEAL_BOT_TOKEN: ${{ secrets.HEAL_BOT_TOKEN || secrets.GITHUB_TOKEN }}
+          HEAL_BOT_TOKEN_CONFIGURED: ${{ secrets.HEAL_BOT_TOKEN != '' }}
+          GITHUB_BASE_REF: ${{ github.base_ref || inputs.base_ref || 'main' }}
+          GITHUB_HEAD_REF: ${{ github.head_ref || github.ref_name }}
+          GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr_number }}
+        run: |
+          python tools/deepseek_self_heal.py --push-only
 

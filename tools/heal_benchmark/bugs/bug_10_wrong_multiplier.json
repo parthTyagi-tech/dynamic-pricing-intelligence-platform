@@ -1,0 +1,12 @@
+{
+  "id": "bug_10_wrong_multiplier",
+  "name": "Linear Instead of Exponential Circuit Backoff Growth",
+  "category": "wrong_operator",
+  "difficulty": "standard",
+  "target_file": "backend/app/services/agentic/circuit_breaker.py",
+  "test_node": "tests/test_circuit_breaker_backoff.py::test_circuit_breaker_exponential_backoff_and_half_open",
+  "search_block": "            rel.backoff_minutes = min(self.MAX_BACKOFF, prev_backoff * 2)",
+  "corrupt_block": "            rel.backoff_minutes = min(self.MAX_BACKOFF, prev_backoff + 2)",
+  "description": "Increments backoff by 2 minutes instead of doubling, failing exponential backoff contract."
+}
+

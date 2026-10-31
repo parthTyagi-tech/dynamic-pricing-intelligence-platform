@@ -1,0 +1,12 @@
+{
+  "id": "bug_02_wrong_operator",
+  "name": "Wrong Operator in Margin Floor Markup",
+  "category": "wrong_operator",
+  "difficulty": "standard",
+  "target_file": "backend/app/utils/security_guardrails.py",
+  "test_node": "tests/test_price_floor_hypothesis.py::test_canonical_margin_floor_units",
+  "search_block": "    return round(float(cost_price) * (1.0 + float(min_margin_pct) / 100.0), 2)",
+  "corrupt_block": "    return round(float(cost_price) * (1.0 - float(min_margin_pct) / 100.0), 2)",
+  "description": "Subtracts margin percentage instead of adding markup, causing floor prices to compute below product cost."
+}
+

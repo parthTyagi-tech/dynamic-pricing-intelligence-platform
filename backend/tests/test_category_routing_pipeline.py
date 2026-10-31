@@ -7,7 +7,10 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
-os.environ.setdefault("FLASK_ENV", "testing")
+os.environ["FLASK_ENV"] = "testing"
+os.environ["MOCK_SCRAPING"] = "true"
+os.environ["VERCEL"] = "1"
+os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 
 from app.extensions import db
 from app.models.organization import Organization

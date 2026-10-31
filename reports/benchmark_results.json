@@ -1,0 +1,418 @@
+{
+  "timestamp": "2026-10-30T11:43:26Z",
+  "execution_mode": "dry_run_validation",
+  "total_bugs": 15,
+  "validated_count": 15,
+  "fixed_count": 0,
+  "semantic_count": 0,
+  "failed_count": 15,
+  "pass_rate": 0.0,
+  "average_latency_seconds": 6.49,
+  "results": [
+    {
+      "id": "bug_01_off_by_one",
+      "name": "Off-by-One Bound Margin in Sanity Check",
+      "category": "off_by_one",
+      "target_file": "backend/app/utils/security_guardrails.py",
+      "test_node": "tests/test_security_guardrails.py::test_check_sanity_bound",
+      "defect_injected": true,
+      "test_failed_as_expected": true,
+      "fixed": null,
+      "attempts": 0,
+      "provider": "N/A",
+      "latency_seconds": 6.12,
+      "tokens": {
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "total_tokens": 0
+      },
+      "patch_size": {
+        "lines_added": 0,
+        "lines_removed": 0
+      },
+      "semantic_correctness": null,
+      "policy_rejections": [],
+      "notes": "Defect validation successful: seeded bug cleanly fails test.",
+      "defect_validated": true,
+      "status": "validated_failing"
+    },
+    {
+      "id": "bug_02_wrong_operator",
+      "name": "Wrong Operator in Margin Floor Markup",
+      "category": "wrong_operator",
+      "target_file": "backend/app/utils/security_guardrails.py",
+      "test_node": "tests/test_price_floor_hypothesis.py::test_canonical_margin_floor_units",
+      "defect_injected": true,
+      "test_failed_as_expected": true,
+      "fixed": null,
+      "attempts": 0,
+      "provider": "N/A",
+      "latency_seconds": 6.25,
+      "tokens": {
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "total_tokens": 0
+      },
+      "patch_size": {
+        "lines_added": 0,
+        "lines_removed": 0
+      },
+      "semantic_correctness": null,
+      "policy_rejections": [],
+      "notes": "Defect validation successful: seeded bug cleanly fails test.",
+      "defect_validated": true,
+      "status": "validated_failing"
+    },
+    {
+      "id": "bug_03_missing_null_check",
+      "name": "Missing Null Check in Prompt Sanitizer",
+      "category": "missing_null_check",
+      "target_file": "backend/app/utils/security_guardrails.py",
+      "test_node": "tests/test_security_guardrails.py::test_sanitize_for_prompt",
+      "defect_injected": true,
+      "test_failed_as_expected": true,
+      "fixed": null,
+      "attempts": 0,
+      "provider": "N/A",
+      "latency_seconds": 6.32,
+      "tokens": {
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "total_tokens": 0
+      },
+      "patch_size": {
+        "lines_added": 0,
+        "lines_removed": 0
+      },
+      "semantic_correctness": null,
+      "policy_rejections": [],
+      "notes": "Defect validation successful: seeded bug cleanly fails test.",
+      "defect_validated": true,
+      "status": "validated_failing"
+    },
+    {
+      "id": "bug_04_wrong_default",
+      "name": "Wrong Comparison Aggregation in Effective Margin",
+      "category": "wrong_default",
+      "target_file": "backend/app/utils/security_guardrails.py",
+      "test_node": "tests/test_price_floor_hypothesis.py::test_effective_min_margin_pct",
+      "defect_injected": true,
+      "test_failed_as_expected": true,
+      "fixed": null,
+      "attempts": 0,
+      "provider": "N/A",
+      "latency_seconds": 6.35,
+      "tokens": {
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "total_tokens": 0
+      },
+      "patch_size": {
+        "lines_added": 0,
+        "lines_removed": 0
+      },
+      "semantic_correctness": null,
+      "policy_rejections": [],
+      "notes": "Defect validation successful: seeded bug cleanly fails test.",
+      "defect_validated": true,
+      "status": "validated_failing"
+    },
+    {
+      "id": "bug_05_bad_import_name",
+      "name": "Bad Model Import Name in Price Writer",
+      "category": "bad_import_name",
+      "target_file": "backend/app/services/pricing/price_writer.py",
+      "test_node": "tests/test_price_writer.py::test_below_floor_rejection",
+      "defect_injected": true,
+      "test_failed_as_expected": true,
+      "fixed": null,
+      "attempts": 0,
+      "provider": "N/A",
+      "latency_seconds": 5.31,
+      "tokens": {
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "total_tokens": 0
+      },
+      "patch_size": {
+        "lines_added": 0,
+        "lines_removed": 0
+      },
+      "semantic_correctness": null,
+      "policy_rejections": [],
+      "notes": "Defect validation successful: seeded bug cleanly fails test.",
+      "defect_validated": true,
+      "status": "validated_failing"
+    },
+    {
+      "id": "bug_06_swapped_arguments",
+      "name": "Swapped Base and Target Arguments in Price Change Evaluation",
+      "category": "swapped_arguments",
+      "target_file": "backend/app/services/pricing/price_writer.py",
+      "test_node": "tests/test_price_writer.py::test_sanity_bound_rejection_and_flagging",
+      "defect_injected": true,
+      "test_failed_as_expected": true,
+      "fixed": null,
+      "attempts": 0,
+      "provider": "N/A",
+      "latency_seconds": 6.21,
+      "tokens": {
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "total_tokens": 0
+      },
+      "patch_size": {
+        "lines_added": 0,
+        "lines_removed": 0
+      },
+      "semantic_correctness": null,
+      "policy_rejections": [],
+      "notes": "Defect validation successful: seeded bug cleanly fails test.",
+      "defect_validated": true,
+      "status": "validated_failing"
+    },
+    {
+      "id": "bug_07_incorrect_rounding",
+      "name": "Incorrect Rounding / Precision Offset in Target Price",
+      "category": "incorrect_rounding",
+      "target_file": "backend/app/services/pricing/price_writer.py",
+      "test_node": "tests/test_price_writer.py::test_sanity_override_success",
+      "defect_injected": true,
+      "test_failed_as_expected": true,
+      "fixed": null,
+      "attempts": 0,
+      "provider": "N/A",
+      "latency_seconds": 6.96,
+      "tokens": {
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "total_tokens": 0
+      },
+      "patch_size": {
+        "lines_added": 0,
+        "lines_removed": 0
+      },
+      "semantic_correctness": null,
+      "policy_rejections": [],
+      "notes": "Defect validation successful: seeded bug cleanly fails test.",
+      "defect_validated": true,
+      "status": "validated_failing"
+    },
+    {
+      "id": "bug_08_wrong_comparison",
+      "name": "Inverted Price Floor Inequality Check",
+      "category": "wrong_comparison_direction",
+      "target_file": "backend/app/services/pricing/price_writer.py",
+      "test_node": "tests/test_price_writer.py::test_below_floor_rejection",
+      "defect_injected": true,
+      "test_failed_as_expected": true,
+      "fixed": null,
+      "attempts": 0,
+      "provider": "N/A",
+      "latency_seconds": 6.75,
+      "tokens": {
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "total_tokens": 0
+      },
+      "patch_size": {
+        "lines_added": 0,
+        "lines_removed": 0
+      },
+      "semantic_correctness": null,
+      "policy_rejections": [],
+      "notes": "Defect validation successful: seeded bug cleanly fails test.",
+      "defect_validated": true,
+      "status": "validated_failing"
+    },
+    {
+      "id": "bug_09_inverted_boolean",
+      "name": "Inverted Failure Kind Filter in Circuit Breaker",
+      "category": "inverted_boolean",
+      "target_file": "backend/app/services/agentic/circuit_breaker.py",
+      "test_node": "tests/test_circuit_breaker_atomic.py::test_parse_and_no_match_errors_do_not_trip_circuit",
+      "defect_injected": true,
+      "test_failed_as_expected": true,
+      "fixed": null,
+      "attempts": 0,
+      "provider": "N/A",
+      "latency_seconds": 7.33,
+      "tokens": {
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "total_tokens": 0
+      },
+      "patch_size": {
+        "lines_added": 0,
+        "lines_removed": 0
+      },
+      "semantic_correctness": null,
+      "policy_rejections": [],
+      "notes": "Defect validation successful: seeded bug cleanly fails test.",
+      "defect_validated": true,
+      "status": "validated_failing"
+    },
+    {
+      "id": "bug_10_wrong_multiplier",
+      "name": "Linear Instead of Exponential Circuit Backoff Growth",
+      "category": "wrong_operator",
+      "target_file": "backend/app/services/agentic/circuit_breaker.py",
+      "test_node": "tests/test_circuit_breaker_backoff.py::test_circuit_breaker_exponential_backoff_and_half_open",
+      "defect_injected": true,
+      "test_failed_as_expected": true,
+      "fixed": null,
+      "attempts": 0,
+      "provider": "N/A",
+      "latency_seconds": 7.01,
+      "tokens": {
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "total_tokens": 0
+      },
+      "patch_size": {
+        "lines_added": 0,
+        "lines_removed": 0
+      },
+      "semantic_correctness": null,
+      "policy_rejections": [],
+      "notes": "Defect validation successful: seeded bug cleanly fails test.",
+      "defect_validated": true,
+      "status": "validated_failing"
+    },
+    {
+      "id": "bug_11_missing_dict_fallback",
+      "name": "Missing Dictionary Key Fallback in Normalizer",
+      "category": "missing_dict_fallback",
+      "target_file": "backend/app/services/marketplace_normalizer.py",
+      "test_node": "tests/test_price_recommendation_design.py::test_marketplace_normalizer_standardizes_results",
+      "defect_injected": true,
+      "test_failed_as_expected": true,
+      "fixed": null,
+      "attempts": 0,
+      "provider": "N/A",
+      "latency_seconds": 6.95,
+      "tokens": {
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "total_tokens": 0
+      },
+      "patch_size": {
+        "lines_added": 0,
+        "lines_removed": 0
+      },
+      "semantic_correctness": null,
+      "policy_rejections": [],
+      "notes": "Defect validation successful: seeded bug cleanly fails test.",
+      "defect_validated": true,
+      "status": "validated_failing"
+    },
+    {
+      "id": "bug_12_broken_regex",
+      "name": "Inverted Character Class in Query Normalizer Regex",
+      "category": "broken_regex",
+      "target_file": "backend/app/services/marketplace_normalizer.py",
+      "test_node": "tests/test_price_recommendation_design.py::test_marketplace_normalizer_standardizes_results",
+      "defect_injected": true,
+      "test_failed_as_expected": true,
+      "fixed": null,
+      "attempts": 0,
+      "provider": "N/A",
+      "latency_seconds": 6.44,
+      "tokens": {
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "total_tokens": 0
+      },
+      "patch_size": {
+        "lines_added": 0,
+        "lines_removed": 0
+      },
+      "semantic_correctness": null,
+      "policy_rejections": [],
+      "notes": "Defect validation successful: seeded bug cleanly fails test.",
+      "defect_validated": true,
+      "status": "validated_failing"
+    },
+    {
+      "id": "bug_13_ambiguous_tolerance",
+      "name": "Inverted Optimistic Concurrency Drift Window",
+      "category": "hard_ambiguous",
+      "target_file": "backend/app/services/pricing/price_writer.py",
+      "test_node": "tests/test_price_writer.py::test_stale_price_optimistic_concurrency",
+      "defect_injected": true,
+      "test_failed_as_expected": true,
+      "fixed": null,
+      "attempts": 0,
+      "provider": "N/A",
+      "latency_seconds": 6.69,
+      "tokens": {
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "total_tokens": 0
+      },
+      "patch_size": {
+        "lines_added": 0,
+        "lines_removed": 0
+      },
+      "semantic_correctness": null,
+      "policy_rejections": [],
+      "notes": "Defect validation successful: seeded bug cleanly fails test.",
+      "defect_validated": true,
+      "status": "validated_failing"
+    },
+    {
+      "id": "bug_14_inverted_set_logic",
+      "name": "Set Difference Instead of Intersection in Tenant Scoping Defense",
+      "category": "hard_ambiguous",
+      "target_file": "backend/app/utils/security_guardrails.py",
+      "test_node": "tests/test_security_guardrails.py::test_assert_no_client_supplied_org_id",
+      "defect_injected": true,
+      "test_failed_as_expected": true,
+      "fixed": null,
+      "attempts": 0,
+      "provider": "N/A",
+      "latency_seconds": 6.22,
+      "tokens": {
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "total_tokens": 0
+      },
+      "patch_size": {
+        "lines_added": 0,
+        "lines_removed": 0
+      },
+      "semantic_correctness": null,
+      "policy_rejections": [],
+      "notes": "Defect validation successful: seeded bug cleanly fails test.",
+      "defect_validated": true,
+      "status": "validated_failing"
+    },
+    {
+      "id": "bug_15_decay_window_logic",
+      "name": "Premature Sliding Window Decay in Circuit Breaker",
+      "category": "hard_ambiguous",
+      "target_file": "backend/app/services/agentic/circuit_breaker.py",
+      "test_node": "tests/test_circuit_breaker_atomic.py::test_sliding_window_failure_decay_after_60_minutes",
+      "defect_injected": true,
+      "test_failed_as_expected": true,
+      "fixed": null,
+      "attempts": 0,
+      "provider": "N/A",
+      "latency_seconds": 6.45,
+      "tokens": {
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "total_tokens": 0
+      },
+      "patch_size": {
+        "lines_added": 0,
+        "lines_removed": 0
+      },
+      "semantic_correctness": null,
+      "policy_rejections": [],
+      "notes": "Defect validation successful: seeded bug cleanly fails test.",
+      "defect_validated": true,
+      "status": "validated_failing"
+    }
+  ]
+}

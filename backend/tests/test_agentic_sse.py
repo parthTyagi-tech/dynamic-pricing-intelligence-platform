@@ -79,3 +79,4 @@ def test_agentic_stream_task_events_sse(sse_setup):
     assert "data: " in chunk_str
     assert "recommendation_ready_for_approval" in chunk_str
     assert "prod-123" in chunk_str
+    res.close()

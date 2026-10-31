@@ -1,0 +1,12 @@
+{
+  "id": "bug_04_wrong_default",
+  "name": "Wrong Comparison Aggregation in Effective Margin",
+  "category": "wrong_default",
+  "difficulty": "standard",
+  "target_file": "backend/app/utils/security_guardrails.py",
+  "test_node": "tests/test_price_floor_hypothesis.py::test_effective_min_margin_pct",
+  "search_block": "    return max(product_pct or 0.0, (org_rule_fraction or 0.0) * 100.0)",
+  "corrupt_block": "    return min(product_pct or 0.0, (org_rule_fraction or 0.0) * 100.0)",
+  "description": "Selects looser margin using min() rather than the stricter safeguard policy enforced by max()."
+}
+

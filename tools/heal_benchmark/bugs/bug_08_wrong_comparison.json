@@ -1,0 +1,12 @@
+{
+  "id": "bug_08_wrong_comparison",
+  "name": "Inverted Price Floor Inequality Check",
+  "category": "wrong_comparison_direction",
+  "difficulty": "standard",
+  "target_file": "backend/app/services/pricing/price_writer.py",
+  "test_node": "tests/test_price_writer.py::test_below_floor_rejection",
+  "search_block": "    if target_price < floor:",
+  "corrupt_block": "    if target_price > floor:",
+  "description": "Inverts floor boundary check, rejecting prices above margin floor and allowing prices below cost."
+}
+

@@ -1,0 +1,12 @@
+{
+  "id": "bug_13_ambiguous_tolerance",
+  "name": "Inverted Optimistic Concurrency Drift Window",
+  "category": "hard_ambiguous",
+  "difficulty": "hard",
+  "target_file": "backend/app/services/pricing/price_writer.py",
+  "test_node": "tests/test_price_writer.py::test_stale_price_optimistic_concurrency",
+  "search_block": "        if abs(old_price - float(expected_base_price)) > 0.005:",
+  "corrupt_block": "        if abs(old_price - float(expected_base_price)) < 0.005:",
+  "description": "Hard bug: Reverses float drift tolerance check, raising StalePriceError when prices match and allowing mutations when drifted."
+}
+
