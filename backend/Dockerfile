@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM python:3.15-slim
 
 # Set Playwright browser path to a shared directory
 ENV PLAYWRIGHT_BROWSERS_PATH=/opt/playwright-browsers
