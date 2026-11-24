@@ -11,6 +11,8 @@ from app.services.agentic.scrapers.base_scraper import (
     BotDetectionEncountered,
     MATCH_THRESHOLD,
     PlatformRateLimitError,
+    ResilientResponse,
+    ResilientSession,
     _get_playwright_semaphore,
 )
 from app.utils.security_guardrails import validate_outbound_url
@@ -34,7 +36,10 @@ class AmazonScraperAgent(BaseScraperAgent):
             "Accept-Language": "en-IN,en;q=0.9",
         }
         try:
-            from curl_cffi.requests import AsyncSession
+            try:
+                from curl_cffi.requests import AsyncSession
+            except (ImportError, ModuleNotFoundError):
+                AsyncSession = ResilientSession
             async with AsyncSession(impersonate="chrome124") as session:
                 resp = await session.get(search_url, headers=headers, timeout=12)
                 self.check_bot_detection(resp.status_code, resp.text)
@@ -647,7 +652,10 @@ class FlipkartScraperAgent(BaseScraperAgent):
             "Accept-Language": "en-IN,en;q=0.9",
         }
         try:
-            from curl_cffi.requests import AsyncSession
+            try:
+                from curl_cffi.requests import AsyncSession
+            except (ImportError, ModuleNotFoundError):
+                AsyncSession = ResilientSession
             async with AsyncSession(impersonate="chrome124") as session:
                 resp = await session.get(search_url, headers=headers, timeout=12)
                 self.check_bot_detection(resp.status_code, resp.text)
@@ -840,7 +848,10 @@ class MyntraScraperAgent(BaseScraperAgent):
         """Tier 1: Desktop Chrome 124 TLS fetch of Myntra slug with window.__myx JSON and Gateway v2 fallback."""
         import json
         from urllib.parse import quote_plus
-        from curl_cffi.requests import AsyncSession
+        try:
+            from curl_cffi.requests import AsyncSession
+        except (ImportError, ModuleNotFoundError):
+            AsyncSession = ResilientSession
 
         clean_query = self.clean_search_query(product_name, brand)
         if brand and brand.lower() in clean_query.lower():
@@ -1127,7 +1138,10 @@ class AjioScraperAgent(BaseScraperAgent):
     ) -> Optional[Dict[str, Any]]:
         """Query Ajio search API for structured product JSON."""
         from urllib.parse import quote_plus
-        from curl_cffi.requests import AsyncSession
+        try:
+            from curl_cffi.requests import AsyncSession
+        except (ImportError, ModuleNotFoundError):
+            AsyncSession = ResilientSession
 
         query = self.clean_search_query(product_name, brand)
         api_url = (
@@ -1408,7 +1422,10 @@ class NykaaScraperAgent(BaseScraperAgent):
     ) -> Optional[Dict[str, Any]]:
         """Query Nykaa search page and extract __PRELOADED_STATE__ structured JSON."""
         from urllib.parse import quote_plus
-        from curl_cffi.requests import AsyncSession
+        try:
+            from curl_cffi.requests import AsyncSession
+        except (ImportError, ModuleNotFoundError):
+            AsyncSession = ResilientSession
 
         query = self.clean_search_query(product_name, brand)
         search_url = f"https://www.nykaa.com/search/result/?q={quote_plus(query)}"
@@ -1688,7 +1705,10 @@ class PurplleScraperAgent(BaseScraperAgent):
     ) -> Optional[Dict[str, Any]]:
         """Query Purplle internal search API for items."""
         from urllib.parse import quote_plus
-        from curl_cffi.requests import AsyncSession
+        try:
+            from curl_cffi.requests import AsyncSession
+        except (ImportError, ModuleNotFoundError):
+            AsyncSession = ResilientSession
 
         query = self.clean_search_query(product_name, brand)
         api_url = f"https://www.purplle.com/api/shop/itemsv3?search={quote_plus(query)}&page=1&device=desktop"
@@ -1925,7 +1945,10 @@ class BigBasketScraperAgent(BaseScraperAgent):
         """BigBasket 2.0 search endpoint with cookie bootstrap & dual-schema parsing."""
         from datetime import datetime, timezone
         from urllib.parse import quote_plus
-        from curl_cffi.requests import AsyncSession
+        try:
+            from curl_cffi.requests import AsyncSession
+        except (ImportError, ModuleNotFoundError):
+            AsyncSession = ResilientSession
 
         clean_query = self.clean_search_query(product_name, brand)
         if not clean_query:
@@ -2270,7 +2293,10 @@ class JioMartScraperAgent(BaseScraperAgent):
     async def _tier1_internal_api(self, product_name: str, brand: str, barcode: str, catalog_price: float = 0.0, *args, **kwargs) -> Optional[Dict[str, Any]]:
         """JioMart Fynd catalog JSON extraction with Mumbai pincode location headers via curl_cffi."""
         from urllib.parse import quote_plus
-        from curl_cffi.requests import AsyncSession
+        try:
+            from curl_cffi.requests import AsyncSession
+        except (ImportError, ModuleNotFoundError):
+            AsyncSession = ResilientSession
 
         clean_query = self.clean_search_query(product_name, brand)
         if not clean_query:
@@ -2645,7 +2671,10 @@ class PepperfryScraperAgent(BaseScraperAgent):
     async def _tier1_internal_api(self, product_name: str, brand: str, barcode: str, catalog_price: float = 0.0, *args, **kwargs) -> Optional[Dict[str, Any]]:
         """Pepperfry HTML & structured data extraction via curl_cffi."""
         from urllib.parse import quote_plus
-        from curl_cffi.requests import AsyncSession
+        try:
+            from curl_cffi.requests import AsyncSession
+        except (ImportError, ModuleNotFoundError):
+            AsyncSession = ResilientSession
 
         clean_query = self.clean_search_query(product_name, brand)
         if not clean_query:
@@ -2896,7 +2925,10 @@ class UrbanLadderScraperAgent(BaseScraperAgent):
     async def _tier1_internal_api(self, product_name: str, brand: str, barcode: str, catalog_price: float = 0.0, *args, **kwargs) -> Optional[Dict[str, Any]]:
         """Urban Ladder HTML & window.APP_DATA extraction via curl_cffi."""
         from urllib.parse import quote_plus
-        from curl_cffi.requests import AsyncSession
+        try:
+            from curl_cffi.requests import AsyncSession
+        except (ImportError, ModuleNotFoundError):
+            AsyncSession = ResilientSession
 
         clean_query = self.clean_search_query(product_name, brand)
         if not clean_query:
@@ -3167,7 +3199,10 @@ class OneMgScraperAgent(BaseScraperAgent):
     async def _tier1_internal_api(self, product_name: str, brand: str, barcode: str) -> Optional[Dict[str, Any]]:
         """1mg search extraction via curl_cffi: API gateways, preloaded state, and DOM fallback."""
         from urllib.parse import quote_plus
-        from curl_cffi.requests import AsyncSession
+        try:
+            from curl_cffi.requests import AsyncSession
+        except (ImportError, ModuleNotFoundError):
+            AsyncSession = ResilientSession
 
         clean_query = self.clean_search_query(product_name, brand)
         if not clean_query:
@@ -3447,7 +3482,10 @@ class PharmEasyScraperAgent(BaseScraperAgent):
         self, product_name: str, brand: str, barcode: str, catalog_price: float = 0.0, *args, **kwargs
     ) -> Optional[Dict[str, Any]]:
         from urllib.parse import quote_plus
-        from curl_cffi.requests import AsyncSession
+        try:
+            from curl_cffi.requests import AsyncSession
+        except (ImportError, ModuleNotFoundError):
+            AsyncSession = ResilientSession
 
         clean_query = self.clean_search_query(product_name, brand)
         search_url = f"https://pharmeasy.in/search/all?name={quote_plus(clean_query)}"
@@ -3769,7 +3807,10 @@ class CaratLaneScraperAgent(BaseScraperAgent):
     ) -> Optional[Dict[str, Any]]:
         """CaratLane search extraction via curl_cffi: preloaded state, microdata, and DOM fallback."""
         from urllib.parse import quote, quote_plus
-        from curl_cffi.requests import AsyncSession
+        try:
+            from curl_cffi.requests import AsyncSession
+        except (ImportError, ModuleNotFoundError):
+            AsyncSession = ResilientSession
 
         clean_query = self.clean_search_query(product_name, brand)
         if not clean_query:
@@ -4077,7 +4118,10 @@ class TanishqScraperAgent(BaseScraperAgent):
     ) -> Optional[Dict[str, Any]]:
         """Tanishq search extraction via curl_cffi: structured data, SFCC data-gtmdata, and DOM tiles."""
         from urllib.parse import quote_plus
-        from curl_cffi.requests import AsyncSession
+        try:
+            from curl_cffi.requests import AsyncSession
+        except (ImportError, ModuleNotFoundError):
+            AsyncSession = ResilientSession
 
         search_brand = "" if brand and brand.lower() in ("tanishq", "mia", "mia by tanishq") else brand
         clean_query = self.clean_search_query(product_name, search_brand) or product_name
@@ -4406,7 +4450,10 @@ class CromaScraperAgent(BaseScraperAgent):
             ),
         }
         try:
-            from curl_cffi.requests import AsyncSession
+            try:
+                from curl_cffi.requests import AsyncSession
+            except (ImportError, ModuleNotFoundError):
+                AsyncSession = ResilientSession
             async with AsyncSession(impersonate="chrome124") as session:
                 resp = await session.get(api_url, headers=headers, timeout=12)
                 self.check_bot_detection(resp.status_code, resp.text)
@@ -4686,7 +4733,10 @@ class MeeshoScraperAgent(BaseScraperAgent):
     ) -> Optional[Dict[str, Any]]:
         """Query Meesho search API for structured catalog JSON."""
         from urllib.parse import quote_plus
-        from curl_cffi.requests import AsyncSession
+        try:
+            from curl_cffi.requests import AsyncSession
+        except (ImportError, ModuleNotFoundError):
+            AsyncSession = ResilientSession
 
         query = self.clean_search_query(product_name, brand)
         api_url = "https://www.meesho.com/api/v1/products/search"
@@ -5046,7 +5096,10 @@ class BlinkitScraperAgent(BaseScraperAgent):
         import uuid
         from datetime import datetime, timezone
         from urllib.parse import quote, quote_plus
-        from curl_cffi.requests import AsyncSession
+        try:
+            from curl_cffi.requests import AsyncSession
+        except (ImportError, ModuleNotFoundError):
+            AsyncSession = ResilientSession
 
         clean_query = " ".join(re.sub(r"[^a-zA-Z0-9\s]", " ", f"{brand} {product_name}").split())
         if not clean_query:
@@ -5333,7 +5386,10 @@ class ScoobooScraperAgent(BaseScraperAgent):
         """Scooboo Shopify suggest JSON search API with canonical product page variant extraction."""
         from datetime import datetime, timezone
         from urllib.parse import quote_plus
-        from curl_cffi.requests import AsyncSession
+        try:
+            from curl_cffi.requests import AsyncSession
+        except (ImportError, ModuleNotFoundError):
+            AsyncSession = ResilientSession
 
         clean_query = self.clean_search_query(product_name, brand)
         headers = {

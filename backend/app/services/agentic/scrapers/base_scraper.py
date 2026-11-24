@@ -100,6 +100,131 @@ class ProxyManager:
         return re.sub(r"://([^:]+):([^@]+)@", r"://\1:****@", proxy_str)
 
 
+class ResilientResponse:
+    """Wrapper that provides identical interface between curl_cffi and aiohttp responses."""
+
+    def __init__(self, status_code: int, text: str, data: Any = None):
+        self.status_code = status_code
+        self.text = text
+        self._data = data
+
+    def json(self) -> Any:
+        if self._data is not None:
+            return self._data
+        if not self.text:
+            return None
+        import json
+        return json.loads(self.text)
+
+
+class ResilientSession:
+    """
+    Transparent session fallback:
+    Attempts curl_cffi.requests.AsyncSession with browser TLS impersonation.
+    If curl_cffi is missing or fails, seamlessly falls back to aiohttp.ClientSession.
+    """
+
+    def __init__(
+        self,
+        impersonate: str = "chrome124",
+        cookies: Optional[Dict[str, str]] = None,
+        headers: Optional[Dict[str, str]] = None,
+        **kwargs
+    ):
+        self.impersonate = impersonate
+        self.cookies = cookies
+        self.headers = headers
+        self.kwargs = kwargs
+        self._session = None
+        self._is_curl = False
+
+    async def __aenter__(self):
+        try:
+            from curl_cffi.requests import AsyncSession as CurlAsyncSession
+            self._session = CurlAsyncSession(
+                impersonate=self.impersonate,
+                cookies=self.cookies,
+                headers=self.headers,
+                **self.kwargs
+            )
+            await self._session.__aenter__()
+            self._is_curl = True
+            return self
+        except (ImportError, ModuleNotFoundError, Exception):
+            import aiohttp
+            self._session = aiohttp.ClientSession(
+                cookies=self.cookies,
+                headers=self.headers
+            )
+            await self._session.__aenter__()
+            self._is_curl = False
+            return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        if self._session:
+            await self._session.__aexit__(exc_type, exc_val, exc_tb)
+
+    async def get(self, url: str, **kwargs):
+        if self._is_curl:
+            return await self._session.get(url, **kwargs)
+        import aiohttp
+        timeout_val = kwargs.pop("timeout", 12)
+        client_timeout = aiohttp.ClientTimeout(total=timeout_val)
+        res = self._session.get(url, timeout=client_timeout, **kwargs)
+        if hasattr(res, "__aenter__"):
+            resp = await res.__aenter__()
+            try:
+                text = await resp.text() if callable(getattr(resp, "text", None)) else str(resp.text)
+                data = None
+                try:
+                    data = await resp.json() if callable(getattr(resp, "json", None)) else getattr(resp, "json", None)
+                except Exception:
+                    pass
+                return ResilientResponse(getattr(resp, "status", 200), text, data)
+            finally:
+                if hasattr(res, "__aexit__"):
+                    await res.__aexit__(None, None, None)
+        else:
+            resp = await res
+            text = await resp.text() if callable(getattr(resp, "text", None)) else str(resp.text)
+            data = None
+            try:
+                data = await resp.json() if callable(getattr(resp, "json", None)) else getattr(resp, "json", None)
+            except Exception:
+                pass
+            return ResilientResponse(getattr(resp, "status", 200), text, data)
+
+    async def post(self, url: str, **kwargs):
+        if self._is_curl:
+            return await self._session.post(url, **kwargs)
+        import aiohttp
+        timeout_val = kwargs.pop("timeout", 12)
+        client_timeout = aiohttp.ClientTimeout(total=timeout_val)
+        res = self._session.post(url, timeout=client_timeout, **kwargs)
+        if hasattr(res, "__aenter__"):
+            resp = await res.__aenter__()
+            try:
+                text = await resp.text() if callable(getattr(resp, "text", None)) else str(resp.text)
+                data = None
+                try:
+                    data = await resp.json() if callable(getattr(resp, "json", None)) else getattr(resp, "json", None)
+                except Exception:
+                    pass
+                return ResilientResponse(getattr(resp, "status", 200), text, data)
+            finally:
+                if hasattr(res, "__aexit__"):
+                    await res.__aexit__(None, None, None)
+        else:
+            resp = await res
+            text = await resp.text() if callable(getattr(resp, "text", None)) else str(resp.text)
+            data = None
+            try:
+                data = await resp.json() if callable(getattr(resp, "json", None)) else getattr(resp, "json", None)
+            except Exception:
+                pass
+            return ResilientResponse(getattr(resp, "status", 200), text, data)
+
+
 class BaseScraperAgent(BaseAgent):
     """
     Autonomous Scraper Agent with a 3-tier fallback strategy:
@@ -187,6 +312,82 @@ class BaseScraperAgent(BaseAgent):
                 raise BotDetectionEncountered(f"Amazon CAPTCHA detected on {self.platform_name}")
             if "cf-browser-verification" in lower_html or "cf-turnstile" in lower_html:
                 raise BotDetectionEncountered(f"Cloudflare challenge detected on {self.platform_name}")
+
+    async def fetch_resilient(
+        self,
+        url: str,
+        method: str = "GET",
+        headers: Optional[Dict[str, str]] = None,
+        json_body: Optional[Any] = None,
+        proxy: Optional[str] = None,
+        timeout: int = 12,
+        impersonate: str = "chrome124",
+        json_output: bool = False,
+    ) -> Tuple[int, Any]:
+        """
+        Resilient HTTP fetcher with zero unhandled module exceptions:
+        1. Tries curl_cffi AsyncSession with TLS fingerprint impersonation.
+        2. If curl_cffi is missing (ImportError, ModuleNotFoundError) or throws an unexpected C/OS error,
+           automatically and transparently falls back to aiohttp.ClientSession with identical headers & proxy.
+        3. Returns (status_code, text_or_parsed_json).
+        """
+        req_headers = headers or {}
+        method_upper = method.upper()
+
+        # 1. Attempt curl_cffi with browser impersonation
+        try:
+            from curl_cffi.requests import AsyncSession
+            async with AsyncSession(impersonate=impersonate) as session:
+                if method_upper == "POST":
+                    resp = await session.post(url, headers=req_headers, json=json_body, proxy=proxy, timeout=timeout)
+                else:
+                    resp = await session.get(url, headers=req_headers, proxy=proxy, timeout=timeout)
+                self.check_bot_detection(resp.status_code, resp.text)
+                if json_output:
+                    try:
+                        return resp.status_code, resp.json()
+                    except Exception:
+                        return resp.status_code, None
+                return resp.status_code, resp.text
+        except (PlatformRateLimitError, BotDetectionEncountered) as bde:
+            raise bde
+        except (ImportError, ModuleNotFoundError):
+            logger.debug(f"[{self.platform_name}] curl_cffi not installed; using aiohttp fallback")
+        except Exception as ex:
+            logger.debug(f"[{self.platform_name}] curl_cffi request failed: {ex}; using aiohttp fallback")
+
+        # 2. Transparent fallback to aiohttp
+        try:
+            import aiohttp
+            client_timeout = aiohttp.ClientTimeout(total=timeout)
+            async with aiohttp.ClientSession(timeout=client_timeout) as session:
+                if method_upper == "POST":
+                    async with session.post(url, headers=req_headers, json=json_body, proxy=proxy) as resp:
+                        text = await resp.text()
+                        self.check_bot_detection(resp.status, text)
+                        if json_output:
+                            try:
+                                data = await resp.json(content_type=None)
+                                return resp.status, data
+                            except Exception:
+                                return resp.status, None
+                        return resp.status, text
+                else:
+                    async with session.get(url, headers=req_headers, proxy=proxy) as resp:
+                        text = await resp.text()
+                        self.check_bot_detection(resp.status, text)
+                        if json_output:
+                            try:
+                                data = await resp.json(content_type=None)
+                                return resp.status, data
+                            except Exception:
+                                return resp.status, None
+                        return resp.status, text
+        except (PlatformRateLimitError, BotDetectionEncountered) as bde:
+            raise bde
+        except Exception as ex:
+            logger.debug(f"[{self.platform_name}] aiohttp fallback failed: {ex}")
+            return 0, None if json_output else ""
 
     def compute_match_score(
         self,
@@ -746,35 +947,11 @@ class BaseScraperAgent(BaseAgent):
             ),
             "Accept-Language": "en-IN,en;q=0.9",
         }
-        timeout = aiohttp.ClientTimeout(total=15)
-
-        html_text = ""
-        # 1. Attempt curl_cffi with chrome124 impersonation first
-        try:
-            from curl_cffi.requests import AsyncSession
-            async with AsyncSession(impersonate="chrome124") as session:
-                resp = await session.get(search_url, headers=mobile_headers, proxy=proxy, timeout=12)
-                self.check_bot_detection(resp.status_code, resp.text)
-                if resp.status_code == 200:
-                    html_text = resp.text
-        except (PlatformRateLimitError, BotDetectionEncountered) as bde:
-            raise bde
-        except Exception as ex:
-            logger.debug(f"[{self.platform_name}] tier2 curl_cffi failed, falling back to aiohttp: {ex}")
-
-        # 2. Fall back to aiohttp if curl_cffi didn't return HTML
-        if not html_text:
-            try:
-                async with aiohttp.ClientSession(timeout=timeout) as session:
-                    async with session.get(search_url, headers=mobile_headers, proxy=proxy) as resp:
-                        html_text = await resp.text()
-                        self.check_bot_detection(resp.status, html_text)
-            except (PlatformRateLimitError, BotDetectionEncountered) as bde:
-                logger.warning(f"[{self.platform_name}] tier2 anti-bot / rate-limit encountered: {bde}")
-                raise bde
-            except Exception as ex:
-                logger.warning(f"[{self.platform_name}] tier2 mobile_headers failed: {ex}")
-                return None
+        status_code, html_text = await self.fetch_resilient(
+            search_url, headers=mobile_headers, proxy=proxy, timeout=12, impersonate="chrome124", json_output=False
+        )
+        if not html_text or status_code != 200:
+            return None
 
         card_res = self._invoke_extract_cards(html_text, product_name, brand, barcode, search_url, catalog_price)
         if card_res:
@@ -845,10 +1022,13 @@ class BaseScraperAgent(BaseAgent):
                 browser = await pw_instance.chromium.launch(
                     headless=True,
                     args=[
-                        "--disable-blink-features=AutomationControlled",
+                        "--headless=new",
                         "--no-sandbox",
+                        "--disable-setuid-sandbox",
                         "--disable-dev-shm-usage",
                         "--disable-gpu",
+                        "--no-zygote",
+                        "--disable-blink-features=AutomationControlled",
                         "--window-size=1366,768",
                     ]
                 )
@@ -899,7 +1079,7 @@ class BaseScraperAgent(BaseAgent):
 
                 page.on("response", _on_response)
 
-                await page.goto(search_url, timeout=25000, wait_until="domcontentloaded")
+                await page.goto(search_url, timeout=15000, wait_until="domcontentloaded")
 
                 # Dismiss Flipkart / Amazon login modals if present
                 try:
@@ -922,7 +1102,11 @@ class BaseScraperAgent(BaseAgent):
                 logger.warning(f"[{self.platform_name}] tier3 anti-bot detected: {bde}")
                 raise bde
             except Exception as ex:
-                logger.warning(f"[{self.platform_name}] tier3 playwright failed: {ex}")
+                ex_str = str(ex).lower()
+                if "executable doesn't exist" in ex_str or "playwright install" in ex_str:
+                    logger.info(f"[{self.platform_name}] tier3 skipped: Chromium binary not installed on host ({ex})")
+                else:
+                    logger.warning(f"[{self.platform_name}] tier3 playwright failed: {ex}")
                 return None
             finally:
                 if browser:
@@ -1079,24 +1263,11 @@ class BaseScraperAgent(BaseAgent):
         }
 
         async def _fetch_html(u: str) -> str:
-            # 1. curl_cffi first
             try:
-                from curl_cffi.requests import AsyncSession
-                async with AsyncSession(impersonate="chrome124") as session:
-                    resp = await session.get(u, headers=headers, timeout=8)
-                    if resp.status_code == 200:
-                        return resp.text
+                _, text = await self.fetch_resilient(u, headers=headers, timeout=8, impersonate="chrome124", json_output=False)
+                return text or ""
             except Exception:
-                pass
-            # 2. aiohttp fallback
-            try:
-                async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=8)) as session:
-                    async with session.get(u, headers=headers) as resp:
-                        if resp.status == 200:
-                            return await resp.text()
-            except Exception:
-                pass
-            return ""
+                return ""
 
         # Engine 1: DuckDuckGo HTML
         ddg_url = f"https://html.duckduckgo.com/html/?q={dork}"
@@ -1236,16 +1407,12 @@ class BaseScraperAgent(BaseAgent):
         matched_offers.sort(key=lambda x: x[0], reverse=True)
         best_score, best_price, best_url, best_title = matched_offers[0]
 
-        # Grounded PDP probe: attempt fast 6-second curl_cffi GET on canonical PDP
+        # Grounded PDP probe: attempt fast 6-second resilient GET on canonical PDP
         pdp_html = ""
         try:
-            from curl_cffi.requests import AsyncSession
-            async with AsyncSession(impersonate="chrome124") as session:
-                pdp_resp = await session.get(best_url, headers=headers, timeout=6)
-                if pdp_resp.status_code == 200:
-                    pdp_html = pdp_resp.text
+            _, pdp_html = await self.fetch_resilient(best_url, headers=headers, timeout=6, impersonate="chrome124", json_output=False)
         except Exception:
-            pass
+            pdp_html = ""
 
         if pdp_html:
             live_offer = self._extract_structured_data(
