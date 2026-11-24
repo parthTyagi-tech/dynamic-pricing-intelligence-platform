@@ -659,8 +659,15 @@ def test_real_pytest_xml_generation_xunit1_vs_xunit2(tmp_path):
 
     # 1. Run with xunit1
     subprocess.run(
-        [py_exec, "-m", "pytest", str(test_file), "-o", "junit_family=xunit1", f"--junitxml={junit1_path}"],
-        capture_output=True, check=False, cwd=tmp_path
+        [
+            py_exec, "-m", "pytest", str(test_file),
+            "-o", "junit_family=xunit1",
+            f"--junitxml={junit1_path}",
+            "-p", "no:cov",
+            "-p", "no:benchmark",
+            "-p", "no:hypothesis",
+        ],
+        capture_output=True, check=False, cwd=tmp_path, timeout=15.0
     )
     assert junit1_path.exists()
     report1 = parse_junit_report(junit1_path)
@@ -683,8 +690,15 @@ def test_real_pytest_xml_generation_xunit1_vs_xunit2(tmp_path):
 
     # 2. Run with xunit2
     subprocess.run(
-        [py_exec, "-m", "pytest", str(test_file), "-o", "junit_family=xunit2", f"--junitxml={junit2_path}"],
-        capture_output=True, check=False, cwd=tmp_path
+        [
+            py_exec, "-m", "pytest", str(test_file),
+            "-o", "junit_family=xunit2",
+            f"--junitxml={junit2_path}",
+            "-p", "no:cov",
+            "-p", "no:benchmark",
+            "-p", "no:hypothesis",
+        ],
+        capture_output=True, check=False, cwd=tmp_path, timeout=15.0
     )
     assert junit2_path.exists()
     tree2 = ET.parse(junit2_path)
@@ -693,8 +707,15 @@ def test_real_pytest_xml_generation_xunit1_vs_xunit2(tmp_path):
 
     # 3. Collection error run (xunit1)
     subprocess.run(
-        [py_exec, "-m", "pytest", str(err_file), "-o", "junit_family=xunit1", f"--junitxml={junit_err_path}"],
-        capture_output=True, check=False, cwd=tmp_path
+        [
+            py_exec, "-m", "pytest", str(err_file),
+            "-o", "junit_family=xunit1",
+            f"--junitxml={junit_err_path}",
+            "-p", "no:cov",
+            "-p", "no:benchmark",
+            "-p", "no:hypothesis",
+        ],
+        capture_output=True, check=False, cwd=tmp_path, timeout=15.0
     )
     assert junit_err_path.exists()
     report_err = parse_junit_report(junit_err_path)

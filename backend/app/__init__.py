@@ -51,7 +51,7 @@ def create_app(config_object: Optional[Any] = None, start_worker: bool = True) -
 
     @app.errorhandler(OperationalError)
     def handle_database_error(error):
-        app.logger.error("Database connection unavailable for request: %s", error.__class__.__name__)
+        app.logger.error("Database connection unavailable for request: %s: %s", error.__class__.__name__, error)
         return jsonify({"success": False, "message": "Database temporarily unavailable. Please retry shortly."}), 503
 
     @app.errorhandler(Exception)

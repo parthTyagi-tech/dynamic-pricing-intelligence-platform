@@ -63,10 +63,11 @@ def _worker_loop():
             logger.info(f"[task_worker] Starting processing of recommendation {rec_id} for product {prod_id}...")
             
             # Execute inside Flask application context
-            with flask_app_ref.app_context():
-                _process_pricing_job(rec_id, prod_id)
-                
-            task_queue.task_done()
+            try:
+                with flask_app_ref.app_context():
+                    _process_pricing_job(rec_id, prod_id)
+            finally:
+                task_queue.task_done()
             
             # Small cooldown delay to prevent immediate Groq rate limit overlap on sequential batch actions
             time.sleep(1.0)

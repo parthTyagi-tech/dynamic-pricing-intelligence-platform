@@ -133,14 +133,6 @@ def auto_patch_database_schema(db):
             except Exception as e:
                 logger.warning(f"[AutoPatch] Error during legacy competitor_prices backfill: {e}")
 
-        if "price_alerts" in table_names:
-            try:
-                with engine.connect() as conn:
-                    conn.execute(text("DROP TABLE price_alerts"))
-                    conn.commit()
-                    logger.info("[AutoPatch] Legacy price_alerts table dropped.")
-            except Exception as e:
-                logger.warning(f"[AutoPatch] Error dropping price_alerts table: {e}")
 
         _SCHEMA_PATCHED = True
         logger.info("[AutoPatch] Database schema verified and patched successfully.")

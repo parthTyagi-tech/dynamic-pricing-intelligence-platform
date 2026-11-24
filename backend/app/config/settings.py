@@ -145,10 +145,17 @@ class ProductionConfig(BaseConfig):
 
 class TestingConfig(BaseConfig):
     TESTING = True
-    SQLALCHEMY_DATABASE_URI = _normalize_database_url(
+    _test_db_url = _normalize_database_url(
         os.environ.get("DATABASE_URL") or "sqlite:///:memory:"
     )
+    SQLALCHEMY_DATABASE_URI = _test_db_url
     MOCK_SCRAPING = os.environ.get("MOCK_SCRAPING", "true").lower() == "true"
+    if _test_db_url and "sqlite" in _test_db_url:
+        from sqlalchemy.pool import StaticPool
+        SQLALCHEMY_ENGINE_OPTIONS = {
+            "poolclass": StaticPool,
+            "connect_args": {"check_same_thread": False},
+        }
 
 
 config_map = {

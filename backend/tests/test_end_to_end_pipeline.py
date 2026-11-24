@@ -7,7 +7,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
-os.environ.setdefault("FLASK_ENV", "testing")
+os.environ["FLASK_ENV"] = "testing"
+os.environ["DATABASE_URL"] = "sqlite:///:memory:"
+os.environ["VERCEL"] = "1"
+os.environ["MOCK_SCRAPING"] = "true"
 
 from flask_jwt_extended import create_access_token
 
@@ -26,13 +29,15 @@ def test_authenticated_pricing_pipeline_end_to_end(monkeypatch):
     email = f"e2e-{time.time_ns()}@example.com"
     sku = f"E2E-{time.time_ns()}"
     with app.app_context():
+        db.create_all()
         organization = Organization(name="E2E Organization", invite_code=f"INV-{time.time_ns()}")
         db.session.add(organization)
         db.session.flush()
-        user = User(name="E2E Admin", email=email, role=UserRole.ADMIN, organization_id=organization.id)
+        org_id = organization.id
+        user = User(name="E2E Admin", email=email, role=UserRole.ADMIN, organization_id=org_id)
         user.set_password("StrongPassword123!")
         db.session.add(user)
-        db.session.flush()
+        db.session.commit()
         token = create_access_token(identity=user.id)
         headers = {"Authorization": f"Bearer {token}"}
         client = app.test_client()
@@ -41,8 +46,9 @@ def test_authenticated_pricing_pipeline_end_to_end(monkeypatch):
                f"Integration Product,{sku},electronics,Test product,Acme,0000000000000,1000,600,25\n")
         imported = client.post("/api/products/import-csv", headers=headers, data={"file": (BytesIO(csv.encode()), "catalog_sample.csv")}, content_type="multipart/form-data")
         assert imported.status_code == 200, imported.get_json()
-        product = Product.query.filter_by(organization_id=organization.id, sku=sku).first()
+        product = Product.query.filter_by(organization_id=org_id, sku=sku).first()
         assert product is not None
+        product_id = product.id
 
         # Keep the real route/queue/DB workflow while making the supervisor agent and model deterministic.
         async def fake_supervisor_execute(*args, **kwargs):
@@ -111,12 +117,12 @@ def test_authenticated_pricing_pipeline_end_to_end(monkeypatch):
 
         connected = client.post("/api/auth/connect-integration", headers=headers, json={"platform": "shopify", "domain": "store.example.com"})
         assert connected.status_code == 200, connected.get_json()
-        assert Product.query.filter_by(organization_id=organization.id).count() == 1
+        assert Product.query.filter_by(organization_id=org_id).count() == 1
         integrations = client.get("/api/startup/integrations", headers=headers)
         assert integrations.status_code == 200
         assert integrations.get_json()["integrations"]["shopify"]["connected"] is True
 
-        scanned = client.post("/api/alerts/scan", headers=headers, json={"product_id": product.id, "previous_prices": {"Amazon": 1000}, "observations": {"Amazon": 900}, "threshold_pct": 5, "min_drop_inr": 10})
+        scanned = client.post("/api/alerts/scan", headers=headers, json={"product_id": product_id, "previous_prices": {"Amazon": 1000}, "observations": {"Amazon": 900}, "threshold_pct": 5, "min_drop_inr": 10})
         assert scanned.status_code == 200, scanned.get_json()
         alert_id = scanned.get_json()["alerts"][0]["id"]
         acknowledged = client.patch(f"/api/alerts/{alert_id}/acknowledge", headers=headers)

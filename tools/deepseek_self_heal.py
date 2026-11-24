@@ -282,8 +282,8 @@ def resolve_workspace_path(raw_path: str | Path, repo_root: Path | None = None) 
         except ValueError:
             return None
 
-        # Check 2: Check every component up to repo_root for symlinks
-        curr = resolved
+        # Check 2: Check every component of cand up to repo_root for symlinks
+        curr = cand
         has_symlink = False
         while curr != repo_root and curr != curr.parent:
             if curr.is_symlink():
@@ -338,7 +338,15 @@ def kill_process_tree(pid: int) -> None:
         if sys.platform == "win32":
             subprocess.run(["taskkill", "/F", "/T", "/PID", str(pid)], capture_output=True, check=False)
         else:
-            os.killpg(os.getpgid(pid), signal.SIGKILL)
+            try:
+                pgid = os.getpgid(pid)
+                # Only kill process group if distinct from the current pytest/runner process group
+                if pgid != os.getpgrp():
+                    os.killpg(pgid, signal.SIGKILL)
+                else:
+                    os.kill(pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
     except Exception:
         pass
 
@@ -354,16 +362,19 @@ def run_cmd(
     Returns (exit_code, combined_output).
     """
     proc_env = env if env is not None else get_scrubbed_env()
+    popen_kwargs: dict[str, Any] = {
+        "cwd": str(cwd) if cwd else None,
+        "stdin": subprocess.DEVNULL,
+        "stdout": subprocess.PIPE,
+        "stderr": subprocess.PIPE,
+        "text": True,
+        "env": proc_env
+    }
+    if sys.platform != "win32":
+        popen_kwargs["start_new_session"] = True
+
     try:
-        proc = subprocess.Popen(
-            cmd,
-            cwd=str(cwd) if cwd else None,
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            env=proc_env
-        )
+        proc = subprocess.Popen(cmd, **popen_kwargs)
         try:
             stdout, stderr = proc.communicate(timeout=timeout)
             out = (stdout or "") + ("\n" + stderr if stderr else "")
@@ -372,6 +383,7 @@ def run_cmd(
             kill_process_tree(proc.pid)
             try:
                 proc.kill()
+                proc.wait(timeout=2.0)
             except Exception:
                 pass
             return 124, f"Command timed out after {timeout} seconds and was terminated."
