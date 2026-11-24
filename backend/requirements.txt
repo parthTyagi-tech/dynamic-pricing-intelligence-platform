@@ -27,5 +27,5 @@ google-cloud-tasks
 google-auth
 curl_cffi
 playwright
-mcp[cli]>=1.2.0,<2
+mcp[cli]>=2.3.0,<3
 twilio
